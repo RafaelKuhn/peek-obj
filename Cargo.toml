@@ -1,0 +1,16 @@
+[package]
+name = "peekfbx"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+# [[bin]]
+# name = "args"
+# path = "src/main-old.rs"
+
+
+[dependencies]
+fbxcel = "0.9.0"
+tui = "0.19"
+crossterm = "0.25"
