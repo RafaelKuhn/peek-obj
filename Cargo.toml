@@ -7,7 +7,7 @@ edition = "2021"
 
 # [[bin]]
 # name = "args"
-# path = "src/main-old.rs"
+# path = "src/main.rs"
 
 
 [dependencies]
