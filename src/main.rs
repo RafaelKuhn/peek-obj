@@ -1,9 +1,10 @@
 use std::{io::{self, Stdout}, time::{Duration, Instant}, process};
 
-use peekfbx::rendering::{mesh::Mesh, draw_triangles, ScreenXY};
+use peekfbx::{rendering::{*, mesh::Mesh, self}, maths::UVec2, terminal::FreeText};
+
 use tui::{
 	backend::{CrosstermBackend, Backend},
-	Terminal, Frame, widgets::{Clear, Widget}, layout::Rect, buffer::Buffer,
+	Terminal, Frame, layout::Rect,
 };
 use crossterm::{
 	event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
@@ -36,56 +37,95 @@ fn restore_terminal(terminal: &mut CTerminal){
 }
 
 
-// fn run_app<B: Backend>(terminal: &mut Terminal<B>, tick_rate: Duration) {
-fn run_app(terminal: &mut CTerminal) -> ! {
+fn run_app(terminal: &mut CTerminal) {
 	let mut last_tick = Instant::now();
 	let mut delta_time = Duration::from_millis(0);
-	let mut frame_count: u32 = 0;
 
-	let Rect { width, height, .. } = terminal.size().unwrap();
-	// let chars_size = ((height - 1) * (width - 1)) as usize;
-	let chars_size = (height * width) as usize;
+	let Rect { width: screen_width, height: screen_height, .. } = terminal.size().unwrap();
+	let chars_size = (screen_height * screen_width) as usize;
 
-	let mut text_buffer = FreeText::from_text(str::repeat(" ", chars_size));
+	let mut text_buffer = FreeText::from_chars(rendering::BACKGROUND_FILL_CHAR, chars_size);
 	
-	let mesh = Mesh::cube();
+	// let mesh = Mesh::cube();
 
 	let screen_space_tris = vec![
-		ScreenXY { x: width/2,   y: height/2 },
-		ScreenXY { x: width/2,   y: height/2+5 },
-		ScreenXY { x: width/2-5, y: height/2+5 },
+		ScreenTriangle {
+			p0: UVec2::new(screen_width/2+00, screen_height/2+00),
+			p1: UVec2::new(screen_width/2-10, screen_height/2+06),
+			p2: UVec2::new(screen_width/2+10, screen_height/2+05),
+		},
+		ScreenTriangle {
+			p0: UVec2::new(screen_width/4-10, screen_height/4-00),
+			p1: UVec2::new(screen_width/4+00, screen_height/4+05),
+			p2: UVec2::new(screen_width/4+10, screen_height/4-00),
+		},
 	];
 
+	let start = Instant::now();
+	let mut frame_count: i32 = 0;
+
+	let mut accum_time = 1.0;
+	let mut fps_frame_count = 0;
+
+	let mut benchmark = Benchmark::default();
+
 	loop {
-		// render_into_buffer(&mut text_buffer.text, &mesh, width, height);
-		draw_triangles(&screen_space_tris, &mut text_buffer.text, width, height);
-
-		// terminal.draw(|frame| terminal_render(frame, &delta_time, &text_buffer)).unwrap();
-		terminal.draw(|frame| terminal_render(frame, &text_buffer)).unwrap();
-
-		poll_events(terminal);
-
+		render_clear(&mut text_buffer.text);
+		let delta_time_millis = delta_time.as_millis() as f32 / 1000.0;
+		
 		let last_tick_temp = Instant::now();
+		let time_spent = (last_tick_temp - start).as_millis();
+
+		test_besenham(&mut text_buffer.text, screen_width, screen_height, time_spent as i32);
+		draw_triangles_wire(&screen_space_tris, &mut text_buffer.text, screen_width);
+		
+		poll_events(terminal);
+		
+		frame_count += 1;
+		
 		delta_time = last_tick_temp - last_tick;
 		last_tick = last_tick_temp;
+		
+
+		fps_frame_count += 1;
+		
+		accum_time += delta_time_millis;
+		
+		let update_interval = 0.5;
+		if accum_time > update_interval {
+			benchmark.fps = (fps_frame_count as f32 / update_interval) as i32;
+			benchmark.frame_count = frame_count;
+			benchmark.delta_time = delta_time_millis;
+			
+			accum_time = 0.0;
+			fps_frame_count = 0;
+		}
+
+		draw_benchmark(&mut text_buffer.text, screen_width, screen_height, &benchmark);
+		terminal.draw(|frame| terminal_render(frame, &text_buffer)).unwrap();
 	}
 }
 
 
-
 fn terminal_render<B: Backend>(frame: &mut Frame<B>, text: &FreeText) {
 	let rect = frame.size();
-	frame.render_widget(Clear, rect);
 	frame.render_widget(text, rect);
 }
 
 fn poll_events(terminal: &mut CTerminal) {
-	// let has_event = crossterm::event::poll(*timeout).unwrap();
 	let has_event = crossterm::event::poll(Duration::from_millis(0)).unwrap();
 	if !has_event { return; }
 
 	if let Event::Key(key) = event::read().unwrap() {
-		if let KeyCode::Esc = key.code { quit(terminal); }
+		match key.code {
+    		KeyCode::Up    | KeyCode::Char('w') => quit_with_message(terminal, "Move Up"),
+    		KeyCode::Left  | KeyCode::Char('a') => quit_with_message(terminal, "Move Left"),
+    		KeyCode::Down  | KeyCode::Char('s') => quit_with_message(terminal, "Move Down"),
+    		KeyCode::Right | KeyCode::Char('d') => quit_with_message(terminal, "Move Right"),
+    		KeyCode::Char(ch) => quit_with_message(terminal, &format!("Needs to parse char {ch}")),
+    		KeyCode::Esc => quit(terminal),
+			_ => return,
+		}
 	}
 }
 
@@ -94,84 +134,8 @@ fn quit(terminal: &mut CTerminal) {
 	process::exit(0);
 }
 
-
-	
-#[derive(Debug)]
-pub struct FreeText {
-	text: Vec<char>,
-	// TODO:
-	// width:  u16,
-	// height: u16,
-}
-
-impl FreeText {
-	pub fn from_text(text: String) -> Self {
-		Self {
-			text: text.chars().collect(),
-		}
-	}
-}
-
-impl Widget for &FreeText {
-	fn render(self, area: Rect, buf: &mut Buffer) {
-
-		let area_botom: u16 = area.bottom();
-		let area_right: u16 = area.right();
-
-		let x_start = 0;
-		let y_start = 0;
-		let aspect = area.right() as f32 / area.bottom() as f32;
-
-		let mut char_i = 0;
-		for y in y_start .. area_botom {
-			for x in x_start .. area_right {
-				// buf.get_mut(x, y).symbol = "a".to_string();
-				/* actually right - left (0) */
-				// let char_i = (y * (area_right) + x) as usize;
-				
-				if let Some(ch) =  self.text.get(char_i) {
-					buf.get_mut(x, y).set_char(*ch);
-				}
-
-				// buf.get_mut(x, y).set_char(self.text[char_i] as char);
-				// buf.get_mut(x, y).set_char(self.text[char_i]);
-
-				char_i += 1;
-			}
-		}
-
-		// for y in half_heigth + half_heigth/2 .. area.bottom() {
-		// 	for x in half_width + half_width/2 .. area.right() {
-		// 		buf.get_mut(x, y).symbol = "a".to_string();
-		// 	}
-		// }
-
-		// buf = Buffer::set_string(&mut self, x, y, string, style)
-
-
-		// let displacement = 5;
-		// for y in 0 .. area.bottom() {
-		// 	let yf = ((y as i16 - ((half_heigth/2) as i16 + (displacement as f32 * aspect) as i16)) as f32 + 0.5 ) * aspect;
-		// 	for x in 0 .. area.right() {
-		// 		let xf = f32::from(x as i16 - (half_width as i16 + displacement)) + 0.5;
-
-		// 		let len = f32::sqrt(xf * xf + yf * yf);
-				
-		// 		if len < 32f32 {
-		// 			buf.get_mut(x, y).symbol = "a".to_string();
-		// 			continue;
-		// 		}
-		// 		buf.get_mut(x, y).symbol = ".".to_string();
-		// 		continue;
-		// 	}
-		// }
-
-		// buf.get_mut(area.right()/2, area.bottom()/2).set_char(self.text.chars().nth(0).unwrap());
-
-		// for y in area.top()+area.bottom()/4..area.bottom()/2 {
-		// 	for x in area.left()..area.right()/2 {
-		// 		buf.get_mut(x, y).symbol = "a".to_string();
-		// 	}
-		// }
-	}
+fn quit_with_message(terminal: &mut CTerminal, message: &str) {
+	restore_terminal(terminal);
+	println!("{message}");
+	process::exit(0);
 }

@@ -3,12 +3,6 @@
 version = 3
 
 [[package]]
-name = "adler32"
-version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aae1277d39aeec15cb388266ecc24b11c80469deae6067e17a1a7aa9e5c1f234"
-
-[[package]]
 name = "autocfg"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -31,15 +25,6 @@ name = "cfg-if"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
-
-[[package]]
-name = "crc32fast"
-version = "1.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b540bd8bc810d3885c6ea91e2018302f68baba2129ab3e88f32389ee9370880d"
-dependencies = [
- "cfg-if",
-]
 
 [[package]]
 name = "crossterm"
@@ -67,40 +52,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "fbxcel"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1f9e966e38cb462819635792e0a9ee1d6cc5fff9bcdbf7baefb350221a7ae3df"
-dependencies = [
- "libflate",
- "log",
-]
-
-[[package]]
 name = "libc"
 version = "0.2.141"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3304a64d199bb964be99741b7a14d26972741915b3649639149b2479bb46f4b5"
-
-[[package]]
-name = "libflate"
-version = "1.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "97822bf791bd4d5b403713886a5fbe8bf49520fe78e323b0dc480ca1a03e50b0"
-dependencies = [
- "adler32",
- "crc32fast",
- "libflate_lz77",
-]
-
-[[package]]
-name = "libflate_lz77"
-version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a52d3a8bfc85f250440e4424db7d857e241a3aebbbe301f3eb606ab15c39acbf"
-dependencies = [
- "rle-decode-fast",
-]
 
 [[package]]
 name = "lock_api"
@@ -158,10 +113,9 @@ dependencies = [
 
 [[package]]
 name = "peekfbx"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "crossterm",
- "fbxcel",
  "tui",
 ]
 
@@ -173,12 +127,6 @@ checksum = "fb5a58c1855b4b6819d59012155603f0b22ad30cad752600aadfcb695265519a"
 dependencies = [
  "bitflags",
 ]
-
-[[package]]
-name = "rle-decode-fast"
-version = "1.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3582f63211428f83597b51b2ddb88e2a91a9d52d12831f9d08f5e624e8977422"
 
 [[package]]
 name = "scopeguard"
