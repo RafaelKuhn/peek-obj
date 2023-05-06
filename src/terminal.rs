@@ -1,5 +1,7 @@
 use tui::{buffer::Buffer, layout::Rect, widgets::Widget};
 
+use crate::rendering;
+
 
 #[derive(Debug)]
 pub struct FreeText {
@@ -11,19 +13,16 @@ pub struct FreeText {
 }
 
 impl FreeText {
-	pub fn from_chars(char: char, length: usize) -> Self {
+	pub fn from_screen(screen_width: u16, screen_height: u16) -> Self {
+		let length = screen_width as usize * screen_height as usize;
+		Self::from_chars(rendering::BACKGROUND_FILL_CHAR, length)
+	}
+	
+	fn from_chars(char: char, length: usize) -> Self {
 		Self {
 			text: vec![char; length],
-			// bg: char,
 		}
 	}
-
-	// pub fn from_text(text: String) -> Self {
-	// 	Self {
-	// 		text: text.chars().collect(),
-	// 	}
-	// }
-
 }
 
 impl Widget for &FreeText {
