@@ -1,6 +1,6 @@
 use std::{io::{self, Stdout}, time::{Duration, Instant}, process};
 
-use peekfbx::{rendering::{*, mesh::Mesh, self}, maths::UVec2, terminal::FreeText};
+use peekfbx::{rendering::{*, mesh::Mesh, self}, maths::UVec2, terminal::FreeText, timer::AppTimer, benchmark::Benchmark};
 
 use tui::{
 	backend::{CrosstermBackend, Backend},
@@ -65,52 +65,29 @@ fn run_app(terminal: &mut CTerminal) {
 
 	// let event_channel = EventChannel::new(screen_width, screen_height);
 
-	// TODO: abstract
-	let start = Instant::now();
-	
-	let mut frame_count: i32 = 0;
-	let mut last_tick = Instant::now();
-	let mut delta_time = Duration::from_millis(0);
-
-	let mut accum_time = 1.0;
-	let mut fps_frame_count = 0;
-
+	let mut timer = AppTimer::init();
 	let mut benchmark = Benchmark::default();
 
 	loop {
-		render_clear(&mut app.text_buffer.text);
-		let delta_time_millis = delta_time.as_micros() as f32 * 0.000_001;
-		
-		let last_tick_temp = Instant::now();
-		let time_spent = (last_tick_temp - start).as_millis();
+		if app.is_rendering_paused {
+			poll_events(terminal, &mut app);
+			continue;
+		}
 
-		// test_besenham(&mut text_buffer.text, screen_width, screen_height, time_spent as i32);
+		render_clear(&mut app.text_buffer.text);		
+
+		test_besenham(&mut app.text_buffer.text, app.width, app.height, timer.time_since_start.as_millis() as i32);
 		draw_triangles_wire(&screen_space_tris, &mut app.text_buffer.text, app.width);
 		
 		poll_events(terminal, &mut app);
-		
-		frame_count += 1;
-		
-		delta_time = last_tick_temp - last_tick;
-		last_tick = last_tick_temp;
-		
 
-		fps_frame_count += 1;
-		
-		accum_time += delta_time_millis;
-		
-		let update_interval = 0.5;
-		if accum_time > update_interval {
-			benchmark.fps = (fps_frame_count as f32 / update_interval) as i32;
-			benchmark.frame_count = frame_count;
-			benchmark.delta_time = delta_time_millis;
-			
-			accum_time = 0.0;
-			fps_frame_count = 0;
-		}
-
-		draw_benchmark(&mut app.text_buffer.text, app.width, app.height, &benchmark);
 		terminal.draw(|frame| terminal_render(frame, &app.text_buffer)).unwrap();
+
+
+		benchmark.profile_frame(&timer);
+		draw_benchmark(&mut app.text_buffer.text, app.width, app.height, &benchmark);
+
+		timer.add_frame();
 	}
 }
 
@@ -124,6 +101,8 @@ struct App {
 	// pub func: fn(u16, u16),
 	pub width:  u16,
 	pub height: u16,
+	pub is_rendering_paused: bool,
+	
 	pub text_buffer: FreeText,
 }
 
@@ -134,11 +113,13 @@ impl App {
 			text_buffer: FreeText::from_screen(screen_width, screen_height),
 			width: screen_width,
 			height: screen_height,
+    		is_rendering_paused: false,
 		}
 	}
 
 	fn resize_realloc(&mut self, w: u16, h: u16) {
-		self.width = w;
+		// TODO: I have no fucking clue why I need to add 1 here
+		self.width = w + 1;
 		self.height = h;
 		self.text_buffer = FreeText::from_screen(w, h);
 	}
@@ -157,6 +138,7 @@ fn poll_events(terminal: &mut CTerminal, app: &mut App) {
 				// KeyCode::Down  | KeyCode::Char('s') => quit_with_message(terminal, "Move Down"),
 				// KeyCode::Right | KeyCode::Char('d') => quit_with_message(terminal, "Move Right"),
 				// KeyCode::Char(ch) => quit_with_message(terminal, &format!("Needs to parse char {ch}")),
+				KeyCode::Char('p') => app.is_rendering_paused = !app.is_rendering_paused,
 				KeyCode::Esc => quit(terminal),
 				_ => return,
 			}

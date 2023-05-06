@@ -1,4 +1,5 @@
 use core::{fmt,};
+use std::fmt::Display;
 
 
 pub static TAU: f32 = 6.28318530; 
@@ -15,12 +16,19 @@ pub struct UVec2 {
 	pub y: u16,
 }
 
+impl Display for UVec2 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		write!(f, "[{}, {}]", self.x, self.y)
+    }
+}
+
 impl UVec2 {
 	pub fn new(x: u16, y: u16) -> Self {
 		Self { x, y }
 	}
 }
 
+// TODO: remove, check if I need to implement display or debug
 impl fmt::Debug for UVec2 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "[{}, {}]", self.x, self.y)

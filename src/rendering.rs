@@ -1,6 +1,6 @@
 pub mod mesh;
 
-use crate::maths::{*, self};
+use crate::{maths::{*, self}, benchmark::Benchmark};
 
 
 // ascii luminance:
@@ -23,7 +23,7 @@ pub struct ScreenTriangle {
 	pub p2: UVec2,
 }
 
-pub fn draw_string(str: &str, pos: UVec2, buffer: &mut Vec<char>, screen_width: u16) {
+pub fn draw_string(str: &str, pos: &UVec2, buffer: &mut Vec<char>, screen_width: u16) {
 	let mut index = pos.y as usize * screen_width as usize + pos.x as usize;
 	for ch in str.chars() {
 		// bounds check
@@ -45,18 +45,18 @@ pub fn draw_triangles_wire(screen_space_tris: &Vec<ScreenTriangle>, buffer: &mut
 		draw_besenham_line(&tri.p2, &tri.p0, buffer, screen_width, FILL_CHAR);
 
 
-		draw_string(&format!("p0 {:?}", &tri.p0), UVec2 { x: &tri.p0.x + 3, y: &tri.p0.y - 2 + i }, buffer, screen_width);
-		draw_string(&format!("p1 {:?}", &tri.p1), UVec2 { x: &tri.p1.x - 3, y: &tri.p1.y + 2 + i }, buffer, screen_width);
-		draw_string(&format!("p2 {:?}", &tri.p2), UVec2 { x: &tri.p2.x + 3, y: &tri.p2.y - 1 + i }, buffer, screen_width);
+		draw_string(&format!("p0 {:?}", &tri.p0), &UVec2 { x: &tri.p0.x + 3, y: &tri.p0.y - 2 + i }, buffer, screen_width);
+		draw_string(&format!("p1 {:?}", &tri.p1), &UVec2 { x: &tri.p1.x - 3, y: &tri.p1.y + 2 + i }, buffer, screen_width);
+		draw_string(&format!("p2 {:?}", &tri.p2), &UVec2 { x: &tri.p2.x + 3, y: &tri.p2.y - 1 + i }, buffer, screen_width);
 		
 		let (topmost, secmost, trimost) = sort_by_y_prefer_left(&tri.p0, &tri.p1, &tri.p2);
 
 		// TODO: learn what this does
 		let shortside_in_left = (secmost.y as f32 - topmost.y as f32) * (trimost.x as f32 - topmost.x as f32) > (secmost.x as f32 - topmost.x as f32) * (trimost.y as f32 - topmost.y as f32);
 		if shortside_in_left {
-			draw_string(&format!("the bend is on left"),  UVec2 { x: 4, y: 2+i }, buffer, screen_width);
+			draw_string(&format!("the bend is on left"),  &UVec2 { x: 4, y: 4+i }, buffer, screen_width);
 		} else {
-			draw_string(&format!("the bend is on right"), UVec2 { x: 4, y: 2+i }, buffer, screen_width);
+			draw_string(&format!("the bend is on right"), &UVec2 { x: 4, y: 4+i }, buffer, screen_width);
 		}
 
 		let index = (tri.p0.y * screen_width + tri.p0.x) as usize;
@@ -79,6 +79,8 @@ pub fn render_clear(buffer: &mut Vec<char>) {
 }
 
 pub fn test_besenham(buffer: &mut Vec<char>, screen_width: u16, screen_height: u16, time_spent: i32) {
+	draw_string(&format!("w:{}, h:{}", screen_width, screen_height), &UVec2::new(0, 0), buffer, screen_width);
+	
 	let middle = UVec2::new(screen_width / 2, screen_height / 2);
 	
 	let len = 20.0;
@@ -92,8 +94,10 @@ pub fn test_besenham(buffer: &mut Vec<char>, screen_width: u16, screen_height: u
 	let y = (angle.sin() * len) as i16;
 	
 	
-	let up = &UVec2::new((middle.x as i16 + x) as u16, (middle.y as i16 + y) as u16);
-	draw_string(&format!("{}", angle), UVec2::new(0, 0), buffer, screen_width);
+	let up = UVec2::new((middle.x as i16 + x) as u16, (middle.y as i16 + y) as u16);
+	
+	// let up = UVec2::new((middle.x as i16) as u16, (middle.y as i16 + 15) as u16);
+	// let up = UVec2::new((middle.x + 15), middle.y + 7);
 	
 
 	let direction: char;
@@ -117,7 +121,12 @@ pub fn test_besenham(buffer: &mut Vec<char>, screen_width: u16, screen_height: u
 		direction = '→';
 	}
 
-	draw_besenham_line(&middle, up, buffer, screen_width, direction);
+	draw_besenham_line(&middle, &up, buffer, screen_width, direction);
+
+	draw_point(&up, buffer, screen_width, '@');
+
+	draw_string(&format!("{}", angle),  &UVec2::new(0, 1), buffer, screen_width);
+	draw_string(&format!("{}", up),     &UVec2::new(up.x+2, up.y), buffer, screen_width);
 
 	// let right = &UVec2::new(middle.x + len, middle.y);
 	// let left  = &UVec2::new(middle.x - len, middle.y);
@@ -146,25 +155,12 @@ fn lerp(a: u16, b: u16, t: f32) -> u16 {
 }
 
 
-// pub fn draw_benchmark(buffer: &mut Vec<char>, screen_width: u16, screen_height: u16, delta_time: f32, frame_count: i32) {
-pub fn draw_benchmark2(buffer: &mut Vec<char>, screen_width: u16, screen_height: u16, delta_time: f32, fps: i32, frame_count: i32) {
-	draw_string(&format!("dt: {delta_time:}ms"), UVec2::new(0, screen_height-3), buffer, screen_width);
-	draw_string(&format!("fps: {fps:}"), UVec2::new(0, screen_height-2), buffer, screen_width);
-	draw_string(&format!("frame: {frame_count:}"), UVec2::new(0, screen_height-1), buffer, screen_width)
-}
-
 pub fn draw_benchmark(buffer: &mut Vec<char>, screen_width: u16, screen_height: u16, benchmark: &Benchmark) {
-	draw_string(&format!("dt: {}ms", benchmark.delta_time),         UVec2::new(0, screen_height-2-3), buffer, screen_width);
-	draw_string(&format!("fps: {}", benchmark.fps),                 UVec2::new(0, screen_height-2-2), buffer, screen_width);
-	draw_string(&format!("frames: {}", benchmark.frame_count), UVec2::new(0, screen_height-2-1), buffer, screen_width)
+	draw_string(&format!("dt: {}ms", benchmark.delta_time),          &UVec2::new(0, screen_height-2-3), buffer, screen_width);
+	draw_string(&format!("fps: {}", benchmark.fps),                  &UVec2::new(0, screen_height-2-2), buffer, screen_width);
+	draw_string(&format!("frames: {}", benchmark.total_frame_count), &UVec2::new(0, screen_height-2-1), buffer, screen_width)
 }
 
-#[derive(Default)]
-pub struct Benchmark {
-	pub delta_time: f32,
-	pub fps: i32,
-	pub frame_count: i32,
-}
 
 
 pub fn draw_point(p: &UVec2, buffer: &mut Vec<char>, screen_width: u16, fill_char: char) {
