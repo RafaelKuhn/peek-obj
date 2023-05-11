@@ -1,6 +1,19 @@
+mod rendering;
+mod maths;
+mod terminal;
+mod timer;
+mod benchmark;
+mod obj_reader;
+
+
 use std::{io::{self, Stdout}, time::{Duration, Instant}, process};
 
-use peekfbx::{rendering::{*, mesh::Mesh, self}, maths::UVec2, terminal::FreeText, timer::AppTimer, benchmark::Benchmark};
+use obj_reader::read_mesh_from_obj;
+use rendering::{*, mesh::Mesh};
+use maths::UVec2;
+use terminal::FreeText;
+use timer::AppTimer;
+use benchmark::Benchmark;
 
 use tui::{
 	backend::{CrosstermBackend, Backend},
@@ -12,65 +25,41 @@ use crossterm::{
 	terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 
-type CTerminal = Terminal<CrosstermBackend<Stdout>>;
+type CrosstermTerminal = Terminal<CrosstermBackend<Stdout>>;
 
 
 fn main() {
-	let mut terminal: Terminal<_> = configure_terminal();
-	Terminal::hide_cursor(&mut terminal).unwrap();
-	run_app(&mut terminal);
-}
+	// TODO:
+	// print file not found when a problem is found
+	// if file is not found but the content is smth like "cube" or "sphere", use them instead
+	// use macros for this
+	
+	let result = read_mesh_from_obj("cow.obj");
+	let mesh = match result {
+		Ok(read_mesh) => read_mesh,
+		Err(err) => {
+			println!("{:}", err);
+			process::exit(1);
+		},
+	};
 
-fn configure_terminal() -> CTerminal {
-	enable_raw_mode().unwrap();
-	let mut stdout = io::stdout();
-	execute!(stdout, EnterAlternateScreen, EnableMouseCapture).unwrap();
-	let backend = CrosstermBackend::new(stdout);
-	let terminal = Terminal::new(backend).unwrap();
-	return terminal;
-}
+	// println!(">>> {}", Mesh::cube().verts)
+	
+	let terminal_mut = &mut configure_terminal();
+	Terminal::hide_cursor(terminal_mut).unwrap();
 
-fn restore_terminal(terminal: &mut CTerminal){
-	disable_raw_mode().unwrap();
-	execute!(terminal.backend_mut(), LeaveAlternateScreen, DisableMouseCapture).unwrap();
-	terminal.show_cursor().unwrap();
-}
-
-
-fn run_app(terminal: &mut CTerminal) {
 	let mut app;
 	{
-		let Rect { width: screen_width, height: screen_height, .. } = terminal.size().unwrap();
+		let Rect { width: screen_width, height: screen_height, .. } = terminal_mut.size().unwrap();
 		app = App::new(screen_width, screen_height);
 	}
-	// let mut text_buffer = FreeText::from_chars(rendering::BACKGROUND_FILL_CHAR, chars_size);
-	
-	// let mut app = App::new(screen_width, screen_height);
-	// app.realloc_widget(screen_height, screen_height);
-
-	let mesh = Mesh::cube();
-
-	let screen_space_tris = vec![
-		ScreenTriangle {
-			p0: UVec2::new(app.width/2+00, app.height/2+00),
-			p1: UVec2::new(app.width/2-10, app.height/2+06),
-			p2: UVec2::new(app.width/2+10, app.height/2+05),
-		},
-		ScreenTriangle {
-			p0: UVec2::new(app.width/4-10, app.height/4-00),
-			p1: UVec2::new(app.width/4+00, app.height/4+05),
-			p2: UVec2::new(app.width/4+10, app.height/4-00),
-		},
-	];
-
-	// let event_channel = EventChannel::new(screen_width, screen_height);
 
 	let mut timer = AppTimer::init();
 	let mut benchmark = Benchmark::default();
 
 	loop {
 		if app.is_rendering_paused {
-			poll_events(terminal, &mut app);
+			poll_events(terminal_mut, &mut app);
 			continue;
 		}
 
@@ -80,17 +69,34 @@ fn run_app(terminal: &mut CTerminal) {
 		// draw_triangles_wire(&screen_space_tris, &mut app.text_buffer.text, app.width);
 		draw_mesh(&mesh, &mut app.text_buffer.text, app.width, app.height);
 		
-		poll_events(terminal, &mut app);
+		poll_events(terminal_mut, &mut app);
 
 		benchmark.profile_frame(&timer);
 		draw_benchmark(&mut app.text_buffer.text, app.width, app.height, &benchmark);
 
 		timer.add_frame();
 
-		terminal.draw(|frame| terminal_render(frame, &app.text_buffer)).unwrap();
+		terminal_mut.draw(|frame| terminal_render(frame, &app.text_buffer)).unwrap();
 	}
+
+	// TODO: return correctly here, quit terminal here
 }
 
+// TODO: have a look on how this would work for termion
+fn configure_terminal() -> CrosstermTerminal {
+	enable_raw_mode().unwrap();
+	let mut stdout = io::stdout();
+	execute!(stdout, EnterAlternateScreen, EnableMouseCapture).unwrap();
+	let backend = CrosstermBackend::new(stdout);
+	let terminal = Terminal::new(backend).unwrap();
+	return terminal;
+}
+
+fn restore_terminal(terminal: &mut CrosstermTerminal){
+	disable_raw_mode().unwrap();
+	execute!(terminal.backend_mut(), LeaveAlternateScreen, DisableMouseCapture).unwrap();
+	terminal.show_cursor().unwrap();
+}
 
 fn terminal_render<B: Backend>(frame: &mut Frame<B>, text: &FreeText) {
 	let rect = frame.size();
@@ -126,7 +132,7 @@ impl App {
 }
 
 
-fn poll_events(terminal: &mut CTerminal, app: &mut App) {
+fn poll_events(terminal: &mut CrosstermTerminal, app: &mut App) {
 	let has_event = crossterm::event::poll(Duration::from_millis(0)).unwrap();
 	if !has_event { return; }
 
@@ -150,12 +156,12 @@ fn poll_events(terminal: &mut CTerminal, app: &mut App) {
 	}
 }
 
-fn quit(terminal: &mut CTerminal) {
+fn quit(terminal: &mut CrosstermTerminal) {
 	restore_terminal(terminal);
 	process::exit(0);
 }
 
-fn quit_with_message(terminal: &mut CTerminal, message: &str) {
+fn quit_with_message(terminal: &mut CrosstermTerminal, message: &str) {
 	restore_terminal(terminal);
 	println!("{message}");
 	process::exit(0);

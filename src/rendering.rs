@@ -2,7 +2,7 @@ pub mod mesh;
 
 use std::f32::consts::TAU;
 
-use crate::{maths::{*, self}, benchmark::Benchmark};
+use crate::{maths::{*}, benchmark::Benchmark};
 
 use self::mesh::Mesh;
 
@@ -80,7 +80,7 @@ pub fn draw_mesh(mesh: &Mesh, buffer: &mut Vec<char>, screen_width: u16, screen_
 		0.0, 0.0, 0.0, 1.0,
 	];
 
-	let cam_pos = (-3.0, -3.0, -6.0);
+	let cam_pos = (0.0, -1.0, -6.0);
 	// let cam_pos = (0.0, 0.0, 0.0);
 
 	let projection_factor = 1.0 / (fov * 0.5).tan();
@@ -107,16 +107,17 @@ pub fn draw_mesh(mesh: &Mesh, buffer: &mut Vec<char>, screen_width: u16, screen_
 		// let p2z = (mesh.verts[(i_tri_p2 * 3 + 2) as usize] + 1.0) * 0.5;
 
 
+		// TODO: abstract
 		let p0x = mesh.verts[(i_tri_p0 * 3 + 0) as usize];
-		let p0y = mesh.verts[(i_tri_p0 * 3 + 1) as usize];
+		let p0y = -mesh.verts[(i_tri_p0 * 3 + 1) as usize];
 		let p0z = mesh.verts[(i_tri_p0 * 3 + 2) as usize];
 		
 		let p1x = mesh.verts[(i_tri_p1 * 3 + 0) as usize];
-		let p1y = mesh.verts[(i_tri_p1 * 3 + 1) as usize];
+		let p1y = -mesh.verts[(i_tri_p1 * 3 + 1) as usize];
 		let p1z = mesh.verts[(i_tri_p1 * 3 + 2) as usize];
 
 		let p2x = mesh.verts[(i_tri_p2 * 3 + 0) as usize];
-		let p2y = mesh.verts[(i_tri_p2 * 3 + 1) as usize];
+		let p2y = -mesh.verts[(i_tri_p2 * 3 + 1) as usize];
 		let p2z = mesh.verts[(i_tri_p2 * 3 + 2) as usize];
 		
 
@@ -174,24 +175,24 @@ continue;
 		let (mut p2x2, mut p2y2, mut p2z2) = vec3_by_mat4x4(p0x, p0y, p0z, &proj_mat);
 
 		// clip	space to normalized space
-		p0x2 = (p0x2 + 1.0 * 0.5);
-		p0y2 = (p0y2 + 1.0 * 0.5);
-		// p0z2 = (p0z2 + 1.0 * 0.5);
-		p1x2 = (p1x2 + 1.0 * 0.5);
-		p1y2 = (p1y2 + 1.0 * 0.5);
-		// // p1z2 = (p1z2 + 1.0 * 0.5);
-		p2x2 = (p2x2 + 1.0 * 0.5);
-		p2y2 = (p2y2 + 1.0 * 0.5);
-		// // p2z2 = (p2z2 + 1.0 * 0.5);
+		p0x2 = p0x2 + 1.0 * 0.5;
+		p0y2 = p0y2 + 1.0 * 0.5;
+		// p0z2 = p0z2 + 1.0 * 0.5;
+		p1x2 = p1x2 + 1.0 * 0.5;
+		p1y2 = p1y2 + 1.0 * 0.5;
+		// // p1z2 = p1z2 + 1.0 * 0.5;
+		p2x2 = p2x2 + 1.0 * 0.5;
+		p2y2 = p2y2 + 1.0 * 0.5;
+		// // p2z2 = p2z2 + 1.0 * 0.5;
 
 		// normalized space to screen space
 		
-		p0x2 = (p0x2 * 0.5 * screen_width  as f32);
-		p0y2 = (p0y2 * 0.5 * screen_height as f32);
-		p1x2 = (p1x2 * 0.5 * screen_width  as f32);
-		p1y2 = (p1y2 * 0.5 * screen_height as f32);
-		p2x2 = (p2x2 * 0.5 * screen_width  as f32);
-		p2y2 = (p2y2 * 0.5 * screen_height as f32);
+		p0x2 = p0x2 * 0.5 * screen_width  as f32;
+		p0y2 = p0y2 * 0.5 * screen_height as f32;
+		p1x2 = p1x2 * 0.5 * screen_width  as f32;
+		p1y2 = p1y2 * 0.5 * screen_height as f32;
+		p2x2 = p2x2 * 0.5 * screen_width  as f32;
+		p2y2 = p2y2 * 0.5 * screen_height as f32;
 
 		// x2 *= (0.5 * screen_width as f32);
 		// y2 *= (0.5 * screen_height as f32);
@@ -252,6 +253,19 @@ pub fn draw_triangles_wire(screen_space_tris: &Vec<ScreenTriangle>, buffer: &mut
 pub fn test_besenham(buffer: &mut Vec<char>, screen_width: u16, screen_height: u16, time_spent: i32) {
 	draw_string(&format!("w:{}, h:{}", screen_width, screen_height), &UVec2::new(0, 0), buffer, screen_width);
 	
+	// let screen_space_tris = vec![
+	// 	ScreenTriangle {
+	// 		p0: UVec2::new(app.width/2+00, app.height/2+00),
+	// 		p1: UVec2::new(app.width/2-10, app.height/2+06),
+	// 		p2: UVec2::new(app.width/2+10, app.height/2+05),
+	// 	},
+	// 	ScreenTriangle {
+	// 		p0: UVec2::new(app.width/4-10, app.height/4-00),
+	// 		p1: UVec2::new(app.width/4+00, app.height/4+05),
+	// 		p2: UVec2::new(app.width/4+10, app.height/4-00),
+	// 	},
+	// ];
+
 	let middle = UVec2::new(screen_width / 2, screen_height / 2);
 	
 	let len = 20.0;

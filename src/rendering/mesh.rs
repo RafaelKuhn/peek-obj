@@ -1,6 +1,4 @@
 
-
-// TODO: verts: Option<&'a [f32]>,
 pub struct Mesh {
 	pub verts: Vec<f32>,
 	pub tris:  Vec<u16>,
@@ -21,7 +19,6 @@ impl Mesh {
 				-1.0,  1.0, -1.0,
 			],
     		tris: vec![
-				// TODO: remember .obj store shit starting in 1
 				1, 2, 3,
 				7, 6, 5,
 				4, 5, 1,
