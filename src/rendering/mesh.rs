@@ -2,8 +2,8 @@
 
 // TODO: verts: Option<&'a [f32]>,
 pub struct Mesh {
-	verts: Vec<f32>,
-	tris:  Vec<u16>,
+	pub verts: Vec<f32>,
+	pub tris:  Vec<u16>,
 }
 
 

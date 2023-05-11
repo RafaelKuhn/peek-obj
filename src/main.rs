@@ -48,7 +48,7 @@ fn run_app(terminal: &mut CTerminal) {
 	// let mut app = App::new(screen_width, screen_height);
 	// app.realloc_widget(screen_height, screen_height);
 
-	// let mesh = Mesh::cube();
+	let mesh = Mesh::cube();
 
 	let screen_space_tris = vec![
 		ScreenTriangle {
@@ -76,18 +76,18 @@ fn run_app(terminal: &mut CTerminal) {
 
 		render_clear(&mut app.text_buffer.text);		
 
-		test_besenham(&mut app.text_buffer.text, app.width, app.height, timer.time_since_start.as_millis() as i32);
-		draw_triangles_wire(&screen_space_tris, &mut app.text_buffer.text, app.width);
+		// test_besenham(&mut app.text_buffer.text, app.width, app.height, timer.time_since_start.as_millis() as i32);
+		// draw_triangles_wire(&screen_space_tris, &mut app.text_buffer.text, app.width);
+		draw_mesh(&mesh, &mut app.text_buffer.text, app.width, app.height);
 		
 		poll_events(terminal, &mut app);
-
-		terminal.draw(|frame| terminal_render(frame, &app.text_buffer)).unwrap();
-
 
 		benchmark.profile_frame(&timer);
 		draw_benchmark(&mut app.text_buffer.text, app.width, app.height, &benchmark);
 
 		timer.add_frame();
+
+		terminal.draw(|frame| terminal_render(frame, &app.text_buffer)).unwrap();
 	}
 }
 

@@ -1,6 +1,5 @@
 use crate::timer::AppTimer;
 
-#[derive(Default)]
 pub struct Benchmark {
 	pub delta_time: f32,
 	pub fps: i32,
@@ -24,7 +23,7 @@ impl Benchmark {
 
 		// let update_interval = 0.5;
 		if self.accum_time > self.refresh_rate {
-			self.fps = (self.frame_count_measurement as f32 / self.refresh_rate) as i32;
+			self.fps = (self.frame_count_measurement as f32 / self.accum_time) as i32;
 			self.total_frame_count = timer.frame_count;
 			self.delta_time = timer.delta_time.as_micros() as f32 * 0.000_001;
 			
@@ -32,4 +31,17 @@ impl Benchmark {
 			self.frame_count_measurement = 0;
 		}
 	}
+}
+
+impl Default for Benchmark {
+    fn default() -> Self {
+        Self { 
+			delta_time: Default::default(),
+			fps: Default::default(),
+			total_frame_count: Default::default(),
+			refresh_rate: 0.5,
+			accum_time: Default::default(),
+			frame_count_measurement: Default::default(),
+		}
+    }
 }
