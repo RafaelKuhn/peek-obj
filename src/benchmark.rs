@@ -12,9 +12,16 @@ pub struct Benchmark {
 }
 
 impl Benchmark {
+	pub fn new(refresh_rate: f32) -> Self {
+		let mut benchmark: Benchmark = Default::default();
+		benchmark.set_refresh_rate_secs(refresh_rate);
+		return benchmark;
+	}
+
 	pub fn set_refresh_rate_secs(&mut self, refresh_rate: f32) {
 		self.refresh_rate = refresh_rate;
 	}
+
 
 	pub fn profile_frame(&mut self, timer: &AppTimer) {
 

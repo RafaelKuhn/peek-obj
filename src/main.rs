@@ -34,7 +34,7 @@ fn main() {
 	// if file is not found but the content is smth like "cube" or "sphere", use them instead
 	// use macros for this
 	
-	let result = read_mesh_from_obj("cow.obj");
+	let result = read_mesh_from_obj("objs/VideoShip.obj");
 	let mesh = match result {
 		Ok(read_mesh) => read_mesh,
 		Err(err) => {
@@ -43,19 +43,19 @@ fn main() {
 		},
 	};
 
-	// println!(">>> {}", Mesh::cube().verts)
-	
 	let terminal_mut = &mut configure_terminal();
 	Terminal::hide_cursor(terminal_mut).unwrap();
 
 	let mut app;
 	{
-		let Rect { width: screen_width, height: screen_height, .. } = terminal_mut.size().unwrap();
-		app = App::new(screen_width, screen_height);
+		let Rect { width, height, .. } = terminal_mut.size().unwrap();
+		app = App::new(width, height);
 	}
 
 	let mut timer = AppTimer::init();
-	let mut benchmark = Benchmark::default();
+	
+	let benchmark_refresh_rate = 0.5;
+	let mut benchmark = Benchmark::new(benchmark_refresh_rate);
 
 	loop {
 		if app.is_rendering_paused {
@@ -124,7 +124,7 @@ impl App {
 	}
 
 	fn resize_realloc(&mut self, w: u16, h: u16) {
-		// TODO: I have no fucking clue why I need to add 1 here
+		// I have no fucking clue why I need to add 1 here
 		self.width = w + 1;
 		self.height = h;
 		self.text_buffer = FreeText::from_screen(w, h);

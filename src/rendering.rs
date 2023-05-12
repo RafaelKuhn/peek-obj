@@ -63,14 +63,14 @@ fn vec3_by_mat4x4(x: f32, y: f32, z: f32, mat: &Vec<f32>) -> (f32, f32, f32) {
 pub fn draw_mesh(mesh: &Mesh, buffer: &mut Vec<char>, screen_width: u16, screen_height: u16) {
 
 	// let a = screen_height as f32 / screen_width as f32;
-	let a = screen_width as f32 / screen_height as f32;
 	let fov = 0.25 * TAU;
 	let zn =   0.1;
 	let zf = 100.0;
-	let q  = zf / (zf - zn);
-
+	
 	// let fv = 1.0 / (fov * 0.5).tan();
-
+	
+	let a = screen_width as f32 / screen_height as f32;
+	let q  = zf / (zf - zn);
 	let znq = -zn * q;
 
 	let proj_mat = vec![
@@ -80,63 +80,57 @@ pub fn draw_mesh(mesh: &Mesh, buffer: &mut Vec<char>, screen_width: u16, screen_
 		0.0, 0.0, 0.0, 1.0,
 	];
 
-	let cam_pos = (0.0, -1.0, -6.0);
-	// let cam_pos = (0.0, 0.0, 0.0);
+	let cam_pos = Vec3::new(0.0, -1.0, -6.0);
 
 	let projection_factor = 1.0 / (fov * 0.5).tan();
-
+	
 	let num_tris = mesh.tris.len()/3;
 
-	// for vert in mesh.verts {
-	for tr_i in 0..num_tris {
+	for tri_i in 0..num_tris {
 
-		let i_tri_p0 = mesh.tris[tr_i * 3 + 0];
-		let i_tri_p1 = mesh.tris[tr_i * 3 + 1];
-		let i_tri_p2 = mesh.tris[tr_i * 3 + 2];
-
-		// let p0x = (mesh.verts[(i_tri_p0 * 3 + 0) as usize] + 1.0) * 0.5;
-		// let p0y = (mesh.verts[(i_tri_p0 * 3 + 1) as usize] + 1.0) * 0.5;
-		// let p0z = (mesh.verts[(i_tri_p0 * 3 + 2) as usize] + 1.0) * 0.5;
-		
-		// let p1x = (mesh.verts[(i_tri_p1 * 3 + 0) as usize] + 1.0) * 0.5;
-		// let p1y = (mesh.verts[(i_tri_p1 * 3 + 1) as usize] + 1.0) * 0.5;
-		// let p1z = (mesh.verts[(i_tri_p1 * 3 + 2) as usize] + 1.0) * 0.5;
-
-		// let p2x = (mesh.verts[(i_tri_p2 * 3 + 0) as usize] + 1.0) * 0.5;
-		// let p2y = (mesh.verts[(i_tri_p2 * 3 + 1) as usize] + 1.0) * 0.5;
-		// let p2z = (mesh.verts[(i_tri_p2 * 3 + 2) as usize] + 1.0) * 0.5;
+		let p0_tri_index = mesh.tris[tri_i * 3 + 0];
+		let p1_tri_index = mesh.tris[tri_i * 3 + 1];
+		let p2_tri_index = mesh.tris[tri_i * 3 + 2];
 
 
 		// TODO: abstract
-		let p0x = mesh.verts[(i_tri_p0 * 3 + 0) as usize];
-		let p0y = -mesh.verts[(i_tri_p0 * 3 + 1) as usize];
-		let p0z = mesh.verts[(i_tri_p0 * 3 + 2) as usize];
-		
-		let p1x = mesh.verts[(i_tri_p1 * 3 + 0) as usize];
-		let p1y = -mesh.verts[(i_tri_p1 * 3 + 1) as usize];
-		let p1z = mesh.verts[(i_tri_p1 * 3 + 2) as usize];
+		let mut i;
+		i = (p0_tri_index * 3) as usize;
+		let tri_p0 = Vec3::new(
+			 mesh.verts[i + 0],
+			-mesh.verts[i + 1],
+			 mesh.verts[i + 2]
+		);
 
-		let p2x = mesh.verts[(i_tri_p2 * 3 + 0) as usize];
-		let p2y = -mesh.verts[(i_tri_p2 * 3 + 1) as usize];
-		let p2z = mesh.verts[(i_tri_p2 * 3 + 2) as usize];
-		
+		i = (p1_tri_index * 3) as usize;
+		let tri_p1 = Vec3::new(
+			 mesh.verts[i + 0],
+			-mesh.verts[i + 1],
+			 mesh.verts[i + 2]
+		);
 
-		// draw_string(&format!("{} [{:.2}, {:.2}, {:.2}]", tr_i, p0x, p0y, p0z), &UVec2::new(0, tr_i as u16), buffer, screen_width);
-		// draw_string(&format!("{} [{:.2}, {:.2}, {:.2}]", tr_i, p1x, p1y, p1z), &UVec2::new(30, tr_i as u16), buffer, screen_width);
-		// draw_string(&format!("{} [{:.2}, {:.2}, {:.2}]", tr_i, p2x, p2y, p2z), &UVec2::new(60, tr_i as u16), buffer, screen_width);
-
-
+		i = (p2_tri_index * 3) as usize;
+		let tri_p2 = Vec3::new(
+			 mesh.verts[i + 0],
+			-mesh.verts[i + 1],
+			 mesh.verts[i + 2]
+		);
+	
 		let half_screen_width  = screen_width  as f32 * 0.5;
 		let half_screen_height = screen_height as f32 * 0.5;
 
-        let screen_p0_x = (p0x - cam_pos.0 * projection_factor) / (p0z - cam_pos.2 + zn) * half_screen_width  + half_screen_width;
-        let screen_p0_y = (p0y - cam_pos.1 * projection_factor) / (p0z - cam_pos.2 + zn) * half_screen_height + half_screen_height;
+		// 1 0 0  x  1 = 1
+		// 0 1 0  x  1 = 1
+		// 0 0 0  x  1 = 1
 
-		let screen_p1_x = (p1x - cam_pos.0 * projection_factor) / (p1z - cam_pos.2 + zn) * half_screen_width  + half_screen_width;
-        let screen_p1_y = (p1y - cam_pos.1 * projection_factor) / (p1z - cam_pos.2 + zn) * half_screen_height + half_screen_height;
+        let screen_p0_x = (tri_p0.x - cam_pos.x * projection_factor) / (tri_p0.z - cam_pos.z + zn) * half_screen_width  + half_screen_width;
+        let screen_p0_y = (tri_p0.y - cam_pos.y * projection_factor) / (tri_p0.z - cam_pos.z + zn) * half_screen_height + half_screen_height;
 
-		let screen_p2_x = (p2x - cam_pos.0 * projection_factor) / (p2z - cam_pos.2 + zn) * half_screen_width  + half_screen_width;
-        let screen_p2_y = (p2y - cam_pos.1 * projection_factor) / (p2z - cam_pos.2 + zn) * half_screen_height + half_screen_height;
+		let screen_p1_x = (tri_p1.x - cam_pos.x * projection_factor) / (tri_p1.z - cam_pos.z + zn) * half_screen_width  + half_screen_width;
+        let screen_p1_y = (tri_p1.y - cam_pos.y * projection_factor) / (tri_p1.z - cam_pos.z + zn) * half_screen_height + half_screen_height;
+
+		let screen_p2_x = (tri_p2.x - cam_pos.x * projection_factor) / (tri_p2.z - cam_pos.z + zn) * half_screen_width  + half_screen_width;
+        let screen_p2_y = (tri_p2.y - cam_pos.y * projection_factor) / (tri_p2.z - cam_pos.z + zn) * half_screen_height + half_screen_height;
 
 
 		draw_besenham_line(
@@ -144,68 +138,24 @@ pub fn draw_mesh(mesh: &Mesh, buffer: &mut Vec<char>, screen_width: u16, screen_
 			&UVec2::new(screen_p1_x as u16, screen_p1_y as u16),
 			buffer,
 			screen_width,
-			'*');
+			'*'
+		);
 		
 		draw_besenham_line(
 			&UVec2::new(screen_p1_x as u16, screen_p1_y as u16),
 			&UVec2::new(screen_p2_x as u16, screen_p2_y as u16),
 			buffer,
 			screen_width,
-			'*');
+			'*'
+		);
 		
 		draw_besenham_line(
 			&UVec2::new(screen_p2_x as u16, screen_p2_y as u16),
 			&UVec2::new(screen_p0_x as u16, screen_p0_y as u16),
 			buffer,
 			screen_width,
-			'*');
-
-
-
-continue;
-
-
-
-		// draw_string(&format!("{} [{:.2}, {:.2}, {:.2}]", tr_i, p0x, p0y, p0z), &UVec2::new(0, tr_i as u16), buffer, screen_width);
-		// draw_string(&format!("{} [{:.2}, {:.2}, {:.2}]", tr_i, p1x, p1y, p1z), &UVec2::new(30, tr_i as u16), buffer, screen_width);
-		// draw_string(&format!("{} [{:.2}, {:.2}, {:.2}]", tr_i, p2x, p2y, p2z), &UVec2::new(60, tr_i as u16), buffer, screen_width);
-		
-		let (mut p0x2, mut p0y2, mut p0z2) = vec3_by_mat4x4(p0x, p0y, p0z, &proj_mat);
-		let (mut p1x2, mut p1y2, mut p1z2) = vec3_by_mat4x4(p0x, p0y, p0z, &proj_mat);
-		let (mut p2x2, mut p2y2, mut p2z2) = vec3_by_mat4x4(p0x, p0y, p0z, &proj_mat);
-
-		// clip	space to normalized space
-		p0x2 = p0x2 + 1.0 * 0.5;
-		p0y2 = p0y2 + 1.0 * 0.5;
-		// p0z2 = p0z2 + 1.0 * 0.5;
-		p1x2 = p1x2 + 1.0 * 0.5;
-		p1y2 = p1y2 + 1.0 * 0.5;
-		// // p1z2 = p1z2 + 1.0 * 0.5;
-		p2x2 = p2x2 + 1.0 * 0.5;
-		p2y2 = p2y2 + 1.0 * 0.5;
-		// // p2z2 = p2z2 + 1.0 * 0.5;
-
-		// normalized space to screen space
-		
-		p0x2 = p0x2 * 0.5 * screen_width  as f32;
-		p0y2 = p0y2 * 0.5 * screen_height as f32;
-		p1x2 = p1x2 * 0.5 * screen_width  as f32;
-		p1y2 = p1y2 * 0.5 * screen_height as f32;
-		p2x2 = p2x2 * 0.5 * screen_width  as f32;
-		p2y2 = p2y2 * 0.5 * screen_height as f32;
-
-		// x2 *= (0.5 * screen_width as f32);
-		// y2 *= (0.5 * screen_height as f32);
-		// z2 *= screen_height as f32;
-
-		// x2 += 10.0;
-
-		// draw_string(&format!("[{}, {}, {}]", x, y, z), &UVec2::new(0, i as u16), buffer, screen_width);
-		// draw_string(&format!("[{}, {}, {}]", x2, y2, z2), &UVec2::new(0, (i + mesh.verts.len()/3 + 2) as u16), buffer, screen_width);
-
-		draw_point(&UVec2::new(p0x2 as u16, p0y2 as u16), buffer, screen_width, '@');
-		draw_point(&UVec2::new(p1x2 as u16, p1y2 as u16), buffer, screen_width, '@');
-		draw_point(&UVec2::new(p2x2 as u16, p2y2 as u16), buffer, screen_width, '@');
+			'*'
+		);
 	}
 }
 

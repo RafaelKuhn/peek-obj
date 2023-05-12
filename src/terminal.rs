@@ -25,39 +25,32 @@ impl FreeText {
 	}
 }
 
+
+
 impl Widget for &FreeText {
 	fn render(self, area: Rect, buf: &mut Buffer) {
 
+		
 		let x_start = 0;
 		let y_start = 0;
-
-		let area_botom = area.bottom();
-		let area_right = area.right();
-
-		// TODO: render clear
-		// for i in 0..self.text.len() {
-		// 	let ve = &mut self.text;
-		// 	ve[i] = self.bg;
-		// }
-
-		// for y in y_start .. area_botom {
-		// 	for x in x_start .. area_right {
-        //         buf.get_mut(x, y).reset();
-        //     }
-        // }
 		
-		// let aspect = area.right() as f32 / area.bottom() as f32;
+		let area_bottom = area.bottom();
+		let area_right = area.right();
+		
+		// TODO: figure out
+		// debug_assert!((area_bottom+1) * (area_right+1) == self.text.len() as u16,
+		// 	"{}",
+		// 	format!(": {}*{}={} != {}", area_bottom+1, area_right+1, (area_bottom+1)*(area_right+1), self.text.len()));
 
 		let mut char_i = 0;
-		for y in y_start .. area_botom {
-			for x in x_start .. area_right {
+		for y in y_start..area_bottom {
+			for x in x_start..area_right {
 
-				// TODO: debug_ass
+				// TODO: debug_assert, dont try drawing smth thats off
 				if let Some(ch) = self.text.get(char_i) {
 					buf.get_mut(x, y).set_char(*ch);
 				}
 
-				// buf.get_mut(x, y).set_char(self.text[char_i] as char);
 				// buf.get_mut(x, y).set_char(self.text[char_i]);
 
 				char_i += 1;
