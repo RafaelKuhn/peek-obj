@@ -4,7 +4,7 @@ pub mod mesh;
 
 use std::{f32::consts::TAU};
 
-use crate::{maths::{*}, benchmark::Benchmark, timer::AppTimer};
+use crate::{maths::*, benchmark::Benchmark, timer::AppTimer};
 
 use self::mesh::Mesh;
 
@@ -77,12 +77,11 @@ pub fn draw_mesh(mesh: &Mesh, buffer: &mut Vec<char>, width_height: (u16, u16), 
 	];
 
 
-
-	let modulus = timer.time_since_start.as_millis() as i32 / 2 % 1000;
-	let t = modulus as f32 / 1000.0;
-	let angle_x = t * TAU * 1.5;
-	let angle_y = t * TAU * 1.0;
-	let angle_z = t * TAU * 0.5;
+	let t = timer.time_since_start.as_millis() as f32 * 0.001;
+	// draw_string(&format!("{}", t), &UVec2::new(0, 0), buffer, screen_width);
+	let angle_x = t * 2.0;
+	let angle_y = t * 0.0;
+	let angle_z = t * 1.1;
 
 	let rot_x_mat = build_rot_mat_x(angle_x);
 	let rot_y_mat = build_rot_mat_y(angle_y);
@@ -111,7 +110,9 @@ pub fn draw_mesh(mesh: &Mesh, buffer: &mut Vec<char>, width_height: (u16, u16), 
 		);
 
 		let trs_p0 = p0
-			.get_transformed_by_mat4x4(&rot_y_mat)
+			.get_transformed_by_mat3x3(&rot_x_mat)
+			.get_transformed_by_mat3x3(&rot_y_mat)
+			.get_transformed_by_mat3x3(&rot_z_mat)
 			.get_translated_z(-6.0)
 			.get_transformed_by_mat4x4(&proj_mat);
 
@@ -123,7 +124,9 @@ pub fn draw_mesh(mesh: &Mesh, buffer: &mut Vec<char>, width_height: (u16, u16), 
 		);
 
 		let trs_p1 = p1
-			.get_transformed_by_mat4x4(&rot_y_mat)
+			.get_transformed_by_mat3x3(&rot_x_mat)
+			.get_transformed_by_mat3x3(&rot_y_mat)
+			.get_transformed_by_mat3x3(&rot_z_mat)
 			.get_translated_z(-6.0)
 			.get_transformed_by_mat4x4(&proj_mat);
 
@@ -135,7 +138,9 @@ pub fn draw_mesh(mesh: &Mesh, buffer: &mut Vec<char>, width_height: (u16, u16), 
 		);
 
 		let trs_p2 = p2
-			.get_transformed_by_mat4x4(&rot_y_mat)
+			.get_transformed_by_mat3x3(&rot_x_mat)
+			.get_transformed_by_mat3x3(&rot_y_mat)
+			.get_transformed_by_mat3x3(&rot_z_mat)
 			.get_translated_z(-6.0)
 			.get_transformed_by_mat4x4(&proj_mat);
 
@@ -189,10 +194,6 @@ pub fn draw_mesh(mesh: &Mesh, buffer: &mut Vec<char>, width_height: (u16, u16), 
 pub fn draw_triangles_wire(screen_space_tris: &Vec<ScreenTriangle>, buffer: &mut Vec<char>, screen_width: u16) {
 	let mut i: u16 = 0;
 	for tri in screen_space_tris.iter() {
-		// let top_to_sec_slope = slope_of_line(&tri.p0, secmost);
-		// let top_to_tri_slope = slope_of_line(&tri.p0, trimost);
-		// let sec_to_tri_slope = slope_of_line(secmost, trimost);
-
 		draw_bresenham_line(&tri.p0, &tri.p1, buffer, screen_width, FILL_CHAR);
 		draw_bresenham_line(&tri.p1, &tri.p2, buffer, screen_width, FILL_CHAR);
 		draw_bresenham_line(&tri.p2, &tri.p0, buffer, screen_width, FILL_CHAR);
@@ -310,46 +311,6 @@ pub fn test_bresenham(buffer: &mut Vec<char>, screen_width: u16, screen_height: 
 	// draw_bresenham_line(&middle, up_r,  buffer, screen_width, '↗');
 	
 	// draw_point(&middle, buffer, screen_width, '·');
-}
-
-fn build_rot_mat_x(angle: f32) -> Vec<f32> {
-	let cos = angle.cos();
-	let sin = angle.sin();
-
-	vec![
-		1.0,  0.0,  0.0,  0.0,
-		0.0,  1.0,  0.0,  0.0,
-		0.0,  cos, -sin,  0.0,
-		0.0,  sin,  cos,  1.0,
-	]
-}
-
-fn build_rot_mat_y(angle: f32) -> Vec<f32> {
-	let cos = angle.cos();
-	let sin = angle.sin();
-
-	vec![
-		 cos,  0.0,  sin,  0.0,
-		 0.0,  1.0,  0.0,  0.0,
-		-sin,  0.0,  cos,  0.0,
-		 0.0,  0.0,  0.0,  1.0,
-	]
-}
-
-fn build_rot_mat_z(angle: f32) -> Vec<f32> {
-	let cos = angle.cos();
-	let sin = angle.sin();
-
-	vec![
-		cos, -sin,  0.0,  0.0,
-		sin,  cos,  0.0,  0.0,
-		0.0,  0.0,  1.0,  0.0,
-		0.0,  0.0,  1.0,  1.0,
-	]
-}
-
-fn lerp(a: u16, b: u16, t: f32) -> u16 {
-	(a as f32 * (1.0 - t) + b as f32 * t) as u16
 }
 
 

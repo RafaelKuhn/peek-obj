@@ -142,6 +142,38 @@ impl std::ops::Sub<UVec2> for UVec2 {
 }
 
 
+pub fn build_rot_mat_x(angle: f32) -> Vec<f32> {
+	let cos = angle.cos();
+	let sin = angle.sin();
+
+	vec![
+		1.0,  0.0,  0.0,
+		0.0,  cos, -sin,
+		0.0,  sin,  cos,
+	]
+}
+
+pub fn build_rot_mat_y(angle: f32) -> Vec<f32> {
+	let cos = angle.cos();
+	let sin = angle.sin();
+
+	vec![
+		 cos,  0.0,  sin,
+		 0.0,  1.0,  0.0,
+		-sin,  0.0,  cos,
+	]
+}
+
+pub fn build_rot_mat_z(angle: f32) -> Vec<f32> {
+	let cos = angle.cos();
+	let sin = angle.sin();
+
+	vec![
+		cos, -sin,  0.0,
+		sin,  cos,  0.0,
+		0.0,  0.0,  1.0,
+	]
+}
 
 pub fn lerp(a: u32, b: u32, t: f32) -> u32 {
 	(a as f32 * t + (b - a) as f32 * t) as u32
