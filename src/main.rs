@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 mod rendering;
 mod maths;
 mod terminal;
@@ -6,11 +8,10 @@ mod benchmark;
 mod obj_reader;
 
 
-use std::{io::{self, Stdout}, time::{Duration, Instant}, process};
+use std::{io::{self, Stdout}, time::Duration, process};
 
 use obj_reader::read_mesh_from_obj;
-use rendering::{*, mesh::Mesh};
-use maths::UVec2;
+use rendering::{*};
 use terminal::FreeText;
 use timer::AppTimer;
 use benchmark::Benchmark;
@@ -34,7 +35,8 @@ fn main() {
 	// if file is not found but the content is smth like "cube" or "sphere", use them instead
 	// use macros for this
 	
-	let result = read_mesh_from_obj("objs/VideoShip.obj");
+	let result = read_mesh_from_obj("objs/small_cube.obj");
+	// let result = read_mesh_from_obj("objs/VideoShip.obj");
 	let mesh = match result {
 		Ok(read_mesh) => read_mesh,
 		Err(err) => {
@@ -63,11 +65,11 @@ fn main() {
 			continue;
 		}
 
-		render_clear(&mut app.text_buffer.text);		
+		render_clear(&mut app.text_buffer.text);	
 
-		// test_besenham(&mut app.text_buffer.text, app.width, app.height, timer.time_since_start.as_millis() as i32);
+		// test_bresenham(&mut app.text_buffer.text, app.width, app.height, timer.time_since_start.as_millis() as i32);
 		// draw_triangles_wire(&screen_space_tris, &mut app.text_buffer.text, app.width);
-		draw_mesh(&mesh, &mut app.text_buffer.text, app.width, app.height);
+		draw_mesh(&mesh, &mut app.text_buffer.text, (app.width, app.height), &timer);
 		
 		poll_events(terminal_mut, &mut app);
 
@@ -108,7 +110,7 @@ struct App {
 	pub width:  u16,
 	pub height: u16,
 	pub is_rendering_paused: bool,
-	
+
 	pub text_buffer: FreeText,
 }
 

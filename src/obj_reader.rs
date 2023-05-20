@@ -1,4 +1,4 @@
-use std::{fs::{File, self}, io::Read, num::{ParseFloatError, ParseIntError}, fmt::Display};
+use std::{num::{ParseFloatError, ParseIntError}, fmt::Display, fs};
 
 use crate::rendering::mesh::Mesh;
 

@@ -1,21 +1,24 @@
+#![allow(unused_variables)]
+
 pub mod mesh;
 
-use std::f32::consts::TAU;
+use std::{f32::consts::TAU};
 
-use crate::{maths::{*}, benchmark::Benchmark};
+use crate::{maths::{*}, benchmark::Benchmark, timer::AppTimer};
 
 use self::mesh::Mesh;
+
 
 
 // ascii luminance:
 // . , - ~ : ; = ! & # @"
 pub static BACKGROUND_FILL_CHAR: char = ' ';
 
-static LUMIN: &str = " .,-~:;=!&#@";
-// static DIRS: &str = "
-// ↖ ↑ ↗\
-// ← · →\
-// ↙ ↓ ↘";
+// static LUMIN: &str = " .,-~:;=!&#@";
+// static DIRS: &str = 
+// 	"↖ ↑ ↗" +
+// 	"← · →" +
+// 	"↙ ↓ ↘";
 
 static FILL_CHAR: char = '*';
 
@@ -45,48 +48,53 @@ pub fn draw_string(str: &str, pos: &UVec2, buffer: &mut Vec<char>, screen_width:
 	}
 }
 
-fn vec3_by_mat4x4(x: f32, y: f32, z: f32, mat: &Vec<f32>) -> (f32, f32, f32) {
-	let mut x2 = x * mat[0*4+0] + y * mat[0*4+1] + z * mat[0*4+2] + mat[0*4+3];
-	let mut y2 = x * mat[1*4+0] + y * mat[1*4+1] + z * mat[1*4+2] + mat[1*4+3];
-	let mut z2 = x * mat[2*4+0] + y * mat[2*4+1] + z * mat[2*4+2] + mat[2*4+3];
-	let w      = x * mat[3*4+0] + y * mat[3*4+1] + z * mat[3*4+2] + mat[3*4+3];
+// TODO: rect instead of app
+pub fn draw_mesh(mesh: &Mesh, buffer: &mut Vec<char>, width_height: (u16, u16), timer: &AppTimer) {
 
-	if w != 0.0 {
-		x2 /= w;
-		y2 /= w;
-		z2 /= w;
-	}
+	let (screen_width, screen_height) = width_height;
 
-	(x2, y2, z2)
-}
-
-pub fn draw_mesh(mesh: &Mesh, buffer: &mut Vec<char>, screen_width: u16, screen_height: u16) {
-
-	// let a = screen_height as f32 / screen_width as f32;
-	let fov = 0.25 * TAU;
 	let zn =   0.1;
 	let zf = 100.0;
 	
-	// let fv = 1.0 / (fov * 0.5).tan();
-	
-	let a = screen_width as f32 / screen_height as f32;
-	let q  = zf / (zf - zn);
-	let znq = -zn * q;
+
+	// let aspect_ratio = screen_width as f32 / screen_height as f32;
+	let aspect_ratio = (screen_height as f32 * 2.0) / screen_width as f32;
+    let fov = 0.25 * TAU;
+
+    let inv_tan_half_fov = 1.0 / ((fov / 2.0).tan());
+	let z_range = zf - zn;
+
+	let fir = aspect_ratio * inv_tan_half_fov;
+	let sec = inv_tan_half_fov;
+	let thi = zf / (z_range);
+	let fou = (-zf *zn) / (z_range);
 
 	let proj_mat = vec![
-		1.0, 0.0, 0.0, 0.0,
-		0.0, 1.0, 0.0, 0.0,
-		0.0, 0.0, 1.0, 0.0,
-		0.0, 0.0, 0.0, 1.0,
+		fir, 0.0, 0.0, 0.0,
+		0.0, sec, 0.0, 0.0,
+		0.0, 0.0, thi, 1.0,
+		0.0, 0.0, fou, 0.0, // switch 1.0 by foi
 	];
 
-	let cam_pos = Vec3::new(0.0, -1.0, -6.0);
 
-	let projection_factor = 1.0 / (fov * 0.5).tan();
-	
+
+	let modulus = timer.time_since_start.as_millis() as i32 / 2 % 1000;
+	let t = modulus as f32 / 1000.0;
+	let angle_x = t * TAU * 1.5;
+	let angle_y = t * TAU * 1.0;
+	let angle_z = t * TAU * 0.5;
+
+	let rot_x_mat = build_rot_mat_x(angle_x);
+	let rot_y_mat = build_rot_mat_y(angle_y);
+	let rot_z_mat = build_rot_mat_z(angle_z);
+
+	let cam_pos = Vec3::new(0.0, 0.0, 0.0);
+
+
 	let num_tris = mesh.tris.len()/3;
 
 	for tri_i in 0..num_tris {
+	// for tri_i in 2..3 {
 
 		let p0_tri_index = mesh.tris[tri_i * 3 + 0];
 		let p1_tri_index = mesh.tris[tri_i * 3 + 1];
@@ -96,65 +104,84 @@ pub fn draw_mesh(mesh: &Mesh, buffer: &mut Vec<char>, screen_width: u16, screen_
 		// TODO: abstract
 		let mut i;
 		i = (p0_tri_index * 3) as usize;
-		let tri_p0 = Vec3::new(
+		let p0 = Vec3::new(
 			 mesh.verts[i + 0],
 			-mesh.verts[i + 1],
-			 mesh.verts[i + 2]
+			 mesh.verts[i + 2],
 		);
+
+		let trs_p0 = p0
+			.get_transformed_by_mat4x4(&rot_y_mat)
+			.get_translated_z(-6.0)
+			.get_transformed_by_mat4x4(&proj_mat);
 
 		i = (p1_tri_index * 3) as usize;
-		let tri_p1 = Vec3::new(
+		let p1 = Vec3::new(
 			 mesh.verts[i + 0],
 			-mesh.verts[i + 1],
-			 mesh.verts[i + 2]
+			 mesh.verts[i + 2],
 		);
+
+		let trs_p1 = p1
+			.get_transformed_by_mat4x4(&rot_y_mat)
+			.get_translated_z(-6.0)
+			.get_transformed_by_mat4x4(&proj_mat);
 
 		i = (p2_tri_index * 3) as usize;
-		let tri_p2 = Vec3::new(
+		let p2 = Vec3::new(
 			 mesh.verts[i + 0],
 			-mesh.verts[i + 1],
-			 mesh.verts[i + 2]
+			 mesh.verts[i + 2],
 		);
-	
-		let half_screen_width  = screen_width  as f32 * 0.5;
-		let half_screen_height = screen_height as f32 * 0.5;
 
-		// 1 0 0  x  1 = 1
-		// 0 1 0  x  1 = 1
-		// 0 0 0  x  1 = 1
-
-        let screen_p0_x = (tri_p0.x - cam_pos.x * projection_factor) / (tri_p0.z - cam_pos.z + zn) * half_screen_width  + half_screen_width;
-        let screen_p0_y = (tri_p0.y - cam_pos.y * projection_factor) / (tri_p0.z - cam_pos.z + zn) * half_screen_height + half_screen_height;
-
-		let screen_p1_x = (tri_p1.x - cam_pos.x * projection_factor) / (tri_p1.z - cam_pos.z + zn) * half_screen_width  + half_screen_width;
-        let screen_p1_y = (tri_p1.y - cam_pos.y * projection_factor) / (tri_p1.z - cam_pos.z + zn) * half_screen_height + half_screen_height;
-
-		let screen_p2_x = (tri_p2.x - cam_pos.x * projection_factor) / (tri_p2.z - cam_pos.z + zn) * half_screen_width  + half_screen_width;
-        let screen_p2_y = (tri_p2.y - cam_pos.y * projection_factor) / (tri_p2.z - cam_pos.z + zn) * half_screen_height + half_screen_height;
+		let trs_p2 = p2
+			.get_transformed_by_mat4x4(&rot_y_mat)
+			.get_translated_z(-6.0)
+			.get_transformed_by_mat4x4(&proj_mat);
 
 
-		draw_besenham_line(
+		// clip space to screen space
+		let mut screen_p0_x = (trs_p0.x + 1.0) * 0.5;
+		let mut screen_p0_y = (trs_p0.y + 1.0) * 0.5;
+
+		let mut screen_p1_x = (trs_p1.x + 1.0) * 0.5;
+		let mut screen_p1_y = (trs_p1.y + 1.0) * 0.5;
+
+		let mut screen_p2_x = (trs_p2.x + 1.0) * 0.5;
+		let mut screen_p2_y = (trs_p2.y + 1.0) * 0.5;
+
+		screen_p0_x *= screen_width as f32;
+		screen_p0_y *= screen_height as f32;
+
+		screen_p1_x *= screen_width as f32;
+		screen_p1_y *= screen_height as f32;
+
+		screen_p2_x *= screen_width as f32;
+		screen_p2_y *= screen_height as f32;
+		
+
+		draw_bresenham_line(
 			&UVec2::new(screen_p0_x as u16, screen_p0_y as u16),
 			&UVec2::new(screen_p1_x as u16, screen_p1_y as u16),
 			buffer,
 			screen_width,
-			'*'
+			FILL_CHAR
 		);
 		
-		draw_besenham_line(
+		draw_bresenham_line(
 			&UVec2::new(screen_p1_x as u16, screen_p1_y as u16),
 			&UVec2::new(screen_p2_x as u16, screen_p2_y as u16),
 			buffer,
 			screen_width,
-			'*'
+			FILL_CHAR
 		);
 		
-		draw_besenham_line(
+		draw_bresenham_line(
 			&UVec2::new(screen_p2_x as u16, screen_p2_y as u16),
 			&UVec2::new(screen_p0_x as u16, screen_p0_y as u16),
 			buffer,
 			screen_width,
-			'*'
+			FILL_CHAR
 		);
 	}
 }
@@ -166,9 +193,9 @@ pub fn draw_triangles_wire(screen_space_tris: &Vec<ScreenTriangle>, buffer: &mut
 		// let top_to_tri_slope = slope_of_line(&tri.p0, trimost);
 		// let sec_to_tri_slope = slope_of_line(secmost, trimost);
 
-		draw_besenham_line(&tri.p0, &tri.p1, buffer, screen_width, FILL_CHAR);
-		draw_besenham_line(&tri.p1, &tri.p2, buffer, screen_width, FILL_CHAR);
-		draw_besenham_line(&tri.p2, &tri.p0, buffer, screen_width, FILL_CHAR);
+		draw_bresenham_line(&tri.p0, &tri.p1, buffer, screen_width, FILL_CHAR);
+		draw_bresenham_line(&tri.p1, &tri.p2, buffer, screen_width, FILL_CHAR);
+		draw_bresenham_line(&tri.p2, &tri.p0, buffer, screen_width, FILL_CHAR);
 
 
 		draw_string(&format!("p0 {:?}", &tri.p0), &UVec2 { x: &tri.p0.x + 3, y: &tri.p0.y - 2 + i }, buffer, screen_width);
@@ -200,7 +227,7 @@ pub fn draw_triangles_wire(screen_space_tris: &Vec<ScreenTriangle>, buffer: &mut
 }
 
 // TODO: decent test
-pub fn test_besenham(buffer: &mut Vec<char>, screen_width: u16, screen_height: u16, time_spent: i32) {
+pub fn test_bresenham(buffer: &mut Vec<char>, screen_width: u16, screen_height: u16, time_spent: i32) {
 	draw_string(&format!("w:{}, h:{}", screen_width, screen_height), &UVec2::new(0, 0), buffer, screen_width);
 	
 	// let screen_space_tris = vec![
@@ -256,12 +283,12 @@ pub fn test_besenham(buffer: &mut Vec<char>, screen_width: u16, screen_height: u
 		direction = '→';
 	}
 
-	draw_besenham_line(&middle, &up, buffer, screen_width, direction);
+	draw_bresenham_line(&middle, &up, buffer, screen_width, direction);
 
 	draw_point(&up, buffer, screen_width, '@');
 
-	draw_string(&format!("{}", angle),  &UVec2::new(0, 1), buffer, screen_width);
-	draw_string(&format!("{}", up),     &UVec2::new(up.x+2, up.y), buffer, screen_width);
+	draw_string(&format!("{}", angle), &UVec2::new(0, 1), buffer, screen_width);
+	draw_string(&format!("{}", up),    &UVec2::new(up.x+2, up.y), buffer, screen_width);
 
 	// let right = &UVec2::new(middle.x + len, middle.y);
 	// let left  = &UVec2::new(middle.x - len, middle.y);
@@ -274,15 +301,51 @@ pub fn test_besenham(buffer: &mut Vec<char>, screen_width: u16, screen_height: u
 	// ← · →
 	// ↙ ↓ ↘
 
-	// draw_besenham_line(&middle, right, buffer, screen_width, '→');
-	// draw_besenham_line(&middle, left,  buffer, screen_width, '←');
-	// draw_besenham_line(&middle, up,    buffer, screen_width, '↑');
-	// draw_besenham_line(&middle, down,  buffer, screen_width, '↓');
+	// draw_bresenham_line(&middle, right, buffer, screen_width, '→');
+	// draw_bresenham_line(&middle, left,  buffer, screen_width, '←');
+	// draw_bresenham_line(&middle, up,    buffer, screen_width, '↑');
+	// draw_bresenham_line(&middle, down,  buffer, screen_width, '↓');
 
-	// draw_besenham_line(&middle, up_l,  buffer, screen_width, '↖');
-	// draw_besenham_line(&middle, up_r,  buffer, screen_width, '↗');
+	// draw_bresenham_line(&middle, up_l,  buffer, screen_width, '↖');
+	// draw_bresenham_line(&middle, up_r,  buffer, screen_width, '↗');
 	
 	// draw_point(&middle, buffer, screen_width, '·');
+}
+
+fn build_rot_mat_x(angle: f32) -> Vec<f32> {
+	let cos = angle.cos();
+	let sin = angle.sin();
+
+	vec![
+		1.0,  0.0,  0.0,  0.0,
+		0.0,  1.0,  0.0,  0.0,
+		0.0,  cos, -sin,  0.0,
+		0.0,  sin,  cos,  1.0,
+	]
+}
+
+fn build_rot_mat_y(angle: f32) -> Vec<f32> {
+	let cos = angle.cos();
+	let sin = angle.sin();
+
+	vec![
+		 cos,  0.0,  sin,  0.0,
+		 0.0,  1.0,  0.0,  0.0,
+		-sin,  0.0,  cos,  0.0,
+		 0.0,  0.0,  0.0,  1.0,
+	]
+}
+
+fn build_rot_mat_z(angle: f32) -> Vec<f32> {
+	let cos = angle.cos();
+	let sin = angle.sin();
+
+	vec![
+		cos, -sin,  0.0,  0.0,
+		sin,  cos,  0.0,  0.0,
+		0.0,  0.0,  1.0,  0.0,
+		0.0,  0.0,  1.0,  1.0,
+	]
 }
 
 fn lerp(a: u16, b: u16, t: f32) -> u16 {
@@ -300,13 +363,13 @@ pub fn draw_benchmark(buffer: &mut Vec<char>, screen_width: u16, screen_height: 
 
 pub fn draw_point(p: &UVec2, buffer: &mut Vec<char>, screen_width: u16, fill_char: char) {
 	// TODO: bounds check
-	let index: usize = (p.y as usize * screen_width as usize + p.x as usize);
+	let index: usize = p.y as usize * screen_width as usize + p.x as usize;
 	if index < buffer.len() {
 		buffer[index] = fill_char;
 	}
 }
 
-fn draw_besenham_line(p0: &UVec2, p1: &UVec2, buffer: &mut Vec<char>, screen_width: u16, fill_char: char) {
+fn draw_bresenham_line(p0: &UVec2, p1: &UVec2, buffer: &mut Vec<char>, screen_width: u16, fill_char: char) {
 	let x0 = p0.x as i32;
 	let y0 = p0.y as i32;
 	let x1 = p1.x as i32;
@@ -318,7 +381,7 @@ fn draw_besenham_line(p0: &UVec2, p1: &UVec2, buffer: &mut Vec<char>, screen_wid
     let dy = (y1 - y0).abs();
     let sx = if x0 < x1 { 1 } else { -1 };
     let sy = if y0 < y1 { 1 } else { -1 };
-    let mut dd_deriv = dx - dy;
+    let mut deriv_diff = dx - dy;
 
 	let i_screen_width = screen_width as i32;
 	let mut index: usize;
@@ -334,13 +397,13 @@ fn draw_besenham_line(p0: &UVec2, p1: &UVec2, buffer: &mut Vec<char>, screen_wid
             break;
         }
 
-        let dd_deriv2 = dd_deriv * 2;
-        if dd_deriv2 > -dy {
-            dd_deriv -= dy;
+        let double_deriv_diff = deriv_diff * 2;
+        if double_deriv_diff > -dy {
+            deriv_diff -= dy;
             x += sx;
         }
-        if dd_deriv2 < dx {
-            dd_deriv += dx;
+        if double_deriv_diff < dx {
+            deriv_diff += dx;
             y += sy;
         }
     }

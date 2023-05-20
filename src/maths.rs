@@ -2,6 +2,10 @@ use core::{fmt,};
 use std::fmt::Display;
 
 
+
+
+
+
 // TODO: macro the shit out of this
 // or use type system, require a type to be provided by each implementation of Vec3
 
@@ -27,6 +31,60 @@ pub struct Vec3 {
 impl Vec3 {
 	pub fn new(x: f32, y: f32, z: f32,) -> Self {
 		Vec3 { x, y, z }
+	}
+
+	pub fn transform_by_mat3x3(&mut self, mat: &Vec<f32>) {
+		let x = self.x * mat[0*3 + 0] + self.y * mat[0*3 + 1] + self.z * mat[0*3 + 2];
+		let y = self.x * mat[1*3 + 0] + self.y * mat[1*3 + 1] + self.z * mat[1*3 + 2];
+		let z = self.x * mat[2*3 + 0] + self.y * mat[2*3 + 1] + self.z * mat[2*3 + 2];
+
+		self.x = x;
+		self.y = y;
+		self.z = z;
+	}
+
+	pub fn get_translated_z(&self, v: f32) -> Self {
+		Self { x: self.x, y: self.y, z: self.z + v }
+	}
+
+	pub fn get_transformed_by_mat3x3(&self, mat: &Vec<f32>) -> Self {
+		let x = self.x * mat[0*3 + 0] + self.y * mat[0*3 + 1] + self.z * mat[0*3 + 2];
+		let y = self.x * mat[1*3 + 0] + self.y * mat[1*3 + 1] + self.z * mat[1*3 + 2];
+		let z = self.x * mat[2*3 + 0] + self.y * mat[2*3 + 1] + self.z * mat[2*3 + 2];
+
+		Self { x, y, z }
+	}
+
+	pub fn get_transformed_by_mat4x4(&self, mat: &Vec<f32>) -> Self {
+		let mut x = self.x * mat[0*4 + 0] + self.y * mat[0*4 + 1] + self.z * mat[0*4 + 2] + 1.0 * mat[0*4 + 3];
+		let mut y = self.x * mat[1*4 + 0] + self.y * mat[1*4 + 1] + self.z * mat[1*4 + 2] + 1.0 * mat[1*4 + 3];
+		let mut z = self.x * mat[2*4 + 0] + self.y * mat[2*4 + 1] + self.z * mat[2*4 + 2] + 1.0 * mat[2*4 + 3];
+		let w     = self.x * mat[3*4 + 0] + self.y * mat[3*4 + 1] + self.z * mat[3*4 + 2] + 1.0 * mat[3*4 + 3];
+
+		if w != 0.0 {
+			x /= w;
+			y /= w;
+			z /= w;
+		}
+
+		Self { x, y, z }
+	}
+
+	pub fn transform_by_mat4x4(&mut self, mat: &Vec<f32>) {
+		let mut x = self.x * mat[0*4 + 0] + self.y * mat[0*4 + 1] + self.z * mat[0*4 + 2] + 1.0 * mat[0*4 + 3];
+		let mut y = self.x * mat[1*4 + 0] + self.y * mat[1*4 + 1] + self.z * mat[1*4 + 2] + 1.0 * mat[1*4 + 3];
+		let mut z = self.x * mat[2*4 + 0] + self.y * mat[2*4 + 1] + self.z * mat[2*4 + 2] + 1.0 * mat[2*4 + 3];
+		let w     = self.x * mat[3*4 + 0] + self.y * mat[3*4 + 1] + self.z * mat[3*4 + 2] + 1.0 * mat[3*4 + 3];
+
+		if w != 0.0 {
+			x /= w;
+			y /= w;
+			z /= w;
+		}
+
+		self.x = x;
+		self.y = y;
+		self.z = z;
 	}
 }
 

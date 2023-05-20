@@ -26,7 +26,7 @@ impl Benchmark {
 	pub fn profile_frame(&mut self, timer: &AppTimer) {
 
 		self.frame_count_measurement += 1;
-		self.accum_time += timer.delta_time.as_micros() as f32 * 0.000_001;;		
+		self.accum_time += timer.delta_time.as_micros() as f32 * 0.000_001;
 
 		// let update_interval = 0.5;
 		if self.accum_time > self.refresh_rate {
