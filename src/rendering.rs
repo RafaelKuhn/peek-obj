@@ -48,7 +48,6 @@ pub fn draw_string(str: &str, pos: &UVec2, buffer: &mut Vec<char>, screen_width:
 	}
 }
 
-// TODO: rect instead of app
 pub fn draw_mesh(mesh: &Mesh, buffer: &mut Vec<char>, width_height: (u16, u16), timer: &AppTimer) {
 
 	let (screen_width, screen_height) = width_height;
@@ -73,27 +72,30 @@ pub fn draw_mesh(mesh: &Mesh, buffer: &mut Vec<char>, width_height: (u16, u16), 
 		fir, 0.0, 0.0, 0.0,
 		0.0, sec, 0.0, 0.0,
 		0.0, 0.0, thi, 1.0,
-		0.0, 0.0, fou, 0.0, // switch 1.0 by foi
+		0.0, 0.0, fou, 0.0, // switch 1.0 by fou
 	];
 
 
 	let t = timer.time_since_start.as_millis() as f32 * 0.001;
-	// draw_string(&format!("{}", t), &UVec2::new(0, 0), buffer, screen_width);
 	let angle_x = t * 2.0;
-	let angle_y = t * 0.0;
+	let angle_y = t * 0.33;
 	let angle_z = t * 1.1;
 
-	let rot_x_mat = build_rot_mat_x(angle_x);
-	let rot_y_mat = build_rot_mat_y(angle_y);
-	let rot_z_mat = build_rot_mat_z(angle_z);
+	// draw_string(&format!("{}", angle_x), &UVec2::new(0, 0), buffer, screen_width);
+	// draw_string(&format!("{}", angle_y), &UVec2::new(0, 1), buffer, screen_width);
+	// draw_string(&format!("{}", angle_z), &UVec2::new(0, 2), buffer, screen_width);
 
-	let cam_pos = Vec3::new(0.0, 0.0, 0.0);
+	let (scale_x, scale_y, scale_z) = (0.2, 0.2, 0.2);
+
+	let rot_mat   = build_rot_mat_xyz(angle_x, angle_y, angle_z);
+	let scale_mat = build_scale_mat(scale_x, scale_y, scale_z);
+
+	// let cam_pos = Vec3::new(0.0, 0.0, 0.0);
 
 
-	let num_tris = mesh.tris.len()/3;
+	let num_tris = mesh.tris.len() / 3;
 
 	for tri_i in 0..num_tris {
-	// for tri_i in 2..3 {
 
 		let p0_tri_index = mesh.tris[tri_i * 3 + 0];
 		let p1_tri_index = mesh.tris[tri_i * 3 + 1];
@@ -110,9 +112,8 @@ pub fn draw_mesh(mesh: &Mesh, buffer: &mut Vec<char>, width_height: (u16, u16), 
 		);
 
 		let trs_p0 = p0
-			.get_transformed_by_mat3x3(&rot_x_mat)
-			.get_transformed_by_mat3x3(&rot_y_mat)
-			.get_transformed_by_mat3x3(&rot_z_mat)
+			.get_transformed_by_mat3x3(&scale_mat)
+			.get_transformed_by_mat3x3(&rot_mat)
 			.get_translated_z(-6.0)
 			.get_transformed_by_mat4x4(&proj_mat);
 
@@ -124,9 +125,8 @@ pub fn draw_mesh(mesh: &Mesh, buffer: &mut Vec<char>, width_height: (u16, u16), 
 		);
 
 		let trs_p1 = p1
-			.get_transformed_by_mat3x3(&rot_x_mat)
-			.get_transformed_by_mat3x3(&rot_y_mat)
-			.get_transformed_by_mat3x3(&rot_z_mat)
+			.get_transformed_by_mat3x3(&scale_mat)
+			.get_transformed_by_mat3x3(&rot_mat)
 			.get_translated_z(-6.0)
 			.get_transformed_by_mat4x4(&proj_mat);
 
@@ -138,9 +138,8 @@ pub fn draw_mesh(mesh: &Mesh, buffer: &mut Vec<char>, width_height: (u16, u16), 
 		);
 
 		let trs_p2 = p2
-			.get_transformed_by_mat3x3(&rot_x_mat)
-			.get_transformed_by_mat3x3(&rot_y_mat)
-			.get_transformed_by_mat3x3(&rot_z_mat)
+			.get_transformed_by_mat3x3(&scale_mat)
+			.get_transformed_by_mat3x3(&rot_mat)
 			.get_translated_z(-6.0)
 			.get_transformed_by_mat4x4(&proj_mat);
 
@@ -315,9 +314,15 @@ pub fn test_bresenham(buffer: &mut Vec<char>, screen_width: u16, screen_height: 
 
 
 pub fn draw_benchmark(buffer: &mut Vec<char>, screen_width: u16, screen_height: u16, benchmark: &Benchmark) {
-	draw_string(&format!("dt: {}ms", benchmark.delta_time),          &UVec2::new(0, screen_height-2-3), buffer, screen_width);
-	draw_string(&format!("fps: {}", benchmark.fps),                  &UVec2::new(0, screen_height-2-2), buffer, screen_width);
-	draw_string(&format!("frames: {}", benchmark.total_frame_count), &UVec2::new(0, screen_height-2-1), buffer, screen_width)
+	let mut lowest_pos = UVec2::new(0, screen_height - 3 - 4);
+	
+	draw_string(&format!("dt: {:.2}ms", benchmark.delta_time_millis),          &lowest_pos, buffer, screen_width);
+	lowest_pos.y += 1;
+	draw_string(&format!("fps: {}", benchmark.fps),                  &lowest_pos, buffer, screen_width);
+	lowest_pos.y += 1;
+	draw_string(&format!("frames: {}", benchmark.total_frame_count), &lowest_pos, buffer, screen_width);
+	lowest_pos.y += 1;
+	draw_string(&format!("w: {}, h: {}, w*h: {}", screen_width, screen_height, screen_width * screen_height), &lowest_pos, buffer, screen_width);
 }
 
 

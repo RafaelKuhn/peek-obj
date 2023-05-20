@@ -35,8 +35,8 @@ fn main() {
 	// if file is not found but the content is smth like "cube" or "sphere", use them instead
 	// use macros for this
 	
-	let result = read_mesh_from_obj("objs/small_cube.obj");
-	// let result = read_mesh_from_obj("objs/VideoShip.obj");
+	// let result = read_mesh_from_obj("objs/small_cube.obj");
+	let result = read_mesh_from_obj("objs/VideoShip.obj");
 	let mesh = match result {
 		Ok(read_mesh) => read_mesh,
 		Err(err) => {

@@ -175,6 +175,32 @@ pub fn build_rot_mat_z(angle: f32) -> Vec<f32> {
 	]
 }
 
+pub fn build_rot_mat_xyz(angle_x: f32, angle_y: f32, angle_z: f32) -> Vec<f32> {
+	let cos_x = angle_x.cos();
+	let sin_x = angle_x.sin();
+
+	let cos_y = angle_y.cos();
+	let sin_y = angle_y.sin();
+
+	let cos_z = angle_z.cos();
+	let sin_z = angle_z.sin();
+
+	// TODO: reuse some calulations
+	vec![
+		cos_y * cos_z,                         -cos_y * sin_z,                          sin_y,
+		cos_x * sin_z + sin_x * sin_y * cos_z,  cos_x * cos_z - sin_x * sin_y * sin_z, -sin_x * cos_y,
+		sin_x * sin_z - cos_x * sin_y * cos_z,  sin_x * cos_z + cos_x * sin_y * sin_z,  cos_x * cos_y,
+	]
+}
+
+pub fn build_scale_mat(sc_x: f32, sc_y: f32, sc_z: f32) -> Vec<f32> {
+	vec![
+		sc_x,  0.0,  0.0,
+		 0.0, sc_y,  0.0,
+		 0.0,  0.0, sc_z,
+	]
+}
+
 pub fn lerp(a: u32, b: u32, t: f32) -> u32 {
 	(a as f32 * t + (b - a) as f32 * t) as u32
 }

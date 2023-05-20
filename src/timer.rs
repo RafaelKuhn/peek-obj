@@ -14,13 +14,13 @@ pub struct AppTimer {
 impl AppTimer {
 	pub fn init() -> Self {
 		let now = Instant::now();
-		let duration2ms = Duration::from_millis(2);
+		let duration_of_2ms = Duration::from_millis(2);
 		Self {
 			start: now,
 			last_tick: now,
     		frame_count: 0,
-    		delta_time: duration2ms,
-    		time_since_start: duration2ms,
+    		delta_time: duration_of_2ms,
+    		time_since_start: duration_of_2ms,
 		}
 	}
 
