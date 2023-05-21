@@ -34,9 +34,11 @@ fn main() {
 	// print file not found when a problem is found
 	// if file is not found but the content is smth like "cube" or "sphere", use them instead
 	// use macros for this
-	
+
 	// let result = read_mesh_from_obj("objs/small_cube.obj");
-	let result = read_mesh_from_obj("objs/VideoShip.obj");
+	// let result = read_mesh_from_obj("objs/VideoShip.obj");
+	// let result = read_mesh_from_obj("objs/teapot.obj");
+	let result = read_mesh_from_obj("objs/cube.obj");
 	let mesh = match result {
 		Ok(read_mesh) => read_mesh,
 		Err(err) => {
@@ -69,7 +71,7 @@ fn main() {
 
 		// test_bresenham(&mut app.text_buffer.text, app.width, app.height, timer.time_since_start.as_millis() as i32);
 		// draw_triangles_wire(&screen_space_tris, &mut app.text_buffer.text, app.width);
-		draw_mesh(&mesh, &mut app.text_buffer.text, (app.width, app.height), &timer);
+		draw_mesh_wire(&mesh, &mut app.text_buffer.text, (app.width, app.height), &timer);
 		
 		poll_events(terminal_mut, &mut app);
 

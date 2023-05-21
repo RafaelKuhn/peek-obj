@@ -48,7 +48,7 @@ pub fn draw_string(str: &str, pos: &UVec2, buffer: &mut Vec<char>, screen_width:
 	}
 }
 
-pub fn draw_mesh(mesh: &Mesh, buffer: &mut Vec<char>, width_height: (u16, u16), timer: &AppTimer) {
+pub fn draw_mesh_wire(mesh: &Mesh, buffer: &mut Vec<char>, width_height: (u16, u16), timer: &AppTimer) {
 
 	let (screen_width, screen_height) = width_height;
 
@@ -93,13 +93,156 @@ pub fn draw_mesh(mesh: &Mesh, buffer: &mut Vec<char>, width_height: (u16, u16), 
 	// let cam_pos = Vec3::new(0.0, 0.0, 0.0);
 
 
-	let num_tris = mesh.tris.len() / 3;
+	let num_tris = mesh.tris_indices.len() / 3;
 
 	for tri_i in 0..num_tris {
 
-		let p0_tri_index = mesh.tris[tri_i * 3 + 0];
-		let p1_tri_index = mesh.tris[tri_i * 3 + 1];
-		let p2_tri_index = mesh.tris[tri_i * 3 + 2];
+		let p0_tri_index = mesh.tris_indices[tri_i * 3 + 0];
+		let p1_tri_index = mesh.tris_indices[tri_i * 3 + 1];
+		let p2_tri_index = mesh.tris_indices[tri_i * 3 + 2];
+
+
+		// TODO: abstract
+		let mut i;
+		i = (p0_tri_index * 3) as usize;
+		let p0 = Vec3::new(
+			 mesh.verts[i + 0],
+			-mesh.verts[i + 1],
+			 mesh.verts[i + 2],
+		);
+
+		let trs_p0 = p0
+			.get_transformed_by_mat3x3(&scale_mat)
+			.get_transformed_by_mat3x3(&rot_mat)
+			.get_translated_z(-6.0)
+			.get_transformed_by_mat4x4(&proj_mat);
+
+		i = (p1_tri_index * 3) as usize;
+		let p1 = Vec3::new(
+			 mesh.verts[i + 0],
+			-mesh.verts[i + 1],
+			 mesh.verts[i + 2],
+		);
+
+		let trs_p1 = p1
+			.get_transformed_by_mat3x3(&scale_mat)
+			.get_transformed_by_mat3x3(&rot_mat)
+			.get_translated_z(-6.0)
+			.get_transformed_by_mat4x4(&proj_mat);
+
+		i = (p2_tri_index * 3) as usize;
+		let p2 = Vec3::new(
+			 mesh.verts[i + 0],
+			-mesh.verts[i + 1],
+			 mesh.verts[i + 2],
+		);
+
+		let trs_p2 = p2
+			.get_transformed_by_mat3x3(&scale_mat)
+			.get_transformed_by_mat3x3(&rot_mat)
+			.get_translated_z(-6.0)
+			.get_transformed_by_mat4x4(&proj_mat);
+
+
+		// clip space to screen space
+		let mut screen_p0_x = (trs_p0.x + 1.0) * 0.5;
+		let mut screen_p0_y = (trs_p0.y + 1.0) * 0.5;
+
+		let mut screen_p1_x = (trs_p1.x + 1.0) * 0.5;
+		let mut screen_p1_y = (trs_p1.y + 1.0) * 0.5;
+
+		let mut screen_p2_x = (trs_p2.x + 1.0) * 0.5;
+		let mut screen_p2_y = (trs_p2.y + 1.0) * 0.5;
+
+		screen_p0_x *= screen_width as f32;
+		screen_p0_y *= screen_height as f32;
+
+		screen_p1_x *= screen_width as f32;
+		screen_p1_y *= screen_height as f32;
+
+		screen_p2_x *= screen_width as f32;
+		screen_p2_y *= screen_height as f32;
+		
+
+		draw_bresenham_line(
+			&UVec2::new(screen_p0_x as u16, screen_p0_y as u16),
+			&UVec2::new(screen_p1_x as u16, screen_p1_y as u16),
+			buffer,
+			screen_width,
+			FILL_CHAR
+		);
+		
+		draw_bresenham_line(
+			&UVec2::new(screen_p1_x as u16, screen_p1_y as u16),
+			&UVec2::new(screen_p2_x as u16, screen_p2_y as u16),
+			buffer,
+			screen_width,
+			FILL_CHAR
+		);
+		
+		draw_bresenham_line(
+			&UVec2::new(screen_p2_x as u16, screen_p2_y as u16),
+			&UVec2::new(screen_p0_x as u16, screen_p0_y as u16),
+			buffer,
+			screen_width,
+			FILL_CHAR
+		);
+	}
+}
+
+// TODO: implement
+pub fn draw_mesh_wire_visible(mesh: &Mesh, buffer: &mut Vec<char>, width_height: (u16, u16), timer: &AppTimer) {
+
+	let (screen_width, screen_height) = width_height;
+
+	let zn =   0.1;
+	let zf = 100.0;
+	
+	let aspect_ratio = (screen_height as f32 * 2.0) / screen_width as f32;
+    let fov = 0.25 * TAU;
+
+    let inv_tan_half_fov = 1.0 / ((fov / 2.0).tan());
+	let z_range = zf - zn;
+
+	let fir = aspect_ratio * inv_tan_half_fov;
+	let sec = inv_tan_half_fov;
+	let thi = zf / (z_range);
+	let fou = (-zf *zn) / (z_range);
+
+	let proj_mat = vec![
+		fir, 0.0, 0.0, 0.0,
+		0.0, sec, 0.0, 0.0,
+		0.0, 0.0, thi, 1.0,
+		0.0, 0.0, fou, 0.0, // switch 1.0 by fou
+	];
+
+
+	let t = timer.time_since_start.as_millis() as f32 * 0.001;
+	let angle_x = t * 2.0;
+	let angle_y = t * 0.33;
+	let angle_z = t * 1.1;
+
+	// draw_string(&format!("{}", angle_x), &UVec2::new(0, 0), buffer, screen_width);
+	// draw_string(&format!("{}", angle_y), &UVec2::new(0, 1), buffer, screen_width);
+	// draw_string(&format!("{}", angle_z), &UVec2::new(0, 2), buffer, screen_width);
+
+	let (scale_x, scale_y, scale_z) = (0.2, 0.2, 0.2);
+
+	let rot_mat   = build_rot_mat_xyz(angle_x, angle_y, angle_z);
+	let scale_mat = build_scale_mat(scale_x, scale_y, scale_z);
+
+	// let cam_pos = Vec3::new(0.0, 0.0, 0.0);
+
+
+	let num_tris = mesh.tris_indices.len() / 3;
+
+	for tri_i in 0..num_tris {
+
+		let p0_tri_index = mesh.tris_indices[tri_i * 3 + 0];
+		let p1_tri_index = mesh.tris_indices[tri_i * 3 + 1];
+		let p2_tri_index = mesh.tris_indices[tri_i * 3 + 2];
+
+
 
 
 		// TODO: abstract
