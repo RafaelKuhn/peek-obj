@@ -1,6 +1,6 @@
 use std::{num::{ParseFloatError, ParseIntError}, fmt::Display, fs};
 
-use crate::rendering::mesh::Mesh;
+use crate::{rendering::mesh::Mesh, maths::Vec3};
 
 
 pub enum ReaderError {
@@ -99,7 +99,6 @@ pub fn read_mesh_from_obj(path: &str) -> Result<Mesh, ReaderError> {
 					let normal_index = normal_index.parse::<u16>()? - 1;
 					normal_indices.push(normal_index);		
 				}
-				
 			}
 
 			continue;
@@ -119,3 +118,28 @@ pub fn read_mesh_from_obj(path: &str) -> Result<Mesh, ReaderError> {
 
 	Ok(mesh)
 }
+
+pub fn transform_mesh(mesh_res: Result<Mesh, ReaderError>, verts_correction: &Vec3) -> Result<Mesh, ReaderError> {
+	let mut mesh = mesh_res?;
+	let mesh_mut = &mut mesh;
+
+	let mut i = 0;
+	while i < mesh_mut.verts.len() {
+		
+		let vert_x = mesh_mut.verts[i];
+		mesh_mut.verts[i] = vert_x + verts_correction.x;
+		i += 1;
+
+		let vert_y = mesh_mut.verts[i];
+		mesh_mut.verts[i] = -(vert_y + verts_correction.y);
+		i += 1;
+		
+		let vert_z = mesh_mut.verts[i];
+		mesh_mut.verts[i] = vert_z + verts_correction.z;
+		i += 1;
+		
+	}
+
+	Ok(mesh)
+}
+

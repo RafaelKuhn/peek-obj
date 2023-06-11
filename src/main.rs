@@ -10,7 +10,8 @@ mod obj_reader;
 
 use std::{io::{self, Stdout}, time::Duration, process};
 
-use obj_reader::read_mesh_from_obj;
+use maths::{Vec3, build_identity_4x4};
+use obj_reader::{read_mesh_from_obj, transform_mesh};
 use rendering::{*};
 use terminal::FreeText;
 use timer::AppTimer;
@@ -35,10 +36,11 @@ fn main() {
 	// if file is not found but the content is smth like "cube" or "sphere", use them instead
 	// use macros for this
 
-	// let result = read_mesh_from_obj("objs/small_cube.obj");
+	let result = transform_mesh(read_mesh_from_obj("objs/teapot.obj"), &Vec3::new(0.0, -1.575, 0.0));
+	// let result = read_mesh_from_obj("objs/cube.obj");
 	// let result = read_mesh_from_obj("objs/VideoShip.obj");
-	// let result = read_mesh_from_obj("objs/teapot.obj");
-	let result = read_mesh_from_obj("objs/cube.obj");
+
+
 	let mesh = match result {
 		Ok(read_mesh) => read_mesh,
 		Err(err) => {
@@ -61,22 +63,26 @@ fn main() {
 	let benchmark_refresh_rate = 0.5;
 	let mut benchmark = Benchmark::new(benchmark_refresh_rate);
 
+	let mut transform_mat  = build_identity_4x4();
+	let mut projection_mat = build_identity_4x4();
+
 	loop {
 		if app.is_rendering_paused {
-			poll_events(terminal_mut, &mut app);
+			poll_events(terminal_mut, &mut app, &mut timer);
+			timer.add_frame();
 			continue;
 		}
 
 		render_clear(&mut app.text_buffer.text);	
 
+		draw_mesh_wire(&mesh, &mut app.text_buffer.text, (app.width, app.height), &timer, (&mut transform_mat, &mut projection_mat));
 		// test_bresenham(&mut app.text_buffer.text, app.width, app.height, timer.time_since_start.as_millis() as i32);
-		// draw_triangles_wire(&screen_space_tris, &mut app.text_buffer.text, app.width);
-		draw_mesh_wire(&mesh, &mut app.text_buffer.text, (app.width, app.height), &timer);
 		
-		poll_events(terminal_mut, &mut app);
+		poll_events(terminal_mut, &mut app, &mut timer);
 
 		benchmark.profile_frame(&timer);
 		draw_benchmark(&mut app.text_buffer.text, app.width, app.height, &benchmark);
+		draw_timer(&mut app.text_buffer.text, app.width, app.height, &timer);
 
 		timer.add_frame();
 
@@ -136,7 +142,7 @@ impl App {
 }
 
 
-fn poll_events(terminal: &mut CrosstermTerminal, app: &mut App) {
+fn poll_events(terminal: &mut CrosstermTerminal, app: &mut App, timer: &mut AppTimer) {
 	let has_event = crossterm::event::poll(Duration::from_millis(0)).unwrap();
 	if !has_event { return; }
 
@@ -148,7 +154,15 @@ fn poll_events(terminal: &mut CrosstermTerminal, app: &mut App) {
 				// KeyCode::Down  | KeyCode::Char('s') => quit_with_message(terminal, "Move Down"),
 				// KeyCode::Right | KeyCode::Char('d') => quit_with_message(terminal, "Move Right"),
 				// KeyCode::Char(ch) => quit_with_message(terminal, &format!("Needs to parse char {ch}")),
-				KeyCode::Char('p') => app.is_rendering_paused = !app.is_rendering_paused,
+				KeyCode::Char('p') => {
+					if app.is_rendering_paused {
+						app.is_rendering_paused = false;
+						timer.time_scale = 1.0;
+					} else {
+						app.is_rendering_paused = true;
+						timer.time_scale = 0.0;
+					}
+				} 
 				KeyCode::Esc => quit(terminal),
 				_ => return,
 			}

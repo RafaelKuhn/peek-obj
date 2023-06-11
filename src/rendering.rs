@@ -48,50 +48,54 @@ pub fn draw_string(str: &str, pos: &UVec2, buffer: &mut Vec<char>, screen_width:
 	}
 }
 
-pub fn draw_mesh_wire(mesh: &Mesh, buffer: &mut Vec<char>, width_height: (u16, u16), timer: &AppTimer) {
+pub fn draw_mat4x4(mat: &Vec<f32>, pos: &UVec2, buffer: &mut Vec<char>, screen_width: u16) {
+	let r0 = format!("{:.2} {:.2} {:.2} {:.2}\n", mat[00], mat[01], mat[02], mat[03]);
+	draw_string(&r0, pos, buffer, screen_width);
+	
+	let r1 = format!("{:.2} {:.2} {:.2} {:.2}\n", mat[04], mat[05], mat[06], mat[07]);
+	draw_string(&r1, &UVec2::new(pos.x, pos.y+1), buffer, screen_width);
+	
+	let r2 = format!("{:.2} {:.2} {:.2} {:.2}\n", mat[08], mat[09], mat[10], mat[11]);
+	draw_string(&r2, &UVec2::new(pos.x, pos.y+2), buffer, screen_width);
+	
+	let r3 = format!("{:.2} {:.2} {:.2} {:.2}\n", mat[12], mat[13], mat[14], mat[15]);
+	draw_string(&r3, &UVec2::new(pos.x, pos.y+3), buffer, screen_width);
+}
+
+pub fn draw_mesh_wire(mesh: &Mesh, buffer: &mut Vec<char>, width_height: (u16, u16), timer: &AppTimer, matrices: (&mut Vec<f32>, &mut Vec<f32>)) {
 
 	let (screen_width, screen_height) = width_height;
 
-	let zn =   0.1;
-	let zf = 100.0;
+	let (proj_mat, transform_mat) = matrices;
+	
+	apply_identity_to_mat_4x4(proj_mat);
+	apply_projection_to_mat_4x4(proj_mat, width_height);
+
+
+	let (pos_x, pos_y, pos_z) = (0.0, 0.0, 12.0);
+
+	let t = timer.time_aggr.as_millis() as f32 * 0.001;
+	let (angle_x, angle_y, angle_z) = (t * 0.1, t * 0.83, t * 1.2);
+
+	let speed = 0.2;
+	let tmod = ((t * speed % 1.0) - 0.5).abs() * 2.0;
+	let (scale_x, scale_y, scale_z) = (0.2 + 0.2 * tmod, 0.2 + 0.2 * tmod, 0.2 + 0.2 * tmod);
+
+
+	apply_identity_to_mat_4x4(transform_mat);
+	
+	apply_scale_to_mat_4x4(transform_mat, scale_x, scale_y, scale_z);
+	draw_mat4x4(&transform_mat, &UVec2::new(0, 2), buffer, screen_width);
+	
+	apply_rotation_to_mat_4x4(transform_mat, angle_x, angle_y, angle_z);
+	draw_mat4x4(&transform_mat, &UVec2::new(0, 7), buffer, screen_width);
+	
+	apply_pos_to_mat_4x4(transform_mat, pos_x, pos_y, pos_z);
+	draw_mat4x4(&transform_mat, &UVec2::new(0, 12), buffer, screen_width);
 	
 
-	// let aspect_ratio = screen_width as f32 / screen_height as f32;
-	let aspect_ratio = (screen_height as f32 * 2.0) / screen_width as f32;
-    let fov = 0.25 * TAU;
-
-    let inv_tan_half_fov = 1.0 / ((fov / 2.0).tan());
-	let z_range = zf - zn;
-
-	let fir = aspect_ratio * inv_tan_half_fov;
-	let sec = inv_tan_half_fov;
-	let thi = zf / (z_range);
-	let fou = (-zf *zn) / (z_range);
-
-	let proj_mat = vec![
-		fir, 0.0, 0.0, 0.0,
-		0.0, sec, 0.0, 0.0,
-		0.0, 0.0, thi, 1.0,
-		0.0, 0.0, fou, 0.0, // switch 1.0 by fou
-	];
-
-
-	let t = timer.time_since_start.as_millis() as f32 * 0.001;
-	let angle_x = t * 2.0;
-	let angle_y = t * 0.33;
-	let angle_z = t * 1.1;
-
-	// draw_string(&format!("{}", angle_x), &UVec2::new(0, 0), buffer, screen_width);
-	// draw_string(&format!("{}", angle_y), &UVec2::new(0, 1), buffer, screen_width);
-	// draw_string(&format!("{}", angle_z), &UVec2::new(0, 2), buffer, screen_width);
-
-	let (scale_x, scale_y, scale_z) = (0.2, 0.2, 0.2);
-
-	let rot_mat   = build_rot_mat_xyz(angle_x, angle_y, angle_z);
-	let scale_mat = build_scale_mat(scale_x, scale_y, scale_z);
-
-	// let cam_pos = Vec3::new(0.0, 0.0, 0.0);
-
+	multiply_4x4_matrices(proj_mat, &transform_mat);
+	draw_mat4x4(&proj_mat, &UVec2::new(0, 17), buffer, screen_width);
 
 	let num_tris = mesh.tris_indices.len() / 3;
 
@@ -112,10 +116,8 @@ pub fn draw_mesh_wire(mesh: &Mesh, buffer: &mut Vec<char>, width_height: (u16, u
 		);
 
 		let trs_p0 = p0
-			.get_transformed_by_mat3x3(&scale_mat)
-			.get_transformed_by_mat3x3(&rot_mat)
-			.get_translated_z(-6.0)
-			.get_transformed_by_mat4x4(&proj_mat);
+			.get_transformed_by_mat4x4(&proj_mat)
+			;
 
 		i = (p1_tri_index * 3) as usize;
 		let p1 = Vec3::new(
@@ -125,10 +127,8 @@ pub fn draw_mesh_wire(mesh: &Mesh, buffer: &mut Vec<char>, width_height: (u16, u
 		);
 
 		let trs_p1 = p1
-			.get_transformed_by_mat3x3(&scale_mat)
-			.get_transformed_by_mat3x3(&rot_mat)
-			.get_translated_z(-6.0)
-			.get_transformed_by_mat4x4(&proj_mat);
+			.get_transformed_by_mat4x4(&proj_mat)
+			;
 
 		i = (p2_tri_index * 3) as usize;
 		let p2 = Vec3::new(
@@ -138,10 +138,8 @@ pub fn draw_mesh_wire(mesh: &Mesh, buffer: &mut Vec<char>, width_height: (u16, u
 		);
 
 		let trs_p2 = p2
-			.get_transformed_by_mat3x3(&scale_mat)
-			.get_transformed_by_mat3x3(&rot_mat)
-			.get_translated_z(-6.0)
-			.get_transformed_by_mat4x4(&proj_mat);
+			.get_transformed_by_mat4x4(&proj_mat)
+			;
 
 
 		// clip space to screen space
@@ -192,146 +190,85 @@ pub fn draw_mesh_wire(mesh: &Mesh, buffer: &mut Vec<char>, width_height: (u16, u
 
 // TODO: implement
 pub fn draw_mesh_wire_visible(mesh: &Mesh, buffer: &mut Vec<char>, width_height: (u16, u16), timer: &AppTimer) {
+	todo!();
+}
 
-	let (screen_width, screen_height) = width_height;
+pub fn draw_mesh_filled(mesh: &Mesh, buffer: &mut Vec<char>, width_height: (u16, u16), timer: &AppTimer) {
+	todo!();
+}
 
-	let zn =   0.1;
-	let zf = 100.0;
-	
-	let aspect_ratio = (screen_height as f32 * 2.0) / screen_width as f32;
-    let fov = 0.25 * TAU;
+pub fn draw_triangles_filled(screen_space_tris: &mut Vec<ScreenTriangle>, buffer: &mut Vec<char>, screen_width: u16) {
+	todo!()
+}
 
-    let inv_tan_half_fov = 1.0 / ((fov / 2.0).tan());
-	let z_range = zf - zn;
-
-	let fir = aspect_ratio * inv_tan_half_fov;
-	let sec = inv_tan_half_fov;
-	let thi = zf / (z_range);
-	let fou = (-zf *zn) / (z_range);
-
-	let proj_mat = vec![
-		fir, 0.0, 0.0, 0.0,
-		0.0, sec, 0.0, 0.0,
-		0.0, 0.0, thi, 1.0,
-		0.0, 0.0, fou, 0.0, // switch 1.0 by fou
-	];
-
-
-	let t = timer.time_since_start.as_millis() as f32 * 0.001;
-	let angle_x = t * 2.0;
-	let angle_y = t * 0.33;
-	let angle_z = t * 1.1;
-
-	// draw_string(&format!("{}", angle_x), &UVec2::new(0, 0), buffer, screen_width);
-	// draw_string(&format!("{}", angle_y), &UVec2::new(0, 1), buffer, screen_width);
-	// draw_string(&format!("{}", angle_z), &UVec2::new(0, 2), buffer, screen_width);
-
-	let (scale_x, scale_y, scale_z) = (0.2, 0.2, 0.2);
-
-	let rot_mat   = build_rot_mat_xyz(angle_x, angle_y, angle_z);
-	let scale_mat = build_scale_mat(scale_x, scale_y, scale_z);
-
-	// let cam_pos = Vec3::new(0.0, 0.0, 0.0);
-
-
-	let num_tris = mesh.tris_indices.len() / 3;
-
-	for tri_i in 0..num_tris {
-
-		let p0_tri_index = mesh.tris_indices[tri_i * 3 + 0];
-		let p1_tri_index = mesh.tris_indices[tri_i * 3 + 1];
-		let p2_tri_index = mesh.tris_indices[tri_i * 3 + 2];
-
-
-
-
-		// TODO: abstract
-		let mut i;
-		i = (p0_tri_index * 3) as usize;
-		let p0 = Vec3::new(
-			 mesh.verts[i + 0],
-			-mesh.verts[i + 1],
-			 mesh.verts[i + 2],
-		);
-
-		let trs_p0 = p0
-			.get_transformed_by_mat3x3(&scale_mat)
-			.get_transformed_by_mat3x3(&rot_mat)
-			.get_translated_z(-6.0)
-			.get_transformed_by_mat4x4(&proj_mat);
-
-		i = (p1_tri_index * 3) as usize;
-		let p1 = Vec3::new(
-			 mesh.verts[i + 0],
-			-mesh.verts[i + 1],
-			 mesh.verts[i + 2],
-		);
-
-		let trs_p1 = p1
-			.get_transformed_by_mat3x3(&scale_mat)
-			.get_transformed_by_mat3x3(&rot_mat)
-			.get_translated_z(-6.0)
-			.get_transformed_by_mat4x4(&proj_mat);
-
-		i = (p2_tri_index * 3) as usize;
-		let p2 = Vec3::new(
-			 mesh.verts[i + 0],
-			-mesh.verts[i + 1],
-			 mesh.verts[i + 2],
-		);
-
-		let trs_p2 = p2
-			.get_transformed_by_mat3x3(&scale_mat)
-			.get_transformed_by_mat3x3(&rot_mat)
-			.get_translated_z(-6.0)
-			.get_transformed_by_mat4x4(&proj_mat);
-
-
-		// clip space to screen space
-		let mut screen_p0_x = (trs_p0.x + 1.0) * 0.5;
-		let mut screen_p0_y = (trs_p0.y + 1.0) * 0.5;
-
-		let mut screen_p1_x = (trs_p1.x + 1.0) * 0.5;
-		let mut screen_p1_y = (trs_p1.y + 1.0) * 0.5;
-
-		let mut screen_p2_x = (trs_p2.x + 1.0) * 0.5;
-		let mut screen_p2_y = (trs_p2.y + 1.0) * 0.5;
-
-		screen_p0_x *= screen_width as f32;
-		screen_p0_y *= screen_height as f32;
-
-		screen_p1_x *= screen_width as f32;
-		screen_p1_y *= screen_height as f32;
-
-		screen_p2_x *= screen_width as f32;
-		screen_p2_y *= screen_height as f32;
-		
-
-		draw_bresenham_line(
-			&UVec2::new(screen_p0_x as u16, screen_p0_y as u16),
-			&UVec2::new(screen_p1_x as u16, screen_p1_y as u16),
-			buffer,
-			screen_width,
-			FILL_CHAR
-		);
-		
-		draw_bresenham_line(
-			&UVec2::new(screen_p1_x as u16, screen_p1_y as u16),
-			&UVec2::new(screen_p2_x as u16, screen_p2_y as u16),
-			buffer,
-			screen_width,
-			FILL_CHAR
-		);
-		
-		draw_bresenham_line(
-			&UVec2::new(screen_p2_x as u16, screen_p2_y as u16),
-			&UVec2::new(screen_p0_x as u16, screen_p0_y as u16),
-			buffer,
-			screen_width,
-			FILL_CHAR
-		);
+pub fn draw_point(p: &UVec2, buffer: &mut Vec<char>, screen_width: u16, fill_char: char) {
+	// TODO: bounds check
+	let index: usize = p.y as usize * screen_width as usize + p.x as usize;
+	if index < buffer.len() {
+		buffer[index] = fill_char;
 	}
 }
+
+pub fn draw_benchmark(buffer: &mut Vec<char>, screen_width: u16, screen_height: u16, benchmark: &Benchmark) {
+	let mut lowest_pos = UVec2::new(0, screen_height - 3 - 4);
+	
+	draw_string(&format!("dt: {:.2}ms", benchmark.delta_time_millis), &lowest_pos, buffer, screen_width);
+	lowest_pos.y += 1;
+	draw_string(&format!("fps: {}", benchmark.fps),                   &lowest_pos, buffer, screen_width);
+	lowest_pos.y += 1;
+	draw_string(&format!("frames: {}", benchmark.total_frame_count),  &lowest_pos, buffer, screen_width);
+	lowest_pos.y += 1;
+	draw_string(&format!("w: {}, h: {}, w*h: {}", screen_width, screen_height, screen_width * screen_height), &lowest_pos, buffer, screen_width);
+}
+
+pub fn draw_timer(buffer: &mut Vec<char>, screen_width: u16, screen_height: u16, timer: &AppTimer) {
+	draw_string(&format!("aggr: {:.4}", timer.time_aggr.as_millis()), &UVec2::new(0, screen_height - 3), buffer, screen_width);
+}
+
+fn draw_bresenham_line(p0: &UVec2, p1: &UVec2, buffer: &mut Vec<char>, screen_width: u16, fill_char: char) {
+	let x0 = p0.x as i32;
+	let y0 = p0.y as i32;
+	let x1 = p1.x as i32;
+	let y1 = p1.y as i32;
+	
+	let mut x = x0;
+    let mut y = y0;
+    let dx = (x1 - x0).abs();
+    let dy = (y1 - y0).abs();
+    let sx = if x0 < x1 { 1 } else { -1 };
+    let sy = if y0 < y1 { 1 } else { -1 };
+    let mut deriv_diff = dx - dy;
+
+	let i_screen_width = screen_width as i32;
+	let mut index: usize;
+    loop {
+        index = (y * i_screen_width + x) as usize;
+			
+		// handle out of bounds
+		if index < buffer.len() {
+			buffer[index] = fill_char;
+		}
+
+        if x == x1 && y == y1 {
+            break;
+        }
+
+        let double_deriv_diff = deriv_diff * 2;
+        if double_deriv_diff > -dy {
+            deriv_diff -= dy;
+            x += sx;
+        }
+        if double_deriv_diff < dx {
+            deriv_diff += dx;
+            y += sy;
+        }
+    }
+
+}
+
+////////////
+// TESTS: //
+////////////
 
 pub fn draw_triangles_wire(screen_space_tris: &Vec<ScreenTriangle>, buffer: &mut Vec<char>, screen_width: u16) {
 	let mut i: u16 = 0;
@@ -372,19 +309,6 @@ pub fn draw_triangles_wire(screen_space_tris: &Vec<ScreenTriangle>, buffer: &mut
 // TODO: decent test
 pub fn test_bresenham(buffer: &mut Vec<char>, screen_width: u16, screen_height: u16, time_spent: i32) {
 	draw_string(&format!("w:{}, h:{}", screen_width, screen_height), &UVec2::new(0, 0), buffer, screen_width);
-	
-	// let screen_space_tris = vec![
-	// 	ScreenTriangle {
-	// 		p0: UVec2::new(app.width/2+00, app.height/2+00),
-	// 		p1: UVec2::new(app.width/2-10, app.height/2+06),
-	// 		p2: UVec2::new(app.width/2+10, app.height/2+05),
-	// 	},
-	// 	ScreenTriangle {
-	// 		p0: UVec2::new(app.width/4-10, app.height/4-00),
-	// 		p1: UVec2::new(app.width/4+00, app.height/4+05),
-	// 		p2: UVec2::new(app.width/4+10, app.height/4-00),
-	// 	},
-	// ];
 
 	let middle = UVec2::new(screen_width / 2, screen_height / 2);
 	
@@ -454,133 +378,6 @@ pub fn test_bresenham(buffer: &mut Vec<char>, screen_width: u16, screen_height: 
 	
 	// draw_point(&middle, buffer, screen_width, '·');
 }
-
-
-pub fn draw_benchmark(buffer: &mut Vec<char>, screen_width: u16, screen_height: u16, benchmark: &Benchmark) {
-	let mut lowest_pos = UVec2::new(0, screen_height - 3 - 4);
-	
-	draw_string(&format!("dt: {:.2}ms", benchmark.delta_time_millis),          &lowest_pos, buffer, screen_width);
-	lowest_pos.y += 1;
-	draw_string(&format!("fps: {}", benchmark.fps),                  &lowest_pos, buffer, screen_width);
-	lowest_pos.y += 1;
-	draw_string(&format!("frames: {}", benchmark.total_frame_count), &lowest_pos, buffer, screen_width);
-	lowest_pos.y += 1;
-	draw_string(&format!("w: {}, h: {}, w*h: {}", screen_width, screen_height, screen_width * screen_height), &lowest_pos, buffer, screen_width);
-}
-
-
-
-pub fn draw_point(p: &UVec2, buffer: &mut Vec<char>, screen_width: u16, fill_char: char) {
-	// TODO: bounds check
-	let index: usize = p.y as usize * screen_width as usize + p.x as usize;
-	if index < buffer.len() {
-		buffer[index] = fill_char;
-	}
-}
-
-fn draw_bresenham_line(p0: &UVec2, p1: &UVec2, buffer: &mut Vec<char>, screen_width: u16, fill_char: char) {
-	let x0 = p0.x as i32;
-	let y0 = p0.y as i32;
-	let x1 = p1.x as i32;
-	let y1 = p1.y as i32;
-	
-	let mut x = x0;
-    let mut y = y0;
-    let dx = (x1 - x0).abs();
-    let dy = (y1 - y0).abs();
-    let sx = if x0 < x1 { 1 } else { -1 };
-    let sy = if y0 < y1 { 1 } else { -1 };
-    let mut deriv_diff = dx - dy;
-
-	let i_screen_width = screen_width as i32;
-	let mut index: usize;
-    loop {
-        index = (y * i_screen_width + x) as usize;
-			
-		// handle out of bounds
-		if index < buffer.len() {
-			buffer[index] = fill_char;
-		}
-
-        if x == x1 && y == y1 {
-            break;
-        }
-
-        let double_deriv_diff = deriv_diff * 2;
-        if double_deriv_diff > -dy {
-            deriv_diff -= dy;
-            x += sx;
-        }
-        if double_deriv_diff < dx {
-            deriv_diff += dx;
-            y += sy;
-        }
-    }
-
-	// return;
-	
-	// let slope = slope_of_line(p0, p1);
-	// let mut index: usize;
-
-	// draw_string(&format!("slope {slope:?}"), UVec2 { x: 3, y: 5 }, buffer, screen_width);
-	// // the slope goes more up/down than left/right
-	// if slope.abs() > 1f32 {
-	// 	todo!()
-	// } else {
-
-	// 	// if p0.y > p1.y {
-	// 	// 	let temp = p0;
-	// 	// 	p0 = p1;
-	// 	// 	p1 = temp;
-	// 	// }
-	// 	let direction_inc: i16 = if slope > 0.0 { 1 } else { -1 };
-
-	// 	draw_string(&format!("p0 {p0:?}"), UVec2 { x: 3, y: 6 }, buffer, screen_width);
-	// 	draw_string(&format!("p1 {p1:?}"), UVec2 { x: 3, y: 7 }, buffer, screen_width);
-
-	// 	let mut accum_slope = 0_f32;
-	// 	let mut y = 0;
-	// 	let mut accum_threshold = 0.5_f32;
-		
-	// 	let diff = p1.x.abs_diff(p0.x);
-
-	// 	let slope_abs = slope.abs();
-
-	// 	// for x in p0.x..p1.x {
-	// 		// let x0 = x;
-	// 	let x_start = u16::min(p0.x, p1.x);
-	// 	for i in 0..diff {
-	// 		let x0 = x_start + i;
-
-	// 		accum_slope += slope_abs;
-	// 		// let y0 = topmost.y + (accum_slope as u16);
-
-	// 		draw_string(&format!("accum_slope {accum_slope:?}"), UVec2 { x: 3, y: 8+i+1 }, buffer, screen_width);
-	// 		draw_string(&format!("accum_threshold {accum_threshold:?}"), UVec2 { x: 3, y: 8+i+diff+2 }, buffer, screen_width);
-	// 		if accum_slope.abs() > accum_threshold {
-	// 			accum_threshold += 1.0;
-	// 			draw_string(&format!("inc {y:?} += {direction_inc:?}"), UVec2 { x: 3, y: 8+i+diff+diff+3 }, buffer, screen_width);
-	// 			y += direction_inc;
-	// 		}
-			
-	// 		let y0 = (p0.y as i16 + y) as u16;
-			
-	// 		index = (y0 * screen_width + x0) as usize;
-			
-	// 		// handle out of bounds
-	// 		// buffer[index] = FILL_CHAR;
-	// 		if index < buffer.len() {
-	// 			// buffer[index] = FILL_CHAR;
-	// 			buffer[index] = fill_char;
-	// 		}
-	// 	}
-	// }
-}
-
-pub fn draw_triangles_filled(screen_space_tris: &mut Vec<ScreenTriangle>, buffer: &mut Vec<char>, screen_width: u16) {
-	todo!()
-}
-
 
 fn slope_of_line(p0: &UVec2, p1: &UVec2) -> f32 {
 	(p1.y as f32 - p0.y as f32) / (p1.x as f32 - p0.x as f32)
