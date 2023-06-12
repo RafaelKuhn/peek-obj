@@ -119,7 +119,7 @@ pub fn read_mesh_from_obj(path: &str) -> Result<Mesh, ReaderError> {
 	Ok(mesh)
 }
 
-pub fn transform_mesh(mesh_res: Result<Mesh, ReaderError>, verts_correction: &Vec3) -> Result<Mesh, ReaderError> {
+pub fn translate_mesh(mesh_res: Result<Mesh, ReaderError>, translation: &Vec3) -> Result<Mesh, ReaderError> {
 	let mut mesh = mesh_res?;
 	let mesh_mut = &mut mesh;
 
@@ -127,17 +127,16 @@ pub fn transform_mesh(mesh_res: Result<Mesh, ReaderError>, verts_correction: &Ve
 	while i < mesh_mut.verts.len() {
 		
 		let vert_x = mesh_mut.verts[i];
-		mesh_mut.verts[i] = vert_x + verts_correction.x;
+		mesh_mut.verts[i] = vert_x + translation.x;
 		i += 1;
 
 		let vert_y = mesh_mut.verts[i];
-		mesh_mut.verts[i] = -(vert_y + verts_correction.y);
+		mesh_mut.verts[i] = -(vert_y + translation.y);
 		i += 1;
 		
 		let vert_z = mesh_mut.verts[i];
-		mesh_mut.verts[i] = vert_z + verts_correction.z;
+		mesh_mut.verts[i] = vert_z + translation.z;
 		i += 1;
-		
 	}
 
 	Ok(mesh)

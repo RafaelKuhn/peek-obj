@@ -11,7 +11,7 @@ mod obj_reader;
 use std::{io::{self, Stdout}, time::Duration, process};
 
 use maths::{Vec3, build_identity_4x4};
-use obj_reader::{read_mesh_from_obj, transform_mesh};
+use obj_reader::{read_mesh_from_obj, translate_mesh};
 use rendering::{*};
 use terminal::FreeText;
 use timer::AppTimer;
@@ -36,8 +36,8 @@ fn main() {
 	// if file is not found but the content is smth like "cube" or "sphere", use them instead
 	// use macros for this
 
-	let result = transform_mesh(read_mesh_from_obj("objs/teapot.obj"), &Vec3::new(0.0, -1.575, 0.0));
-	// let result = read_mesh_from_obj("objs/cube.obj");
+	// let result = translate_mesh(read_mesh_from_obj("objs/teapot.obj"), &Vec3::new(0.0, -1.575, 0.0));
+	let result = read_mesh_from_obj("objs/cube.obj");
 	// let result = read_mesh_from_obj("objs/VideoShip.obj");
 
 
@@ -75,7 +75,8 @@ fn main() {
 
 		render_clear(&mut app.text_buffer.text);	
 
-		draw_mesh_wire(&mesh, &mut app.text_buffer.text, (app.width, app.height), &timer, (&mut transform_mat, &mut projection_mat));
+		// draw_mesh_wire(&mesh, &mut app.text_buffer.text, (app.width, app.height), &timer, (&mut transform_mat, &mut projection_mat));
+		draw_mesh_wire_and_normals(&mesh, &mut app.text_buffer.text, (app.width, app.height), &timer, (&mut transform_mat, &mut projection_mat));
 		// test_bresenham(&mut app.text_buffer.text, app.width, app.height, timer.time_since_start.as_millis() as i32);
 		
 		poll_events(terminal_mut, &mut app, &mut timer);

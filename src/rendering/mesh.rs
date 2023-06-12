@@ -1,3 +1,5 @@
+use crate::maths::Vec3;
+
 
 pub struct Mesh {
 	pub verts: Vec<f32>,
@@ -38,7 +40,28 @@ impl Mesh {
 			normal_indices: vec! [],
 		}
 	}
+	
+	pub fn get_vert_at(&self, index: usize) -> Vec3 {
+		let tri_index = self.tris_indices[index];
+		
+		let sz = 3;
+		Vec3::new(
+			 self.verts[(tri_index * sz) as usize + 0],
+			-self.verts[(tri_index * sz) as usize + 1],
+			 self.verts[(tri_index * sz) as usize + 2],
+		)
+	}
 
+	pub fn get_normal_at(&self, index: usize) -> Vec3 {
+		let normal_index = self.normal_indices[index];
+		
+		let sz = 3;
+		Vec3::new(
+			 self.normals[(normal_index * sz) as usize + 0],
+			-self.normals[(normal_index * sz) as usize + 1],
+			 self.normals[(normal_index * sz) as usize + 2],
+		)
+	}
 }
 
 

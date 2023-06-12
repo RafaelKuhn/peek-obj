@@ -2,23 +2,6 @@ use core::{fmt,};
 use std::{fmt::Display, f32::consts::TAU};
 
 
-
-// TODO: macro the shit out of this
-// or use type system, require a type to be provided by each implementation of Vec3
-
-pub struct UVec3 {
-	pub x: u16,
-	pub y: u16,
-	pub z: u16,
-}
-
-impl UVec3 {
-	pub fn new(x: u16, y: u16, z: u16,) -> Self {
-		UVec3 { x, y, z }
-	}
-}
-
-
 pub struct Vec3 {
 	pub x: f32,
 	pub y: f32,
@@ -30,6 +13,14 @@ impl Vec3 {
 		Vec3 { x, y, z }
 	}
 
+	pub fn get_transformed_by_mat3x3(&self, mat: &Vec<f32>) -> Self {
+		let x = self.x * mat[0*3 + 0] + self.y * mat[0*3 + 1] + self.z * mat[0*3 + 2];
+		let y = self.x * mat[1*3 + 0] + self.y * mat[1*3 + 1] + self.z * mat[1*3 + 2];
+		let z = self.x * mat[2*3 + 0] + self.y * mat[2*3 + 1] + self.z * mat[2*3 + 2];
+
+		Self { x, y, z }
+	}
+
 	pub fn transform_by_mat3x3(&mut self, mat: &Vec<f32>) {
 		let x = self.x * mat[0*3 + 0] + self.y * mat[0*3 + 1] + self.z * mat[0*3 + 2];
 		let y = self.x * mat[1*3 + 0] + self.y * mat[1*3 + 1] + self.z * mat[1*3 + 2];
@@ -38,18 +29,6 @@ impl Vec3 {
 		self.x = x;
 		self.y = y;
 		self.z = z;
-	}
-
-	pub fn get_translated_z(&self, v: f32) -> Self {
-		Self { x: self.x, y: self.y, z: self.z + v }
-	}
-
-	pub fn get_transformed_by_mat3x3(&self, mat: &Vec<f32>) -> Self {
-		let x = self.x * mat[0*3 + 0] + self.y * mat[0*3 + 1] + self.z * mat[0*3 + 2];
-		let y = self.x * mat[1*3 + 0] + self.y * mat[1*3 + 1] + self.z * mat[1*3 + 2];
-		let z = self.x * mat[2*3 + 0] + self.y * mat[2*3 + 1] + self.z * mat[2*3 + 2];
-
-		Self { x, y, z }
 	}
 
 	pub fn get_transformed_by_mat4x4(&self, mat: &Vec<f32>) -> Self {
@@ -67,29 +46,29 @@ impl Vec3 {
 		Self { x, y, z }
 	}
 
-	pub fn transform_by_mat4x4(&mut self, mat: &Vec<f32>) {
-		let mut x = self.x * mat[0*4 + 0] + self.y * mat[0*4 + 1] + self.z * mat[0*4 + 2] + 1.0 * mat[0*4 + 3];
-		let mut y = self.x * mat[1*4 + 0] + self.y * mat[1*4 + 1] + self.z * mat[1*4 + 2] + 1.0 * mat[1*4 + 3];
-		let mut z = self.x * mat[2*4 + 0] + self.y * mat[2*4 + 1] + self.z * mat[2*4 + 2] + 1.0 * mat[2*4 + 3];
-		let w     = self.x * mat[3*4 + 0] + self.y * mat[3*4 + 1] + self.z * mat[3*4 + 2] + 1.0 * mat[3*4 + 3];
-
-		if w != 0.0 {
-			x /= w;
-			y /= w;
-			z /= w;
+	fn add_vec(&self, rhs: &Vec3) -> Vec3 {
+        return Vec3 {
+			x: rhs.x + self.x,
+			y: rhs.y + self.y,
+			z: rhs.z + self.z,
 		}
-
-		self.x = x;
-		self.y = y;
-		self.z = z;
-	}
+    }
 }
 
+impl std::ops::Add<&Vec3> for &Vec3 {
+    type Output = Vec3;
 
-#[derive(Debug)]
-pub struct IVec2 {
-	pub x: i16,
-	pub y: i16,
+    fn add(self, rhs: &Vec3) -> Self::Output {
+        self.add_vec(rhs)
+    }
+}
+
+impl std::ops::Add<Vec3> for Vec3 {
+    type Output = Vec3;
+
+    fn add(self, rhs: Vec3) -> Self::Output {
+        self.add_vec(&rhs)
+    }
 }
 
 
@@ -98,62 +77,25 @@ pub struct UVec2 {
 	pub y: u16,
 }
 
-impl Display for UVec2 {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(f, "[{}, {}]", self.x, self.y)
-    }
-}
-
-
 impl UVec2 {
 	pub fn new(x: u16, y: u16) -> Self {
 		Self { x, y }
 	}
 }
 
-// TODO: remove, check if I need to implement display or debug
+impl Display for UVec2 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		write!(f, "[{}, {}]", self.x, self.y)
+    }
+}
+
+// TODO: check if I need to implement display or debug
 impl fmt::Debug for UVec2 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "[{}, {}]", self.x, self.y)
     }
 }
 
-impl std::ops::Sub<&UVec2> for &UVec2 {
-	type Output = IVec2;
-	fn sub(self, rhs: &UVec2) -> Self::Output {
-		return IVec2 {
-			x: rhs.x as i16 - self.x as i16,
-			y: rhs.y as i16 - self.y as i16,
-		}
-	}
-}
-
-impl std::ops::Sub<UVec2> for UVec2 {
-	type Output = IVec2;
-	fn sub(self, rhs: UVec2) -> Self::Output {
-		return IVec2 {
-			x: rhs.x as i16 - self.x as i16,
-			y: rhs.y as i16 - self.y as i16,
-		}
-	}
-}
-
-
-pub fn build_pos_mat4x4(pos_x: f32, pos_y: f32, pos_z: f32) -> Vec<f32> {
-	vec![
-		1.0, 0.0, 0.0, pos_x,
-		0.0, 1.0, 0.0, pos_y,
-		0.0, 0.0, 1.0, pos_z,
-		0.0, 0.0, 0.0, 1.0,
-		
-		// transposed
-		// 1.0, 0.0, 0.0, 0.0,
-		// 0.0, 1.0, 0.0, 0.0,
-		// 0.0, 0.0, 1.0, 0.0,
-		// pos_x, pos_y, pos_z, 1.0,
-	]
-
-}
 
 pub fn build_rot_mat_x_3x3(angle: f32) -> Vec<f32> {
 	let cos = angle.cos();
@@ -207,46 +149,28 @@ pub fn build_rot_mat_xyz_3x3(angle_x: f32, angle_y: f32, angle_z: f32) -> Vec<f3
 	]
 }
 
-fn transpose_3x3(vec: &mut Vec<f32>) {
-	let mut temp: f32;
-	
-	let x = 1; let y = 0;
-	temp = vec[y * 3 + x];
-	vec[y * 3 + x] = vec[x * 3 + 0];
-	vec[y * 3 + x] = temp;
-
-	let x = 2; let y = 0;
-	temp = vec[y * 3 + x];
-	vec[y * 3 + x] = vec[x * 3 + 0];
-	vec[y * 3 + x] = temp;
-
-	let x = 2; let y = 1;
-	temp = vec[y * 3 + x];
-	vec[y * 3 + x] = vec[x * 3 + 0];
-	vec[y * 3 + x] = temp;
+pub fn build_scale_mat_3x3(sc_x: f32, sc_y: f32, sc_z: f32) -> Vec<f32> {
+	vec![
+		sc_x,  0.0,  0.0,
+		 0.0, sc_y,  0.0,
+		 0.0,  0.0, sc_z,
+	]
 }
 
-fn transpose_3x3_area_in_4x4(vec: &mut Vec<f32>) {
-	let mut temp: f32;
-	
-	let sz = 4;
-
-	let x = 1; let y = 0;
-	temp = vec[y * sz + x];
-	vec[y * sz + x] = vec[x * sz + 0];
-	vec[y * sz + x] = temp;
-
-	let x = 2; let y = 0;
-	temp = vec[y * sz + x];
-	vec[y * sz + x] = vec[x * sz + 0];
-	vec[y * sz + x] = temp;
-
-	let x = 2; let y = 1;
-	temp = vec[y * sz + x];
-	vec[y * sz + x] = vec[x * sz + 0];
-	vec[y * sz + x] = temp;
+pub fn build_pos_mat4x4(pos_x: f32, pos_y: f32, pos_z: f32) -> Vec<f32> {
+	vec![
+		1.0, 0.0, 0.0, pos_x,
+		0.0, 1.0, 0.0, pos_y,
+		0.0, 0.0, 1.0, pos_z,
+		0.0, 0.0, 0.0, 1.0,
+		
+		// transposed
+		// 1.0, 0.0, 0.0, 0.0,
+		// 0.0, 1.0, 0.0, 0.0,
+		// 0.0, 0.0, 1.0, 0.0,
+		// pos_x, pos_y, pos_z, 1.0,
+	]
 }
-
 
 pub fn build_rot_mat_xyz_4x4(angle_x: f32, angle_y: f32, angle_z: f32) -> Vec<f32> {
 	let cos_x = angle_x.cos();
@@ -298,16 +222,55 @@ pub fn build_identity_4x4() -> Vec<f32> {
 	]
 }
 
-pub fn build_scale_mat_3x3(sc_x: f32, sc_y: f32, sc_z: f32) -> Vec<f32> {
-	vec![
-		sc_x,  0.0,  0.0,
-		 0.0, sc_y,  0.0,
-		 0.0,  0.0, sc_z,
-	]
+pub fn clip_space_to_screen_space(p: &Vec3, screen_width: u16, screen_height: u16) -> UVec2 {
+	let screen_x = (p.x + 1.0) * 0.5 * screen_width as f32;
+	let screen_y = (p.y + 1.0) * 0.5 * screen_height as f32;
+
+	UVec2::new(screen_x as u16, screen_y as u16)
 }
 
 pub fn lerp(a: u32, b: u32, t: f32) -> u32 {
 	(a as f32 * t + (b - a) as f32 * t) as u32
+}
+
+fn transpose_3x3(vec: &mut Vec<f32>) {
+	let mut temp: f32;
+	
+	let x = 1; let y = 0;
+	temp = vec[y * 3 + x];
+	vec[y * 3 + x] = vec[x * 3 + 0];
+	vec[y * 3 + x] = temp;
+
+	let x = 2; let y = 0;
+	temp = vec[y * 3 + x];
+	vec[y * 3 + x] = vec[x * 3 + 0];
+	vec[y * 3 + x] = temp;
+
+	let x = 2; let y = 1;
+	temp = vec[y * 3 + x];
+	vec[y * 3 + x] = vec[x * 3 + 0];
+	vec[y * 3 + x] = temp;
+}
+
+fn transpose_3x3_area_in_4x4(vec: &mut Vec<f32>) {
+	let mut temp: f32;
+	
+	let sz = 4;
+
+	let x = 1; let y = 0;
+	temp = vec[y * sz + x];
+	vec[y * sz + x] = vec[x * sz + 0];
+	vec[y * sz + x] = temp;
+
+	let x = 2; let y = 0;
+	temp = vec[y * sz + x];
+	vec[y * sz + x] = vec[x * sz + 0];
+	vec[y * sz + x] = temp;
+
+	let x = 2; let y = 1;
+	temp = vec[y * sz + x];
+	vec[y * sz + x] = vec[x * sz + 0];
+	vec[y * sz + x] = temp;
 }
 
 pub fn apply_identity_to_mat_4x4(mat: &mut Vec<f32>) {
@@ -357,7 +320,7 @@ pub fn apply_projection_to_mat_4x4(mat: &mut Vec<f32>, width_height: (u16, u16))
 	// 	0.0, 0.0, thi, 1.0,
 	// 	0.0, 0.0, fou, 0.0,
 
-	// 	// mirrored:
+	// 	// transposed:
 	// let mut proj_mat = vec![
 	// 	fir, 0.0, 0.0, 0.0,
 	// 	0.0, sec, 0.0, 0.0,
@@ -379,37 +342,36 @@ pub fn apply_scale_to_mat_4x4(mat: &mut Vec<f32>, scale_x: f32, scale_y: f32, sc
 	let sz = 4;
 
 	//              y * w + x
-	let x0_y0 = mat[0 * sz + 0] * scale_x; // [0, 0] * sc x
-	let x1_y1 = mat[1 * sz + 1] * scale_y; // [1, 1] * sc y
-	let x2_y2 = mat[2 * sz + 2] * scale_z; // [2, 2] * sc z
+	let x0_y0 = mat[0 * sz + 0] * scale_x;
+	let x1_y1 = mat[1 * sz + 1] * scale_y;
+	let x2_y2 = mat[2 * sz + 2] * scale_z;
 	
-	mat[0 * sz + 0] = x0_y0; // x0_y0
-	mat[0 * sz + 1] = 0.0;   // x0_y1
-	mat[0 * sz + 2] = 0.0;   // x0_y2
-	mat[0 * sz + 3] = 0.0;   // x0_y3
+	mat[0 * sz + 0] = x0_y0;
+	mat[0 * sz + 1] = 0.0;
+	mat[0 * sz + 2] = 0.0;
+	mat[0 * sz + 3] = 0.0;
 
-	mat[1 * sz + 0] = 0.0;   // x1_y0
-	mat[1 * sz + 1] = x1_y1; // x1_y1
-	mat[1 * sz + 2] = 0.0;   // x1_y2
-	mat[1 * sz + 3] = 0.0;   // x1_y3
+	mat[1 * sz + 0] = 0.0;
+	mat[1 * sz + 1] = x1_y1;
+	mat[1 * sz + 2] = 0.0;
+	mat[1 * sz + 3] = 0.0;
 
-	mat[2 * sz + 0] = 0.0;   // x2_y0
-	mat[2 * sz + 1] = 0.0;   // x2_y1
-	mat[2 * sz + 2] = x2_y2; // x2_y2
-	mat[2 * sz + 3] = 0.0;   // x2_y3
+	mat[2 * sz + 0] = 0.0;
+	mat[2 * sz + 1] = 0.0;
+	mat[2 * sz + 2] = x2_y2;
+	mat[2 * sz + 3] = 0.0;
 	
-	mat[3 * sz + 0] = 0.0;   // x3_y0
-	mat[3 * sz + 1] = 0.0;   // x3_y1
-	mat[3 * sz + 2] = 0.0;   // x3_y2
+	mat[3 * sz + 0] = 0.0;
+	mat[3 * sz + 1] = 0.0;
+	mat[3 * sz + 2] = 0.0;
 }
 
-pub fn apply_rotation_to_mat_4x4(mat: &mut Vec<f32>, angle_x: f32, angle_y: f32, angle_z: f32) {
-	// easier: (allocates memory)
-
-	// let mut mat2 = build_rot_mat_xyz_4x4(angle_x, angle_y, angle_z);
-	// multiply_4x4_matrices(mat, &mat2);
-	// return;
-	
+pub fn apply_rotation_to_mat_4x4_alloc(mat: &mut Vec<f32>, angle_x: f32, angle_y: f32, angle_z: f32) {
+	let mat2 = build_rot_mat_xyz_4x4(angle_x, angle_y, angle_z);
+	multiply_4x4_matrices(mat, &mat2);
+	return;
+}
+pub fn apply_rotation_to_mat_4x4(mat: &mut Vec<f32>, angle_x: f32, angle_y: f32, angle_z: f32) {	
 	let cos_x = angle_x.cos();
 	let sin_x = angle_x.sin();
 
@@ -509,11 +471,10 @@ pub fn multiply_4x4_matrices(mat: &mut Vec<f32>, mat2: &Vec<f32>) {
 	mat[3 * sz + 1] = x3_y1;
 	mat[3 * sz + 2] = x3_y2;
 	mat[3 * sz + 3] = x3_y3;
-
 }
 
 pub fn multiply_4x4_matrices_alloc(mat: &mut Vec<f32>, mat2: &Vec<f32>) {
-	let mut result = [0.0; 16]; // Create a new matrix to store the result
+	let mut result = [0.0; 16];
 
 	let sz = 4;
 
@@ -524,8 +485,7 @@ pub fn multiply_4x4_matrices_alloc(mat: &mut Vec<f32>, mat2: &Vec<f32>) {
 			}
 		}
 	}
-	
-	// Copy the elements from the result matrix back to mat
+
 	for i in 0..sz*sz {
 		mat[i] = result[i];
 	}
