@@ -83,7 +83,7 @@ pub fn draw_mesh_wire_and_normals(mesh: &Mesh, buffer: &mut Vec<char>, width_hei
 	apply_identity_to_mat_4x4(transform_mat);
 	
 	apply_scale_to_mat_4x4(transform_mat, scale_x, scale_y, scale_z);
-	apply_rotation_to_mat_4x4_alloc(transform_mat, angle_x, angle_y, angle_z);
+	apply_rotation_to_mat_4x4(transform_mat, angle_x, angle_y, angle_z);
 	apply_pos_to_mat_4x4(transform_mat, pos_x, pos_y, pos_z);
 
 	multiply_4x4_matrices(proj_mat, &transform_mat);
@@ -125,17 +125,17 @@ pub fn draw_mesh_wire_and_normals(mesh: &Mesh, buffer: &mut Vec<char>, width_hei
 		let screen_n1 = clip_space_to_screen_space(&(&trs_p1 + &trs_n1), screen_width, screen_height);
 		let screen_n2 = clip_space_to_screen_space(&(&trs_p2 + &trs_n2), screen_width, screen_height);
 
-		draw_string(&format!("n0 {:.2},{:.2},{:.2}", n0.x, n0.y, n0.z), &UVec2::new(0, 0), buffer, screen_width);
-		draw_string(&format!("n1 {:.2},{:.2},{:.2}", n1.x, n1.y, n1.z), &UVec2::new(0, 1), buffer, screen_width);
-		draw_string(&format!("n2 {:.2},{:.2},{:.2}", n2.x, n2.y, n2.z), &UVec2::new(0, 2), buffer, screen_width);
+		// draw_string(&format!("n0 {:.2},{:.2},{:.2}", n0.x, n0.y, n0.z), &UVec2::new(0, 0), buffer, screen_width);
+		// draw_string(&format!("n1 {:.2},{:.2},{:.2}", n1.x, n1.y, n1.z), &UVec2::new(0, 1), buffer, screen_width);
+		// draw_string(&format!("n2 {:.2},{:.2},{:.2}", n2.x, n2.y, n2.z), &UVec2::new(0, 2), buffer, screen_width);
 
-		draw_string(&format!("n0 {:.2},{:.2},{:.2}", trs_n0.x, trs_n0.y, trs_n0.z), &UVec2::new(0, 4), buffer, screen_width);
-		draw_string(&format!("n1 {:.2},{:.2},{:.2}", trs_n1.x, trs_n1.y, trs_n1.z), &UVec2::new(0, 5), buffer, screen_width);
-		draw_string(&format!("n2 {:.2},{:.2},{:.2}", trs_n2.x, trs_n2.y, trs_n2.z), &UVec2::new(0, 6), buffer, screen_width);
+		// draw_string(&format!("n0 {:.2},{:.2},{:.2}", trs_n0.x, trs_n0.y, trs_n0.z), &UVec2::new(0, 4), buffer, screen_width);
+		// draw_string(&format!("n1 {:.2},{:.2},{:.2}", trs_n1.x, trs_n1.y, trs_n1.z), &UVec2::new(0, 5), buffer, screen_width);
+		// draw_string(&format!("n2 {:.2},{:.2},{:.2}", trs_n2.x, trs_n2.y, trs_n2.z), &UVec2::new(0, 6), buffer, screen_width);
 
-		draw_string(&format!("s n0 {},{}", screen_n0.x, screen_n0.y), &UVec2::new(0, 8), buffer, screen_width);
-		draw_string(&format!("s n1 {},{}", screen_n1.x, screen_n1.y), &UVec2::new(0, 9), buffer, screen_width);
-		draw_string(&format!("s n2 {},{}", screen_n2.x, screen_n2.y), &UVec2::new(0, 10), buffer, screen_width);
+		// draw_string(&format!("s n0 {},{}", screen_n0.x, screen_n0.y), &UVec2::new(0, 8), buffer, screen_width);
+		// draw_string(&format!("s n1 {},{}", screen_n1.x, screen_n1.y), &UVec2::new(0, 9), buffer, screen_width);
+		// draw_string(&format!("s n2 {},{}", screen_n2.x, screen_n2.y), &UVec2::new(0, 10), buffer, screen_width);
 
 		draw_bresenham_line(
 			&screen_p0,
@@ -212,17 +212,17 @@ pub fn draw_mesh_wire(mesh: &Mesh, buffer: &mut Vec<char>, width_height: (u16, u
 	apply_identity_to_mat_4x4(transform_mat);
 	
 	apply_scale_to_mat_4x4(transform_mat, scale_x, scale_y, scale_z);
-	draw_mat4x4(&transform_mat, &UVec2::new(0, 2), buffer, screen_width);
+	// draw_mat4x4(&transform_mat, &UVec2::new(0, 2), buffer, screen_width);
 	
 	apply_rotation_to_mat_4x4(transform_mat, angle_x, angle_y, angle_z);
-	draw_mat4x4(&transform_mat, &UVec2::new(0, 7), buffer, screen_width);
+	// draw_mat4x4(&transform_mat, &UVec2::new(0, 7), buffer, screen_width);
 	
 	apply_pos_to_mat_4x4(transform_mat, pos_x, pos_y, pos_z);
-	draw_mat4x4(&transform_mat, &UVec2::new(0, 12), buffer, screen_width);
+	// draw_mat4x4(&transform_mat, &UVec2::new(0, 12), buffer, screen_width);
 	
 
 	multiply_4x4_matrices(proj_mat, &transform_mat);
-	draw_mat4x4(&proj_mat, &UVec2::new(0, 17), buffer, screen_width);
+	// draw_mat4x4(&proj_mat, &UVec2::new(0, 17), buffer, screen_width);
 
 	let num_tris = mesh.tris_indices.len() / 3;
 

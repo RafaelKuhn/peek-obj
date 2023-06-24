@@ -274,7 +274,7 @@ fn transpose_3x3_area_in_4x4(vec: &mut Vec<f32>) {
 }
 
 pub fn apply_identity_to_mat_4x4(mat: &mut Vec<f32>) {
-	let sz = 4;
+	const sz: usize = 4;
 	
 	mat[0 * sz + 0] = 1.0;
 	mat[0 * sz + 1] = 0.0;
@@ -300,11 +300,11 @@ pub fn apply_identity_to_mat_4x4(mat: &mut Vec<f32>) {
 pub fn apply_projection_to_mat_4x4(mat: &mut Vec<f32>, width_height: (u16, u16)) {
 	let (screen_width, screen_height) = width_height;
 
-	let zn =   0.1;
-	let zf = 100.0;
+	const zn: f32 =   0.1;
+	const zf: f32 = 100.0;
 	
 	let aspect_ratio = (screen_height as f32 * 2.0) / screen_width as f32;
-    let fov = 0.25 * TAU;
+    const fov: f32 = 0.25 * TAU;
 
     let inv_tan_half_fov = 1.0 / ((fov / 2.0).tan());
 	let z_range = zf - zn;
@@ -371,6 +371,7 @@ pub fn apply_rotation_to_mat_4x4_alloc(mat: &mut Vec<f32>, angle_x: f32, angle_y
 	multiply_4x4_matrices(mat, &mat2);
 	return;
 }
+
 pub fn apply_rotation_to_mat_4x4(mat: &mut Vec<f32>, angle_x: f32, angle_y: f32, angle_z: f32) {	
 	let cos_x = angle_x.cos();
 	let sin_x = angle_x.sin();
