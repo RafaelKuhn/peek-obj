@@ -328,7 +328,7 @@ pub fn apply_projection_to_mat_4x4(mat: &mut Vec<f32>, width_height: (u16, u16))
 	// 	0.0, 0.0, 1.0, 0.0,
 	// ];
 
-	let sz = 4;
+	const sz: usize = 4;
 	mat[0 * sz + 0] = fir;
 	mat[1 * sz + 1] = sec;
 	mat[2 * sz + 2] = thi;
@@ -339,7 +339,7 @@ pub fn apply_projection_to_mat_4x4(mat: &mut Vec<f32>, width_height: (u16, u16))
 }
 
 pub fn apply_scale_to_mat_4x4(mat: &mut Vec<f32>, scale_x: f32, scale_y: f32, scale_z: f32) {
-	let sz = 4;
+	const sz: usize = 4;
 
 	//              y * w + x
 	let x0_y0 = mat[0 * sz + 0] * scale_x;
@@ -423,7 +423,7 @@ pub fn apply_rotation_to_mat_4x4(mat: &mut Vec<f32>, angle_x: f32, angle_y: f32,
 }
 
 pub fn apply_pos_to_mat_4x4(mat: &mut Vec<f32>, pos_x: f32, pos_y: f32, pos_z: f32) {
-	let sz = 4;
+	const sz: usize = 4;
 	mat[0 * sz + 3] = pos_x;
 	mat[1 * sz + 3] = pos_y;
 	mat[2 * sz + 3] = pos_z;
@@ -477,7 +477,7 @@ pub fn multiply_4x4_matrices(mat: &mut Vec<f32>, mat2: &Vec<f32>) {
 pub fn multiply_4x4_matrices_alloc(mat: &mut Vec<f32>, mat2: &Vec<f32>) {
 	let mut result = [0.0; 16];
 
-	let sz = 4;
+	let sz: usize = 4;
 
 	for i in 0..sz {
 		for j in 0..sz {

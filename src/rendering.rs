@@ -139,30 +139,6 @@ pub fn draw_mesh_wire_and_normals(mesh: &Mesh, buffer: &mut Vec<char>, width_hei
 
 		draw_bresenham_line(
 			&screen_p0,
-			&screen_p1,
-			buffer,
-			screen_width,
-			FILL_CHAR
-		);
-		
-		draw_bresenham_line(
-			&screen_p1,
-			&screen_p2,
-			buffer,
-			screen_width,
-			FILL_CHAR
-		);
-		
-		draw_bresenham_line(
-			&screen_p2,
-			&screen_p0,
-			buffer,
-			screen_width,
-			FILL_CHAR
-		);
-
-		draw_bresenham_line(
-			&screen_p0,
 			&screen_n0,
 			buffer,
 			screen_width,
@@ -183,6 +159,30 @@ pub fn draw_mesh_wire_and_normals(mesh: &Mesh, buffer: &mut Vec<char>, width_hei
 			buffer,
 			screen_width,
 			'.'
+		);
+
+		draw_bresenham_line(
+			&screen_p0,
+			&screen_p1,
+			buffer,
+			screen_width,
+			FILL_CHAR
+		);
+		
+		draw_bresenham_line(
+			&screen_p1,
+			&screen_p2,
+			buffer,
+			screen_width,
+			FILL_CHAR
+		);
+		
+		draw_bresenham_line(
+			&screen_p2,
+			&screen_p0,
+			buffer,
+			screen_width,
+			FILL_CHAR
 		);
 
 		draw_point(&screen_n0, buffer, screen_width, '@');
@@ -221,7 +221,7 @@ pub fn draw_mesh_wire(mesh: &Mesh, buffer: &mut Vec<char>, width_height: (u16, u
 	// draw_mat4x4(&transform_mat, &UVec2::new(0, 12), buffer, screen_width);
 	
 
-	multiply_4x4_matrices(proj_mat, &transform_mat);
+	multiply_4x4_matrices(proj_mat, transform_mat);
 	// draw_mat4x4(&proj_mat, &UVec2::new(0, 17), buffer, screen_width);
 
 	let num_tris = mesh.tris_indices.len() / 3;

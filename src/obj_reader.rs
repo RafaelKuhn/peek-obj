@@ -4,7 +4,7 @@ use crate::{rendering::mesh::Mesh, maths::Vec3};
 
 
 pub enum ReaderError {
-	BadFormat,
+	BadFormat(String),
 	FileNotFound,
 	IOError,
 }
@@ -13,9 +13,9 @@ impl Display for ReaderError {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		
 		let response = match self {
-			ReaderError::IOError      => "IO error",
-			ReaderError::BadFormat    => "Bad format error",
-			ReaderError::FileNotFound => "Not found error",
+			ReaderError::IOError       => "IO error",
+			ReaderError::BadFormat(st) => &st,
+			ReaderError::FileNotFound  => "Not found error",
 		};
 
 		f.write_str(response).unwrap();
@@ -34,13 +34,13 @@ impl From<std::io::Error> for ReaderError {
 
 impl From<ParseFloatError> for ReaderError {
 	fn from(_: ParseFloatError) -> Self {
-		Self::BadFormat
+		Self::BadFormat("parse float error".to_owned())
 	}
 }
 
 impl From<ParseIntError> for ReaderError {
 	fn from(_: ParseIntError) -> Self {
-		Self::BadFormat
+		Self::BadFormat("parse int error".to_owned())
 	}
 }
 
@@ -55,12 +55,18 @@ pub fn read_mesh_from_obj(path: &str) -> Result<Mesh, ReaderError> {
 
 	let mut has_found_normals = false;
 
-	for line in file_content.lines() {
+	for (i, line) in file_content.lines().enumerate() {
 		let line_split_by_space = line.split(' ').skip(1);
 		
 		if line.starts_with("v ") {
 			for vert_str in line_split_by_space {
-				let vert = vert_str.parse::<f32>()?;
+				if vert_str.len() == 0 { continue; }
+				
+				let vert = vert_str.parse::<f32>().or(
+					Err(
+						ReaderError::BadFormat(format!("cant parse float '{}'\nline {}: '{}'", vert_str, i+1, line))
+					)
+				)?;
 				verts.push(vert);
 			}
 
@@ -69,7 +75,13 @@ pub fn read_mesh_from_obj(path: &str) -> Result<Mesh, ReaderError> {
 
 		if line.starts_with("vn ") {
 			for normal_str in line_split_by_space {
-				let normal = normal_str.parse::<f32>()?;
+				if normal_str.len() == 0 { continue; }
+
+				let normal = normal_str.parse::<f32>().or(
+					Err(
+						ReaderError::BadFormat(format!("cant parse float '{}'\nline {}: '{}'", normal_str, i+1, line))
+					)
+				)?;
 				normals.push(normal);
 			}
 
@@ -87,15 +99,23 @@ pub fn read_mesh_from_obj(path: &str) -> Result<Mesh, ReaderError> {
 				// face references (vertex_index/texture_index/normal_index)
 				let mut indices = indices_group.split('/');
 
-				let vertex_index = indices.next().ok_or(ReaderError::BadFormat)?;
-				let vertex_index = vertex_index.parse::<u16>()? - 1;
+				let vertex_index_str = indices.next().ok_or(ReaderError::BadFormat(
+					format!("cant skip indices iterator\nline {}: '{}'", i, line)
+				))?;
+				let vertex_index = vertex_index_str.parse::<u16>().or(
+					Err(
+						ReaderError::BadFormat(format!("cant parse int 16 '{}'\nline {}: '{}'", vertex_index_str, i+1, line))
+					)
+				)? - 1;
 				tris.push(vertex_index);
 
 				// skip texture coordinates
 				indices.next();
 
 				if has_found_normals {
-					let normal_index = indices.next().ok_or(ReaderError::BadFormat)?;
+					let normal_index = indices.next().ok_or(ReaderError::BadFormat(
+						format!("cant parse normal iterator\nline {}: '{}'", i+1, line)
+					))?;
 					let normal_index = normal_index.parse::<u16>()? - 1;
 					normal_indices.push(normal_index);		
 				}

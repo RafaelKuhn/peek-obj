@@ -10,8 +10,8 @@ mod obj_reader;
 
 use std::{io::{self, Stdout}, time::Duration, process};
 
-use maths::{Vec3, build_identity_4x4};
-use obj_reader::{read_mesh_from_obj, translate_mesh};
+use maths::{build_identity_4x4};
+use obj_reader::{read_mesh_from_obj};
 use rendering::{*};
 use terminal::FreeText;
 use timer::AppTimer;
@@ -38,6 +38,7 @@ fn main() {
 
 	// let result = translate_mesh(read_mesh_from_obj("objs/teapot.obj"), &Vec3::new(0.0, -1.575, 0.0));
 	let result = read_mesh_from_obj("objs/cube.obj");
+	// let result = read_mesh_from_obj("objs/skull.obj");
 	// let result = read_mesh_from_obj("objs/VideoShip.obj");
 
 
