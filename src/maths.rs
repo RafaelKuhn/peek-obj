@@ -1,4 +1,4 @@
-use core::{fmt,};
+use core::fmt;
 use std::{fmt::Display, f32::consts::TAU};
 
 
@@ -236,83 +236,85 @@ pub fn lerp(a: u32, b: u32, t: f32) -> u32 {
 fn transpose_3x3(vec: &mut Vec<f32>) {
 	let mut temp: f32;
 	
+	const SZ: usize = 3;
+
 	let x = 1; let y = 0;
-	temp = vec[y * 3 + x];
-	vec[y * 3 + x] = vec[x * 3 + 0];
-	vec[y * 3 + x] = temp;
+	temp = vec[y * SZ + x];
+	vec[y * SZ + x] = vec[x * SZ + 0];
+	vec[y * SZ + x] = temp;
 
 	let x = 2; let y = 0;
-	temp = vec[y * 3 + x];
-	vec[y * 3 + x] = vec[x * 3 + 0];
-	vec[y * 3 + x] = temp;
+	temp = vec[y * SZ + x];
+	vec[y * SZ + x] = vec[x * SZ + 0];
+	vec[y * SZ + x] = temp;
 
 	let x = 2; let y = 1;
-	temp = vec[y * 3 + x];
-	vec[y * 3 + x] = vec[x * 3 + 0];
-	vec[y * 3 + x] = temp;
+	temp = vec[y * SZ + x];
+	vec[y * SZ + x] = vec[x * SZ + 0];
+	vec[y * SZ + x] = temp;
 }
 
 fn transpose_3x3_area_in_4x4(vec: &mut Vec<f32>) {
 	let mut temp: f32;
 	
-	let sz = 4;
+	const SZ: usize = 4;
 
 	let x = 1; let y = 0;
-	temp = vec[y * sz + x];
-	vec[y * sz + x] = vec[x * sz + 0];
-	vec[y * sz + x] = temp;
+	temp = vec[y * SZ + x];
+	vec[y * SZ + x] = vec[x * SZ + 0];
+	vec[y * SZ + x] = temp;
 
 	let x = 2; let y = 0;
-	temp = vec[y * sz + x];
-	vec[y * sz + x] = vec[x * sz + 0];
-	vec[y * sz + x] = temp;
+	temp = vec[y * SZ + x];
+	vec[y * SZ + x] = vec[x * SZ + 0];
+	vec[y * SZ + x] = temp;
 
 	let x = 2; let y = 1;
-	temp = vec[y * sz + x];
-	vec[y * sz + x] = vec[x * sz + 0];
-	vec[y * sz + x] = temp;
+	temp = vec[y * SZ + x];
+	vec[y * SZ + x] = vec[x * SZ + 0];
+	vec[y * SZ + x] = temp;
 }
 
 pub fn apply_identity_to_mat_4x4(mat: &mut Vec<f32>) {
-	const sz: usize = 4;
+	const SZ: usize = 4;
 	
-	mat[0 * sz + 0] = 1.0;
-	mat[0 * sz + 1] = 0.0;
-	mat[0 * sz + 2] = 0.0;
-	mat[0 * sz + 3] = 0.0;
+	mat[0 * SZ + 0] = 1.0;
+	mat[0 * SZ + 1] = 0.0;
+	mat[0 * SZ + 2] = 0.0;
+	mat[0 * SZ + 3] = 0.0;
 
-	mat[1 * sz + 0] = 0.0;
-	mat[1 * sz + 1] = 1.0;
-	mat[1 * sz + 2] = 0.0;
-	mat[1 * sz + 3] = 0.0;
+	mat[1 * SZ + 0] = 0.0;
+	mat[1 * SZ + 1] = 1.0;
+	mat[1 * SZ + 2] = 0.0;
+	mat[1 * SZ + 3] = 0.0;
 
-	mat[2 * sz + 0] = 0.0;
-	mat[2 * sz + 1] = 0.0;
-	mat[2 * sz + 2] = 1.0;
-	mat[2 * sz + 3] = 0.0;
+	mat[2 * SZ + 0] = 0.0;
+	mat[2 * SZ + 1] = 0.0;
+	mat[2 * SZ + 2] = 1.0;
+	mat[2 * SZ + 3] = 0.0;
 
-	mat[3 * sz + 0] = 0.0;
-	mat[3 * sz + 1] = 0.0;
-	mat[3 * sz + 2] = 0.0;
-	mat[3 * sz + 3] = 1.0;
+	mat[3 * SZ + 0] = 0.0;
+	mat[3 * SZ + 1] = 0.0;
+	mat[3 * SZ + 2] = 0.0;
+	mat[3 * SZ + 3] = 1.0;
 }
 
 pub fn apply_projection_to_mat_4x4(mat: &mut Vec<f32>, width_height: (u16, u16)) {
 	let (screen_width, screen_height) = width_height;
 
-	const zn: f32 =   0.1;
-	const zf: f32 = 100.0;
+	const ZN: f32 =   0.1;
+	const ZF: f32 = 100.0;
 	
 	let aspect_ratio = (screen_height as f32 * 2.0) / screen_width as f32;
-    const fov: f32 = 0.25 * TAU;
+    const FOV: f32 = 0.25 * TAU;
 
-    let inv_tan_half_fov = 1.0 / ((fov / 2.0).tan());
-	let z_range = zf - zn;
+    let inv_tan_half_fov = 1.0 / ((FOV / 2.0).tan());
+	let z_range = ZF - ZN;
 
 	let fir = aspect_ratio * inv_tan_half_fov;
 	let sec = inv_tan_half_fov;
-	let thi = zf / (z_range);
-	let fou = (-zf *zn) / (z_range);
+	let thi = ZF / (z_range);
+	let fou = (-ZF *ZN) / (z_range);
 
 	// let mut proj_mat = vec![
 	// 	fir, 0.0, 0.0, 0.0,
@@ -328,42 +330,42 @@ pub fn apply_projection_to_mat_4x4(mat: &mut Vec<f32>, width_height: (u16, u16))
 	// 	0.0, 0.0, 1.0, 0.0,
 	// ];
 
-	const sz: usize = 4;
-	mat[0 * sz + 0] = fir;
-	mat[1 * sz + 1] = sec;
-	mat[2 * sz + 2] = thi;
-	mat[3 * sz + 3] = 0.0;
+	const SZ: usize = 4;
+	mat[0 * SZ + 0] = fir;
+	mat[1 * SZ + 1] = sec;
+	mat[2 * SZ + 2] = thi;
+	mat[3 * SZ + 3] = 0.0;
 	
-	mat[3 * sz + 2] = fou;
-	mat[2 * sz + 3] = 1.0;
+	mat[3 * SZ + 2] = fou;
+	mat[2 * SZ + 3] = 1.0;
 }
 
 pub fn apply_scale_to_mat_4x4(mat: &mut Vec<f32>, scale_x: f32, scale_y: f32, scale_z: f32) {
-	const sz: usize = 4;
+	const SZ: usize = 4;
 
 	//              y * w + x
-	let x0_y0 = mat[0 * sz + 0] * scale_x;
-	let x1_y1 = mat[1 * sz + 1] * scale_y;
-	let x2_y2 = mat[2 * sz + 2] * scale_z;
+	let x0_y0 = mat[0 * SZ + 0] * scale_x;
+	let x1_y1 = mat[1 * SZ + 1] * scale_y;
+	let x2_y2 = mat[2 * SZ + 2] * scale_z;
 	
-	mat[0 * sz + 0] = x0_y0;
-	mat[0 * sz + 1] = 0.0;
-	mat[0 * sz + 2] = 0.0;
-	mat[0 * sz + 3] = 0.0;
+	mat[0 * SZ + 0] = x0_y0;
+	mat[0 * SZ + 1] = 0.0;
+	mat[0 * SZ + 2] = 0.0;
+	mat[0 * SZ + 3] = 0.0;
 
-	mat[1 * sz + 0] = 0.0;
-	mat[1 * sz + 1] = x1_y1;
-	mat[1 * sz + 2] = 0.0;
-	mat[1 * sz + 3] = 0.0;
+	mat[1 * SZ + 0] = 0.0;
+	mat[1 * SZ + 1] = x1_y1;
+	mat[1 * SZ + 2] = 0.0;
+	mat[1 * SZ + 3] = 0.0;
 
-	mat[2 * sz + 0] = 0.0;
-	mat[2 * sz + 1] = 0.0;
-	mat[2 * sz + 2] = x2_y2;
-	mat[2 * sz + 3] = 0.0;
+	mat[2 * SZ + 0] = 0.0;
+	mat[2 * SZ + 1] = 0.0;
+	mat[2 * SZ + 2] = x2_y2;
+	mat[2 * SZ + 3] = 0.0;
 	
-	mat[3 * sz + 0] = 0.0;
-	mat[3 * sz + 1] = 0.0;
-	mat[3 * sz + 2] = 0.0;
+	mat[3 * SZ + 0] = 0.0;
+	mat[3 * SZ + 1] = 0.0;
+	mat[3 * SZ + 2] = 0.0;
 }
 
 pub fn apply_rotation_to_mat_4x4_alloc(mat: &mut Vec<f32>, angle_x: f32, angle_y: f32, angle_z: f32) {
@@ -423,73 +425,77 @@ pub fn apply_rotation_to_mat_4x4(mat: &mut Vec<f32>, angle_x: f32, angle_y: f32,
 }
 
 pub fn apply_pos_to_mat_4x4(mat: &mut Vec<f32>, pos_x: f32, pos_y: f32, pos_z: f32) {
-	const sz: usize = 4;
-	mat[0 * sz + 3] = pos_x;
-	mat[1 * sz + 3] = pos_y;
-	mat[2 * sz + 3] = pos_z;
+	const SZ: usize = 4;
+	mat[0 * SZ + 3] = pos_x;
+	mat[1 * SZ + 3] = pos_y;
+	mat[2 * SZ + 3] = pos_z;
 }
 
 
 pub fn multiply_4x4_matrices(mat: &mut Vec<f32>, mat2: &Vec<f32>) {
-	let sz = 4;
+	const SZ: usize = 4;
 
-	let x0_y0 = mat[0 * sz + 0] * mat2[0 * sz + 0]  +  mat[0 * sz + 1] * mat2[1 * sz + 0]  +  mat[0 * sz + 2] * mat2[2 * sz + 0]  +  mat[0 * sz + 3] * mat2[3 * sz + 0];
-	let x0_y1 = mat[0 * sz + 0] * mat2[0 * sz + 1]  +  mat[0 * sz + 1] * mat2[1 * sz + 1]  +  mat[0 * sz + 2] * mat2[2 * sz + 1]  +  mat[0 * sz + 3] * mat2[3 * sz + 1];
-	let x0_y2 = mat[0 * sz + 0] * mat2[0 * sz + 2]  +  mat[0 * sz + 1] * mat2[1 * sz + 2]  +  mat[0 * sz + 2] * mat2[2 * sz + 2]  +  mat[0 * sz + 3] * mat2[3 * sz + 2];
-	let x0_y3 = mat[0 * sz + 0] * mat2[0 * sz + 3]  +  mat[0 * sz + 1] * mat2[1 * sz + 3]  +  mat[0 * sz + 2] * mat2[2 * sz + 3]  +  mat[0 * sz + 3] * mat2[3 * sz + 3];
+	let x0_y0 = mat[0 * SZ + 0] * mat2[0 * SZ + 0]  +  mat[0 * SZ + 1] * mat2[1 * SZ + 0]  +  mat[0 * SZ + 2] * mat2[2 * SZ + 0]  +  mat[0 * SZ + 3] * mat2[3 * SZ + 0];
+	let x0_y1 = mat[0 * SZ + 0] * mat2[0 * SZ + 1]  +  mat[0 * SZ + 1] * mat2[1 * SZ + 1]  +  mat[0 * SZ + 2] * mat2[2 * SZ + 1]  +  mat[0 * SZ + 3] * mat2[3 * SZ + 1];
+	let x0_y2 = mat[0 * SZ + 0] * mat2[0 * SZ + 2]  +  mat[0 * SZ + 1] * mat2[1 * SZ + 2]  +  mat[0 * SZ + 2] * mat2[2 * SZ + 2]  +  mat[0 * SZ + 3] * mat2[3 * SZ + 2];
+	let x0_y3 = mat[0 * SZ + 0] * mat2[0 * SZ + 3]  +  mat[0 * SZ + 1] * mat2[1 * SZ + 3]  +  mat[0 * SZ + 2] * mat2[2 * SZ + 3]  +  mat[0 * SZ + 3] * mat2[3 * SZ + 3];
 
-	let x1_y0 = mat[1 * sz + 0] * mat2[0 * sz + 0]  +  mat[1 * sz + 1] * mat2[1 * sz + 0]  +  mat[1 * sz + 2] * mat2[2 * sz + 0]  +  mat[1 * sz + 3] * mat2[3 * sz + 0];
-	let x1_y1 = mat[1 * sz + 0] * mat2[0 * sz + 1]  +  mat[1 * sz + 1] * mat2[1 * sz + 1]  +  mat[1 * sz + 2] * mat2[2 * sz + 1]  +  mat[1 * sz + 3] * mat2[3 * sz + 1];
-	let x1_y2 = mat[1 * sz + 0] * mat2[0 * sz + 2]  +  mat[1 * sz + 1] * mat2[1 * sz + 2]  +  mat[1 * sz + 2] * mat2[2 * sz + 2]  +  mat[1 * sz + 3] * mat2[3 * sz + 2];
-	let x1_y3 = mat[1 * sz + 0] * mat2[0 * sz + 3]  +  mat[1 * sz + 1] * mat2[1 * sz + 3]  +  mat[1 * sz + 2] * mat2[2 * sz + 3]  +  mat[1 * sz + 3] * mat2[3 * sz + 3];
+	let x1_y0 = mat[1 * SZ + 0] * mat2[0 * SZ + 0]  +  mat[1 * SZ + 1] * mat2[1 * SZ + 0]  +  mat[1 * SZ + 2] * mat2[2 * SZ + 0]  +  mat[1 * SZ + 3] * mat2[3 * SZ + 0];
+	let x1_y1 = mat[1 * SZ + 0] * mat2[0 * SZ + 1]  +  mat[1 * SZ + 1] * mat2[1 * SZ + 1]  +  mat[1 * SZ + 2] * mat2[2 * SZ + 1]  +  mat[1 * SZ + 3] * mat2[3 * SZ + 1];
+	let x1_y2 = mat[1 * SZ + 0] * mat2[0 * SZ + 2]  +  mat[1 * SZ + 1] * mat2[1 * SZ + 2]  +  mat[1 * SZ + 2] * mat2[2 * SZ + 2]  +  mat[1 * SZ + 3] * mat2[3 * SZ + 2];
+	let x1_y3 = mat[1 * SZ + 0] * mat2[0 * SZ + 3]  +  mat[1 * SZ + 1] * mat2[1 * SZ + 3]  +  mat[1 * SZ + 2] * mat2[2 * SZ + 3]  +  mat[1 * SZ + 3] * mat2[3 * SZ + 3];
 
-	let x2_y0 = mat[2 * sz + 0] * mat2[0 * sz + 0]  +  mat[2 * sz + 1] * mat2[1 * sz + 0]  +  mat[2 * sz + 2] * mat2[2 * sz + 0]  +  mat[2 * sz + 3] * mat2[3 * sz + 0];
-	let x2_y1 = mat[2 * sz + 0] * mat2[0 * sz + 1]  +  mat[2 * sz + 1] * mat2[1 * sz + 1]  +  mat[2 * sz + 2] * mat2[2 * sz + 1]  +  mat[2 * sz + 3] * mat2[3 * sz + 1];
-	let x2_y2 = mat[2 * sz + 0] * mat2[0 * sz + 2]  +  mat[2 * sz + 1] * mat2[1 * sz + 2]  +  mat[2 * sz + 2] * mat2[2 * sz + 2]  +  mat[2 * sz + 3] * mat2[3 * sz + 2];
-	let x2_y3 = mat[2 * sz + 0] * mat2[0 * sz + 3]  +  mat[2 * sz + 1] * mat2[1 * sz + 3]  +  mat[2 * sz + 2] * mat2[2 * sz + 3]  +  mat[2 * sz + 3] * mat2[3 * sz + 3];
+	let x2_y0 = mat[2 * SZ + 0] * mat2[0 * SZ + 0]  +  mat[2 * SZ + 1] * mat2[1 * SZ + 0]  +  mat[2 * SZ + 2] * mat2[2 * SZ + 0]  +  mat[2 * SZ + 3] * mat2[3 * SZ + 0];
+	let x2_y1 = mat[2 * SZ + 0] * mat2[0 * SZ + 1]  +  mat[2 * SZ + 1] * mat2[1 * SZ + 1]  +  mat[2 * SZ + 2] * mat2[2 * SZ + 1]  +  mat[2 * SZ + 3] * mat2[3 * SZ + 1];
+	let x2_y2 = mat[2 * SZ + 0] * mat2[0 * SZ + 2]  +  mat[2 * SZ + 1] * mat2[1 * SZ + 2]  +  mat[2 * SZ + 2] * mat2[2 * SZ + 2]  +  mat[2 * SZ + 3] * mat2[3 * SZ + 2];
+	let x2_y3 = mat[2 * SZ + 0] * mat2[0 * SZ + 3]  +  mat[2 * SZ + 1] * mat2[1 * SZ + 3]  +  mat[2 * SZ + 2] * mat2[2 * SZ + 3]  +  mat[2 * SZ + 3] * mat2[3 * SZ + 3];
 
-	let x3_y0 = mat[3 * sz + 0] * mat2[0 * sz + 0]  +  mat[3 * sz + 1] * mat2[1 * sz + 0]  +  mat[3 * sz + 2] * mat2[2 * sz + 0]  +  mat[3 * sz + 3] * mat2[3 * sz + 0];
-	let x3_y1 = mat[3 * sz + 0] * mat2[0 * sz + 1]  +  mat[3 * sz + 1] * mat2[1 * sz + 1]  +  mat[3 * sz + 2] * mat2[2 * sz + 1]  +  mat[3 * sz + 3] * mat2[3 * sz + 1];
-	let x3_y2 = mat[3 * sz + 0] * mat2[0 * sz + 2]  +  mat[3 * sz + 1] * mat2[1 * sz + 2]  +  mat[3 * sz + 2] * mat2[2 * sz + 2]  +  mat[3 * sz + 3] * mat2[3 * sz + 2];
-	let x3_y3 = mat[3 * sz + 0] * mat2[0 * sz + 3]  +  mat[3 * sz + 1] * mat2[1 * sz + 3]  +  mat[3 * sz + 2] * mat2[2 * sz + 3]  +  mat[3 * sz + 3] * mat2[3 * sz + 3];
+	let x3_y0 = mat[3 * SZ + 0] * mat2[0 * SZ + 0]  +  mat[3 * SZ + 1] * mat2[1 * SZ + 0]  +  mat[3 * SZ + 2] * mat2[2 * SZ + 0]  +  mat[3 * SZ + 3] * mat2[3 * SZ + 0];
+	let x3_y1 = mat[3 * SZ + 0] * mat2[0 * SZ + 1]  +  mat[3 * SZ + 1] * mat2[1 * SZ + 1]  +  mat[3 * SZ + 2] * mat2[2 * SZ + 1]  +  mat[3 * SZ + 3] * mat2[3 * SZ + 1];
+	let x3_y2 = mat[3 * SZ + 0] * mat2[0 * SZ + 2]  +  mat[3 * SZ + 1] * mat2[1 * SZ + 2]  +  mat[3 * SZ + 2] * mat2[2 * SZ + 2]  +  mat[3 * SZ + 3] * mat2[3 * SZ + 2];
+	let x3_y3 = mat[3 * SZ + 0] * mat2[0 * SZ + 3]  +  mat[3 * SZ + 1] * mat2[1 * SZ + 3]  +  mat[3 * SZ + 2] * mat2[2 * SZ + 3]  +  mat[3 * SZ + 3] * mat2[3 * SZ + 3];
 
-	mat[0 * sz + 0] = x0_y0;
-	mat[0 * sz + 1] = x0_y1;
-	mat[0 * sz + 2] = x0_y2;
-	mat[0 * sz + 3] = x0_y3;
+	mat[0 * SZ + 0] = x0_y0;
+	mat[0 * SZ + 1] = x0_y1;
+	mat[0 * SZ + 2] = x0_y2;
+	mat[0 * SZ + 3] = x0_y3;
 
-	mat[1 * sz + 0] = x1_y0;
-	mat[1 * sz + 1] = x1_y1;
-	mat[1 * sz + 2] = x1_y2;
-	mat[1 * sz + 3] = x1_y3;
+	mat[1 * SZ + 0] = x1_y0;
+	mat[1 * SZ + 1] = x1_y1;
+	mat[1 * SZ + 2] = x1_y2;
+	mat[1 * SZ + 3] = x1_y3;
 
-	mat[2 * sz + 0] = x2_y0;
-	mat[2 * sz + 1] = x2_y1;
-	mat[2 * sz + 2] = x2_y2;
-	mat[2 * sz + 3] = x2_y3;
+	mat[2 * SZ + 0] = x2_y0;
+	mat[2 * SZ + 1] = x2_y1;
+	mat[2 * SZ + 2] = x2_y2;
+	mat[2 * SZ + 3] = x2_y3;
 
-	mat[3 * sz + 0] = x3_y0;
-	mat[3 * sz + 1] = x3_y1;
-	mat[3 * sz + 2] = x3_y2;
-	mat[3 * sz + 3] = x3_y3;
+	mat[3 * SZ + 0] = x3_y0;
+	mat[3 * SZ + 1] = x3_y1;
+	mat[3 * SZ + 2] = x3_y2;
+	mat[3 * SZ + 3] = x3_y3;
 }
 
 pub fn multiply_4x4_matrices_alloc(mat: &mut Vec<f32>, mat2: &Vec<f32>) {
 	let mut result = [0.0; 16];
 
-	let sz: usize = 4;
+	const SZ: usize = 4;
 
-	for i in 0..sz {
-		for j in 0..sz {
-			for k in 0..sz {
-				result[i * sz + j] += mat[i * sz + k] * mat2[k * sz + j];
+	for i in 0..SZ {
+		for j in 0..SZ {
+			for k in 0..SZ {
+				result[i * SZ + j] += mat[i * SZ + k] * mat2[k * SZ + j];
 			}
 		}
 	}
 
-	for i in 0..sz*sz {
-		mat[i] = result[i];
-	}
+	const SZ_SQ: usize = SZ * SZ;
+	mat[..SZ_SQ].copy_from_slice(&result[..SZ_SQ]);
+
+	// same as
+	// for i in 0..sz*sz {
+	// 	mat[i] = result[i];
+	// }
 }
 
 pub fn apply_mat_generic(mat: &mut Vec<f32>) {
@@ -497,65 +503,65 @@ pub fn apply_mat_generic(mat: &mut Vec<f32>) {
 	// build any mat_4x4 here to test
 	let mat2 = Vec::<f32>::new();
 	
-	let sz = 4;
+	const SZ: usize = 4;
 
-	let x0_y0 = mat[0 * sz + 0] * mat2[0 * sz + 0]  +  mat[0 * sz + 1] * mat2[1 * sz + 0]  +  mat[0 * sz + 2] * mat2[2 * sz + 0]  +  mat[0 * sz + 3] * mat2[3 * sz + 0];
-	let x0_y1 = mat[0 * sz + 0] * mat2[0 * sz + 1]  +  mat[0 * sz + 1] * mat2[1 * sz + 1]  +  mat[0 * sz + 2] * mat2[2 * sz + 1]  +  mat[0 * sz + 3] * mat2[3 * sz + 1];
-	let x0_y2 = mat[0 * sz + 0] * mat2[0 * sz + 2]  +  mat[0 * sz + 1] * mat2[1 * sz + 2]  +  mat[0 * sz + 2] * mat2[2 * sz + 2]  +  mat[0 * sz + 3] * mat2[3 * sz + 2];
-	let x0_y3 = mat[0 * sz + 0] * mat2[0 * sz + 3]  +  mat[0 * sz + 1] * mat2[1 * sz + 3]  +  mat[0 * sz + 2] * mat2[2 * sz + 3]  +  mat[0 * sz + 3] * mat2[3 * sz + 3];
+	let x0_y0 = mat[0 * SZ + 0] * mat2[0 * SZ + 0]  +  mat[0 * SZ + 1] * mat2[1 * SZ + 0]  +  mat[0 * SZ + 2] * mat2[2 * SZ + 0]  +  mat[0 * SZ + 3] * mat2[3 * SZ + 0];
+	let x0_y1 = mat[0 * SZ + 0] * mat2[0 * SZ + 1]  +  mat[0 * SZ + 1] * mat2[1 * SZ + 1]  +  mat[0 * SZ + 2] * mat2[2 * SZ + 1]  +  mat[0 * SZ + 3] * mat2[3 * SZ + 1];
+	let x0_y2 = mat[0 * SZ + 0] * mat2[0 * SZ + 2]  +  mat[0 * SZ + 1] * mat2[1 * SZ + 2]  +  mat[0 * SZ + 2] * mat2[2 * SZ + 2]  +  mat[0 * SZ + 3] * mat2[3 * SZ + 2];
+	let x0_y3 = mat[0 * SZ + 0] * mat2[0 * SZ + 3]  +  mat[0 * SZ + 1] * mat2[1 * SZ + 3]  +  mat[0 * SZ + 2] * mat2[2 * SZ + 3]  +  mat[0 * SZ + 3] * mat2[3 * SZ + 3];
 
-	let x1_y0 = mat[1 * sz + 0] * mat2[0 * sz + 0]  +  mat[1 * sz + 1] * mat2[1 * sz + 0]  +  mat[1 * sz + 2] * mat2[2 * sz + 0]  +  mat[1 * sz + 3] * mat2[3 * sz + 0];
-	let x1_y1 = mat[1 * sz + 0] * mat2[0 * sz + 1]  +  mat[1 * sz + 1] * mat2[1 * sz + 1]  +  mat[1 * sz + 2] * mat2[2 * sz + 1]  +  mat[1 * sz + 3] * mat2[3 * sz + 1];
-	let x1_y2 = mat[1 * sz + 0] * mat2[0 * sz + 2]  +  mat[1 * sz + 1] * mat2[1 * sz + 2]  +  mat[1 * sz + 2] * mat2[2 * sz + 2]  +  mat[1 * sz + 3] * mat2[3 * sz + 2];
-	let x1_y3 = mat[1 * sz + 0] * mat2[0 * sz + 3]  +  mat[1 * sz + 1] * mat2[1 * sz + 3]  +  mat[1 * sz + 2] * mat2[2 * sz + 3]  +  mat[1 * sz + 3] * mat2[3 * sz + 3];
+	let x1_y0 = mat[1 * SZ + 0] * mat2[0 * SZ + 0]  +  mat[1 * SZ + 1] * mat2[1 * SZ + 0]  +  mat[1 * SZ + 2] * mat2[2 * SZ + 0]  +  mat[1 * SZ + 3] * mat2[3 * SZ + 0];
+	let x1_y1 = mat[1 * SZ + 0] * mat2[0 * SZ + 1]  +  mat[1 * SZ + 1] * mat2[1 * SZ + 1]  +  mat[1 * SZ + 2] * mat2[2 * SZ + 1]  +  mat[1 * SZ + 3] * mat2[3 * SZ + 1];
+	let x1_y2 = mat[1 * SZ + 0] * mat2[0 * SZ + 2]  +  mat[1 * SZ + 1] * mat2[1 * SZ + 2]  +  mat[1 * SZ + 2] * mat2[2 * SZ + 2]  +  mat[1 * SZ + 3] * mat2[3 * SZ + 2];
+	let x1_y3 = mat[1 * SZ + 0] * mat2[0 * SZ + 3]  +  mat[1 * SZ + 1] * mat2[1 * SZ + 3]  +  mat[1 * SZ + 2] * mat2[2 * SZ + 3]  +  mat[1 * SZ + 3] * mat2[3 * SZ + 3];
 
-	let x2_y0 = mat[2 * sz + 0] * mat2[0 * sz + 0]  +  mat[2 * sz + 1] * mat2[1 * sz + 0]  +  mat[2 * sz + 2] * mat2[2 * sz + 0]  +  mat[2 * sz + 3] * mat2[3 * sz + 0];
-	let x2_y1 = mat[2 * sz + 0] * mat2[0 * sz + 1]  +  mat[2 * sz + 1] * mat2[1 * sz + 1]  +  mat[2 * sz + 2] * mat2[2 * sz + 1]  +  mat[2 * sz + 3] * mat2[3 * sz + 1];
-	let x2_y2 = mat[2 * sz + 0] * mat2[0 * sz + 2]  +  mat[2 * sz + 1] * mat2[1 * sz + 2]  +  mat[2 * sz + 2] * mat2[2 * sz + 2]  +  mat[2 * sz + 3] * mat2[3 * sz + 2];
-	let x2_y3 = mat[2 * sz + 0] * mat2[0 * sz + 3]  +  mat[2 * sz + 1] * mat2[1 * sz + 3]  +  mat[2 * sz + 2] * mat2[2 * sz + 3]  +  mat[2 * sz + 3] * mat2[3 * sz + 3];
+	let x2_y0 = mat[2 * SZ + 0] * mat2[0 * SZ + 0]  +  mat[2 * SZ + 1] * mat2[1 * SZ + 0]  +  mat[2 * SZ + 2] * mat2[2 * SZ + 0]  +  mat[2 * SZ + 3] * mat2[3 * SZ + 0];
+	let x2_y1 = mat[2 * SZ + 0] * mat2[0 * SZ + 1]  +  mat[2 * SZ + 1] * mat2[1 * SZ + 1]  +  mat[2 * SZ + 2] * mat2[2 * SZ + 1]  +  mat[2 * SZ + 3] * mat2[3 * SZ + 1];
+	let x2_y2 = mat[2 * SZ + 0] * mat2[0 * SZ + 2]  +  mat[2 * SZ + 1] * mat2[1 * SZ + 2]  +  mat[2 * SZ + 2] * mat2[2 * SZ + 2]  +  mat[2 * SZ + 3] * mat2[3 * SZ + 2];
+	let x2_y3 = mat[2 * SZ + 0] * mat2[0 * SZ + 3]  +  mat[2 * SZ + 1] * mat2[1 * SZ + 3]  +  mat[2 * SZ + 2] * mat2[2 * SZ + 3]  +  mat[2 * SZ + 3] * mat2[3 * SZ + 3];
 
-	let x3_y0 = mat[3 * sz + 0] * mat2[0 * sz + 0]  +  mat[3 * sz + 1] * mat2[1 * sz + 0]  +  mat[3 * sz + 2] * mat2[2 * sz + 0]  +  mat[3 * sz + 3] * mat2[3 * sz + 0];
-	let x3_y1 = mat[3 * sz + 0] * mat2[0 * sz + 1]  +  mat[3 * sz + 1] * mat2[1 * sz + 1]  +  mat[3 * sz + 2] * mat2[2 * sz + 1]  +  mat[3 * sz + 3] * mat2[3 * sz + 1];
-	let x3_y2 = mat[3 * sz + 0] * mat2[0 * sz + 2]  +  mat[3 * sz + 1] * mat2[1 * sz + 2]  +  mat[3 * sz + 2] * mat2[2 * sz + 2]  +  mat[3 * sz + 3] * mat2[3 * sz + 2];
-	let x3_y3 = mat[3 * sz + 0] * mat2[0 * sz + 3]  +  mat[3 * sz + 1] * mat2[1 * sz + 3]  +  mat[3 * sz + 2] * mat2[2 * sz + 3]  +  mat[3 * sz + 3] * mat2[3 * sz + 3];
+	let x3_y0 = mat[3 * SZ + 0] * mat2[0 * SZ + 0]  +  mat[3 * SZ + 1] * mat2[1 * SZ + 0]  +  mat[3 * SZ + 2] * mat2[2 * SZ + 0]  +  mat[3 * SZ + 3] * mat2[3 * SZ + 0];
+	let x3_y1 = mat[3 * SZ + 0] * mat2[0 * SZ + 1]  +  mat[3 * SZ + 1] * mat2[1 * SZ + 1]  +  mat[3 * SZ + 2] * mat2[2 * SZ + 1]  +  mat[3 * SZ + 3] * mat2[3 * SZ + 1];
+	let x3_y2 = mat[3 * SZ + 0] * mat2[0 * SZ + 2]  +  mat[3 * SZ + 1] * mat2[1 * SZ + 2]  +  mat[3 * SZ + 2] * mat2[2 * SZ + 2]  +  mat[3 * SZ + 3] * mat2[3 * SZ + 2];
+	let x3_y3 = mat[3 * SZ + 0] * mat2[0 * SZ + 3]  +  mat[3 * SZ + 1] * mat2[1 * SZ + 3]  +  mat[3 * SZ + 2] * mat2[2 * SZ + 3]  +  mat[3 * SZ + 3] * mat2[3 * SZ + 3];
 
-	mat[0 * sz + 0] = x0_y0;
-	mat[0 * sz + 1] = x0_y1;
-	mat[0 * sz + 2] = x0_y2;
-	mat[0 * sz + 3] = x0_y3;
+	mat[0 * SZ + 0] = x0_y0;
+	mat[0 * SZ + 1] = x0_y1;
+	mat[0 * SZ + 2] = x0_y2;
+	mat[0 * SZ + 3] = x0_y3;
 
-	mat[1 * sz + 0] = x1_y0;
-	mat[1 * sz + 1] = x1_y1;
-	mat[1 * sz + 2] = x1_y2;
-	mat[1 * sz + 3] = x1_y3;
+	mat[1 * SZ + 0] = x1_y0;
+	mat[1 * SZ + 1] = x1_y1;
+	mat[1 * SZ + 2] = x1_y2;
+	mat[1 * SZ + 3] = x1_y3;
 
-	mat[2 * sz + 0] = x2_y0;
-	mat[2 * sz + 1] = x2_y1;
-	mat[2 * sz + 2] = x2_y2;
-	mat[2 * sz + 3] = x2_y3;
+	mat[2 * SZ + 0] = x2_y0;
+	mat[2 * SZ + 1] = x2_y1;
+	mat[2 * SZ + 2] = x2_y2;
+	mat[2 * SZ + 3] = x2_y3;
 
-	mat[3 * sz + 0] = x3_y0;
-	mat[3 * sz + 1] = x3_y1;
-	mat[3 * sz + 2] = x3_y2;
-	mat[3 * sz + 3] = x3_y3;
+	mat[3 * SZ + 0] = x3_y0;
+	mat[3 * SZ + 1] = x3_y1;
+	mat[3 * SZ + 2] = x3_y2;
+	mat[3 * SZ + 3] = x3_y3;
 
-	mat[0 * sz + 0] = x0_y0;
-	mat[0 * sz + 1] = x0_y1;
-	mat[0 * sz + 2] = x0_y2;
-	mat[0 * sz + 3] = x0_y3;
+	mat[0 * SZ + 0] = x0_y0;
+	mat[0 * SZ + 1] = x0_y1;
+	mat[0 * SZ + 2] = x0_y2;
+	mat[0 * SZ + 3] = x0_y3;
 
-	mat[1 * sz + 0] = x1_y0;
-	mat[1 * sz + 1] = x1_y1;
-	mat[1 * sz + 2] = x1_y2;
-	mat[1 * sz + 3] = x1_y3;
+	mat[1 * SZ + 0] = x1_y0;
+	mat[1 * SZ + 1] = x1_y1;
+	mat[1 * SZ + 2] = x1_y2;
+	mat[1 * SZ + 3] = x1_y3;
 
-	mat[2 * sz + 0] = x2_y0;
-	mat[2 * sz + 1] = x2_y1;
-	mat[2 * sz + 2] = x2_y2;
-	mat[2 * sz + 3] = x2_y3;
+	mat[2 * SZ + 0] = x2_y0;
+	mat[2 * SZ + 1] = x2_y1;
+	mat[2 * SZ + 2] = x2_y2;
+	mat[2 * SZ + 3] = x2_y3;
 
-	mat[3 * sz + 0] = x3_y0;
-	mat[3 * sz + 1] = x3_y1;
-	mat[3 * sz + 2] = x3_y2;
-	mat[3 * sz + 3] = x3_y3;
+	mat[3 * SZ + 0] = x3_y0;
+	mat[3 * SZ + 1] = x3_y1;
+	mat[3 * SZ + 2] = x3_y2;
+	mat[3 * SZ + 3] = x3_y3;
 }

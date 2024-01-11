@@ -2,7 +2,7 @@
 
 pub mod mesh;
 
-use std::{f32::consts::TAU};
+use std::f32::consts::TAU;
 
 use crate::{maths::*, benchmark::Benchmark, timer::AppTimer};
 
@@ -76,7 +76,8 @@ pub fn draw_mesh_wire_and_normals(mesh: &Mesh, buffer: &mut Vec<char>, width_hei
 	let (angle_x, angle_y, angle_z) = (t * 0.1, t * 0.83, t * 1.2);
 
 	let speed = 0.2;
-	let tmod = ((t * speed % 1.0) - 0.5).abs() * 2.0;
+	// let tmod = ((t * speed % 1.0) - 0.5).abs() * 2.0;
+	let tmod = 0.6;
 	let (scale_x, scale_y, scale_z) = (0.2 + 0.2 * tmod, 0.2 + 0.2 * tmod, 0.2 + 0.2 * tmod);
 
 
@@ -205,7 +206,8 @@ pub fn draw_mesh_wire(mesh: &Mesh, buffer: &mut Vec<char>, width_height: (u16, u
 	let (angle_x, angle_y, angle_z) = (t * 0.1, t * 0.83, t * 1.2);
 
 	let speed = 0.2;
-	let tmod = ((t * speed % 1.0) - 0.5).abs() * 2.0;
+	// let tmod = ((t * speed % 1.0) - 0.5).abs() * 2.0;
+	let tmod = 0.7;
 	let (scale_x, scale_y, scale_z) = (0.2 + 0.2 * tmod, 0.2 + 0.2 * tmod, 0.2 + 0.2 * tmod);
 
 
@@ -284,19 +286,21 @@ pub fn draw_triangles_filled(screen_space_tris: &mut Vec<ScreenTriangle>, buffer
 }
 
 pub fn draw_benchmark(buffer: &mut Vec<char>, screen_width: u16, screen_height: u16, benchmark: &Benchmark) {
-	let mut lowest_pos = UVec2::new(0, screen_height - 3 - 4);
-	
+	let mut lowest_pos = UVec2::new(0, screen_height - 3 - 6);
+
+	draw_string(&format!("time scale: {:.1} playing: {}", if benchmark.is_paused { 0.0 } else { 1.0 },  !benchmark.is_paused), &lowest_pos, buffer, screen_width);
+	lowest_pos.y += 1;
 	draw_string(&format!("dt: {:.2}ms", benchmark.delta_time_millis), &lowest_pos, buffer, screen_width);
 	lowest_pos.y += 1;
 	draw_string(&format!("fps: {}", benchmark.fps),                   &lowest_pos, buffer, screen_width);
 	lowest_pos.y += 1;
-	draw_string(&format!("frames: {}", benchmark.total_frame_count),  &lowest_pos, buffer, screen_width);
+	draw_string(&format!("unscaled frames: {}", benchmark.total_frame_count),  &lowest_pos, buffer, screen_width);
 	lowest_pos.y += 1;
-	draw_string(&format!("w: {}, h: {}, w*h: {}", screen_width, screen_height, screen_width * screen_height), &lowest_pos, buffer, screen_width);
+	draw_string(&format!("w: {}, h: {}, w*h: {}", screen_width, screen_height, screen_width as u32 * screen_height as u32), &lowest_pos, buffer, screen_width);
 }
 
 pub fn draw_timer(buffer: &mut Vec<char>, screen_width: u16, screen_height: u16, timer: &AppTimer) {
-	draw_string(&format!("aggr: {:.4}", timer.time_aggr.as_millis()), &UVec2::new(0, screen_height - 3), buffer, screen_width);
+	draw_string(&format!("scaled frames: {:.4}", timer.time_aggr.as_millis()), &UVec2::new(0, screen_height - 3), buffer, screen_width);
 }
 
 pub fn draw_point(p: &UVec2, buffer: &mut Vec<char>, screen_width: u16, fill_char: char) {
@@ -388,13 +392,13 @@ pub fn draw_triangles_wire(screen_space_tris: &Vec<ScreenTriangle>, buffer: &mut
 }
 
 // TODO: decent test
-pub fn test_bresenham(buffer: &mut Vec<char>, screen_width: u16, screen_height: u16, time_spent: i32) {
+pub fn test_bresenham(buffer: &mut Vec<char>, screen_width: u16, screen_height: u16, time_seed: i32) {
 	draw_string(&format!("w:{}, h:{}", screen_width, screen_height), &UVec2::new(0, 0), buffer, screen_width);
 
 	let middle = UVec2::new(screen_width / 2, screen_height / 2);
 	
 	let len = 20.0;
-	let modulus = time_spent / 2 % 1000;
+	let modulus = time_seed / 2 % 1000;
 	let t = modulus as f32 / 1000.0;
 	// let t_2 = ((t-0.5)).abs() * 2.0;
 
@@ -404,16 +408,17 @@ pub fn test_bresenham(buffer: &mut Vec<char>, screen_width: u16, screen_height: 
 	let y = (angle.sin() * len) as i16;
 	
 	
-	let up = UVec2::new((middle.x as i16 + x) as u16, (middle.y as i16 + y) as u16);
 	
+
+	
+	let up = UVec2::new((middle.x as i16 + x) as u16, (middle.y as i16 + y) as u16);
+
 	// let up = UVec2::new((middle.x as i16) as u16, (middle.y as i16 + 15) as u16);
 	// let up = UVec2::new((middle.x + 15), middle.y + 7);
-	
+
 
 	let direction: char;
 	if angle < (TAU * 1.0/8.0) {
-		direction = '→';
-	} else if angle < (TAU * 1.0/8.0) {
 		direction = '↘';
 	} else if angle < (TAU * 2.0/8.0) {
 		direction = '↓';

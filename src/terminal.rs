@@ -30,7 +30,6 @@ impl FreeText {
 impl Widget for &FreeText {
 	fn render(self, area: Rect, buf: &mut Buffer) {
 
-		
 		let x_start = 0;
 		let y_start = 0;
 		

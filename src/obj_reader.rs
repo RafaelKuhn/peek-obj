@@ -1,52 +1,59 @@
-use std::{num::{ParseFloatError, ParseIntError}, fmt::Display, fs};
+use std::{num::{ParseFloatError, ParseIntError}, fmt::Display, fs, io::Error};
 
 use crate::{rendering::mesh::Mesh, maths::Vec3};
 
 
+// pub enum ReaderError<'a> {
 pub enum ReaderError {
+	// BadFormat(&'a str),
 	BadFormat(String),
-	FileNotFound,
-	IOError,
+	// FileNotFound(&'a str),
+	FileNotFound(String),
+	IOError(Error),
 }
 
-impl Display for ReaderError {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		
-		let response = match self {
-			ReaderError::IOError       => "IO error",
-			ReaderError::BadFormat(st) => &st,
-			ReaderError::FileNotFound  => "Not found error",
-		};
-
-		f.write_str(response).unwrap();
-		Ok(())
+impl ReaderError {
+	fn from_io_error(err: Error, path: &str) -> ReaderError {
+		match err.kind() {
+			std::io::ErrorKind::NotFound => ReaderError::FileNotFound(path.to_owned()),
+			_ => ReaderError::IOError(err),
+		}
 	}
-}
 
-impl From<std::io::Error> for ReaderError {
-	fn from(io_error: std::io::Error) -> Self {
-		match io_error.kind() {
-			std::io::ErrorKind::NotFound => Self::FileNotFound,
-			_ => Self::IOError,
+	fn as_string(&self) -> String {
+		match self {
+			ReaderError::IOError(err) => format!("IO error {}", err),
+			ReaderError::BadFormat(st) => st.to_owned(),
+			ReaderError::FileNotFound(path) => format!("File '{}' Not found!", path),
 		}
 	}
 }
 
+impl Display for ReaderError {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		let response = self.as_string();
+		f.write_str(&response).unwrap();
+
+		Ok(())
+	}
+}
+
 impl From<ParseFloatError> for ReaderError {
-	fn from(_: ParseFloatError) -> Self {
-		Self::BadFormat("parse float error".to_owned())
+	fn from(err: ParseFloatError) -> Self {
+		Self::BadFormat(format!("Parse float error: '{}'", err))
 	}
 }
 
 impl From<ParseIntError> for ReaderError {
-	fn from(_: ParseIntError) -> Self {
-		Self::BadFormat("parse int error".to_owned())
+	fn from(err: ParseIntError) -> Self {
+		Self::BadFormat(format!("Parse int error: '{}'", err))
 	}
 }
 
 // TODO: instead of propagating the shit all the way, I can make ReaderError have a string that expands with the error (shows lines that went bad)
 pub fn read_mesh_from_obj(path: &str) -> Result<Mesh, ReaderError> {
-	let file_content = fs::read_to_string(path)?;
+
+	let file_content = fs::read_to_string(path).map_err(|err| ReaderError::from_io_error(err, path))?;
 
 	let mut verts   = vec![];
 	let mut tris    = vec![];
@@ -60,8 +67,8 @@ pub fn read_mesh_from_obj(path: &str) -> Result<Mesh, ReaderError> {
 		
 		if line.starts_with("v ") {
 			for vert_str in line_split_by_space {
-				if vert_str.len() == 0 { continue; }
-				
+				if vert_str.is_empty() { continue }
+
 				let vert = vert_str.parse::<f32>().or(
 					Err(
 						ReaderError::BadFormat(format!("cant parse float '{}'\nline {}: '{}'", vert_str, i+1, line))
@@ -75,7 +82,7 @@ pub fn read_mesh_from_obj(path: &str) -> Result<Mesh, ReaderError> {
 
 		if line.starts_with("vn ") {
 			for normal_str in line_split_by_space {
-				if normal_str.len() == 0 { continue; }
+				if normal_str.is_empty() { continue; }
 
 				let normal = normal_str.parse::<f32>().or(
 					Err(

@@ -1,7 +1,6 @@
 use std::time::{Instant, Duration};
 
 
-
 pub struct AppTimer {
 	pub frame_count: u32,
 	pub delta_time: Duration,
@@ -29,17 +28,16 @@ impl AppTimer {
 		}
 	}
 
-	pub fn add_frame(&mut self) {
+	pub fn run(&mut self) {
 		let now = Instant::now();
 
 		self.delta_time = (now - self.last_tick).mul_f32(self.time_scale);
 		self.last_tick = now;
-		
+
 		self.frame_count += 1;
-		
+
 		self.time_since_start = now - self.start;
 		self.time_aggr += self.delta_time;
-		// time_since_start = (last_tick_temp - start).as_millis();
 	}
-	
+
 }
