@@ -13,7 +13,7 @@ impl Vec3 {
 		Vec3 { x, y, z }
 	}
 
-	pub fn get_transformed_by_mat3x3(&self, mat: &Vec<f32>) -> Self {
+	pub fn get_transformed_by_mat3x3(&self, mat: &[f32]) -> Self {
 		let x = self.x * mat[0*3 + 0] + self.y * mat[0*3 + 1] + self.z * mat[0*3 + 2];
 		let y = self.x * mat[1*3 + 0] + self.y * mat[1*3 + 1] + self.z * mat[1*3 + 2];
 		let z = self.x * mat[2*3 + 0] + self.y * mat[2*3 + 1] + self.z * mat[2*3 + 2];
@@ -21,7 +21,7 @@ impl Vec3 {
 		Self { x, y, z }
 	}
 
-	pub fn transform_by_mat3x3(&mut self, mat: &Vec<f32>) {
+	pub fn transform_by_mat3x3(&mut self, mat: &[f32]) {
 		let x = self.x * mat[0*3 + 0] + self.y * mat[0*3 + 1] + self.z * mat[0*3 + 2];
 		let y = self.x * mat[1*3 + 0] + self.y * mat[1*3 + 1] + self.z * mat[1*3 + 2];
 		let z = self.x * mat[2*3 + 0] + self.y * mat[2*3 + 1] + self.z * mat[2*3 + 2];
@@ -31,7 +31,7 @@ impl Vec3 {
 		self.z = z;
 	}
 
-	pub fn get_transformed_by_mat4x4(&self, mat: &Vec<f32>) -> Self {
+	pub fn get_transformed_by_mat4x4(&self, mat: &[f32]) -> Self {
 		let mut x = self.x * mat[0*4 + 0] + self.y * mat[0*4 + 1] + self.z * mat[0*4 + 2] + 1.0 * mat[0*4 + 3];
 		let mut y = self.x * mat[1*4 + 0] + self.y * mat[1*4 + 1] + self.z * mat[1*4 + 2] + 1.0 * mat[1*4 + 3];
 		let mut z = self.x * mat[2*4 + 0] + self.y * mat[2*4 + 1] + self.z * mat[2*4 + 2] + 1.0 * mat[2*4 + 3];
@@ -47,28 +47,28 @@ impl Vec3 {
 	}
 
 	fn add_vec(&self, rhs: &Vec3) -> Vec3 {
-        return Vec3 {
+		Vec3 {
 			x: rhs.x + self.x,
 			y: rhs.y + self.y,
 			z: rhs.z + self.z,
 		}
-    }
+	}
 }
 
 impl std::ops::Add<&Vec3> for &Vec3 {
-    type Output = Vec3;
+	type Output = Vec3;
 
-    fn add(self, rhs: &Vec3) -> Self::Output {
-        self.add_vec(rhs)
-    }
+	fn add(self, rhs: &Vec3) -> Self::Output {
+		self.add_vec(rhs)
+	}
 }
 
 impl std::ops::Add<Vec3> for Vec3 {
-    type Output = Vec3;
+	type Output = Vec3;
 
-    fn add(self, rhs: Vec3) -> Self::Output {
-        self.add_vec(&rhs)
-    }
+	fn add(self, rhs: Vec3) -> Self::Output {
+		self.add_vec(&rhs)
+	}
 }
 
 
@@ -84,16 +84,16 @@ impl UVec2 {
 }
 
 impl Display for UVec2 {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		write!(f, "[{}, {}]", self.x, self.y)
-    }
+	}
 }
 
 // TODO: check if I need to implement display or debug
 impl fmt::Debug for UVec2 {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "[{}, {}]", self.x, self.y)
-    }
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		write!(f, "[{}, {}]", self.x, self.y)
+	}
 }
 
 
@@ -233,7 +233,7 @@ pub fn lerp(a: u32, b: u32, t: f32) -> u32 {
 	(a as f32 * t + (b - a) as f32 * t) as u32
 }
 
-fn transpose_3x3(vec: &mut Vec<f32>) {
+fn transpose_3x3(vec: &mut [f32]) {
 	let mut temp: f32;
 	
 	const SZ: usize = 3;
@@ -254,7 +254,7 @@ fn transpose_3x3(vec: &mut Vec<f32>) {
 	vec[y * SZ + x] = temp;
 }
 
-fn transpose_3x3_area_in_4x4(vec: &mut Vec<f32>) {
+fn transpose_3x3_area_in_4x4(vec: &mut [f32]) {
 	let mut temp: f32;
 	
 	const SZ: usize = 4;
@@ -275,7 +275,7 @@ fn transpose_3x3_area_in_4x4(vec: &mut Vec<f32>) {
 	vec[y * SZ + x] = temp;
 }
 
-pub fn apply_identity_to_mat_4x4(mat: &mut Vec<f32>) {
+pub fn apply_identity_to_mat_4x4(mat: &mut [f32]) {
 	const SZ: usize = 4;
 	
 	mat[0 * SZ + 0] = 1.0;
@@ -299,16 +299,16 @@ pub fn apply_identity_to_mat_4x4(mat: &mut Vec<f32>) {
 	mat[3 * SZ + 3] = 1.0;
 }
 
-pub fn apply_projection_to_mat_4x4(mat: &mut Vec<f32>, width_height: (u16, u16)) {
+pub fn apply_projection_to_mat_4x4(mat: &mut [f32], width_height: (u16, u16)) {
 	let (screen_width, screen_height) = width_height;
 
 	const ZN: f32 =   0.1;
 	const ZF: f32 = 100.0;
 	
 	let aspect_ratio = (screen_height as f32 * 2.0) / screen_width as f32;
-    const FOV: f32 = 0.25 * TAU;
+	const FOV: f32 = 0.25 * TAU;
 
-    let inv_tan_half_fov = 1.0 / ((FOV / 2.0).tan());
+	let inv_tan_half_fov = 1.0 / ((FOV / 2.0).tan());
 	let z_range = ZF - ZN;
 
 	let fir = aspect_ratio * inv_tan_half_fov;
@@ -340,7 +340,7 @@ pub fn apply_projection_to_mat_4x4(mat: &mut Vec<f32>, width_height: (u16, u16))
 	mat[2 * SZ + 3] = 1.0;
 }
 
-pub fn apply_scale_to_mat_4x4(mat: &mut Vec<f32>, scale_x: f32, scale_y: f32, scale_z: f32) {
+pub fn apply_scale_to_mat_4x4(mat: &mut [f32], scale_x: f32, scale_y: f32, scale_z: f32) {
 	const SZ: usize = 4;
 
 	//              y * w + x
@@ -368,13 +368,12 @@ pub fn apply_scale_to_mat_4x4(mat: &mut Vec<f32>, scale_x: f32, scale_y: f32, sc
 	mat[3 * SZ + 2] = 0.0;
 }
 
-pub fn apply_rotation_to_mat_4x4_alloc(mat: &mut Vec<f32>, angle_x: f32, angle_y: f32, angle_z: f32) {
+pub fn apply_rotation_to_mat_4x4_alloc(mat: &mut [f32], angle_x: f32, angle_y: f32, angle_z: f32) {
 	let mat2 = build_rot_mat_xyz_4x4(angle_x, angle_y, angle_z);
 	multiply_4x4_matrices(mat, &mat2);
-	return;
 }
 
-pub fn apply_rotation_to_mat_4x4(mat: &mut Vec<f32>, angle_x: f32, angle_y: f32, angle_z: f32) {	
+pub fn apply_rotation_to_mat_4x4(mat: &mut [f32], angle_x: f32, angle_y: f32, angle_z: f32) {	
 	let cos_x = angle_x.cos();
 	let sin_x = angle_x.sin();
 
@@ -424,7 +423,7 @@ pub fn apply_rotation_to_mat_4x4(mat: &mut Vec<f32>, angle_x: f32, angle_y: f32,
 	mat[2 * sz + 2] = x2_y2;
 }
 
-pub fn apply_pos_to_mat_4x4(mat: &mut Vec<f32>, pos_x: f32, pos_y: f32, pos_z: f32) {
+pub fn apply_pos_to_mat_4x4(mat: &mut [f32], pos_x: f32, pos_y: f32, pos_z: f32) {
 	const SZ: usize = 4;
 	mat[0 * SZ + 3] = pos_x;
 	mat[1 * SZ + 3] = pos_y;
@@ -432,7 +431,7 @@ pub fn apply_pos_to_mat_4x4(mat: &mut Vec<f32>, pos_x: f32, pos_y: f32, pos_z: f
 }
 
 
-pub fn multiply_4x4_matrices(mat: &mut Vec<f32>, mat2: &Vec<f32>) {
+pub fn multiply_4x4_matrices(mat: &mut [f32], mat2: &[f32]) {
 	const SZ: usize = 4;
 
 	let x0_y0 = mat[0 * SZ + 0] * mat2[0 * SZ + 0]  +  mat[0 * SZ + 1] * mat2[1 * SZ + 0]  +  mat[0 * SZ + 2] * mat2[2 * SZ + 0]  +  mat[0 * SZ + 3] * mat2[3 * SZ + 0];
@@ -476,7 +475,7 @@ pub fn multiply_4x4_matrices(mat: &mut Vec<f32>, mat2: &Vec<f32>) {
 	mat[3 * SZ + 3] = x3_y3;
 }
 
-pub fn multiply_4x4_matrices_alloc(mat: &mut Vec<f32>, mat2: &Vec<f32>) {
+pub fn multiply_4x4_matrices_alloc(mat: &mut [f32], mat2: &[f32]) {
 	let mut result = [0.0; 16];
 
 	const SZ: usize = 4;
@@ -498,7 +497,7 @@ pub fn multiply_4x4_matrices_alloc(mat: &mut Vec<f32>, mat2: &Vec<f32>) {
 	// }
 }
 
-pub fn apply_mat_generic(mat: &mut Vec<f32>) {
+pub fn apply_mat_generic(mat: &mut [f32]) {
 	
 	// build any mat_4x4 here to test
 	let mat2 = Vec::<f32>::new();

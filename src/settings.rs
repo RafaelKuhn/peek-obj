@@ -1,6 +1,5 @@
 use std::process;
 
-
 pub enum ControlMode {
 	Automatic,
 	Wasd,
@@ -14,7 +13,6 @@ pub struct Settings {
 }
 
 impl Settings {
-	// pub fn from_args<'a, It>(args: It) -> Settings
 	pub fn from_args<It>(args: It) -> Settings
 	where
 		It: Iterator<Item = String>
@@ -56,6 +54,4 @@ impl Settings {
 
 		settings
 	}
-
-
 }

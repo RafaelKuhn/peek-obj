@@ -5,11 +5,10 @@ pub struct Benchmark {
 	pub fps: i32,
 	pub total_frame_count: u32,
 	pub is_paused: bool,
-	
+
 	refresh_rate: f32,
 	accum_time: f32,
 	frame_count_measurement: u32,
-	// accum_time: f32,
 }
 
 impl Benchmark {
@@ -44,8 +43,8 @@ impl Benchmark {
 
 // TODO: find a way of deriving default for all?
 impl Default for Benchmark {
-    fn default() -> Self {
-        Self {
+	fn default() -> Self {
+		Self {
 			delta_time_millis: Default::default(),
 			fps: Default::default(),
 			total_frame_count: Default::default(),
@@ -54,5 +53,5 @@ impl Default for Benchmark {
 			frame_count_measurement: Default::default(),
 			is_paused: Default::default(),
 		}
-    }
+	}
 }

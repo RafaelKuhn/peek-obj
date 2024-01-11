@@ -137,10 +137,10 @@ pub fn read_mesh_from_obj(path: &str) -> Result<Mesh, ReaderError> {
 	}
 
 	let mesh = Mesh {
-		verts: verts,
+		verts,
 		tris_indices: tris,
-		normals: normals,
-		normal_indices: normal_indices,
+		normals,
+		normal_indices,
 	};
 
 	Ok(mesh)

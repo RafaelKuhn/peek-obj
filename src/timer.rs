@@ -7,7 +7,7 @@ pub struct AppTimer {
 	pub time_since_start: Duration,
 	pub time_aggr: Duration,
 	pub time_scale: f32,
-	
+
 	start: Instant,
 	last_tick: Instant,
 }
@@ -18,9 +18,9 @@ impl AppTimer {
 		let duration_of_2ms = Duration::from_millis(2);
 		Self {
 			frame_count:      0,
-    		delta_time:       duration_of_2ms,
-    		time_since_start: duration_of_2ms,
-    		time_aggr:        duration_of_2ms,
+			delta_time:       duration_of_2ms,
+			time_since_start: duration_of_2ms,
+			time_aggr:        duration_of_2ms,
 			time_scale:       1.0,
 			
 			start:            now,
