@@ -23,9 +23,11 @@ use timer::AppTimer;
 use benchmark::Benchmark;
 
 
-use crate::rendering::mesh::Mesh;
+use crate::rendering::{mesh::Mesh, camera::Camera};
 
-type DrawFunction = fn(&Mesh, &mut [char], (u16, u16), &AppTimer, (&mut [f32], &mut [f32]));
+
+// type DrawFunction = fn(&Mesh, &mut [char], (u16, u16), &AppTimer, (&mut [f32], &mut [f32]));
+type DrawFunction = fn(&Mesh, &mut [char], (u16, u16), &AppTimer, (&mut [f32], &mut [f32]), &Camera);
 
 
 fn main() {
@@ -42,7 +44,13 @@ fn main() {
 	};
 
 	let mesh = match mesh_result {
-		Ok(mesh) => mesh,
+		// Ok(mesh) => mesh,
+		Ok(mut mesh) => {
+			mesh.pos.x = 0.0;
+			mesh.pos.y = 0.0;
+			mesh.pos.z = 22.0;
+			mesh
+		}
 		Err(err) => {
 			println!("{:}", err);
 			process::exit(1);
@@ -59,10 +67,21 @@ fn main() {
 	const BENCHMARK_REFRESH_RATE: f32 = 0.5;
 	let mut benchmark = Benchmark::new(BENCHMARK_REFRESH_RATE);
 
+	let mut camera = Camera::new();
+	camera.set_pos(0.0, 0.0, -12.0);
+	camera.set_rot(0.0,  0.0, 0.0);
+	camera.set_rot(0.0,  6.2831 * 0.0825, 0.0);
+	
+	camera.update_view_matrix();
+
 	let mut transform_mat  = build_identity_4x4();
 	let mut projection_mat = build_identity_4x4();
 
-	let draw_mesh: DrawFunction = if settings.draw_normals { draw_mesh_wire_and_normals } else { draw_mesh_wire };
+	let draw_mesh: DrawFunction = if settings.draw_wireframe {
+		if settings.draw_normals { draw_mesh_wire_and_normals } else { draw_mesh_wire }
+	} else {
+		if settings.draw_normals { panic!("Can't draw normals + filled yet") } else { draw_mesh_filled }
+	};
 
 	loop {
 		if app.has_paused_rendering {
@@ -73,7 +92,7 @@ fn main() {
 
 		render_clear(&mut app.text_buffer.text);
 
-		draw_mesh(&mesh, &mut app.text_buffer.text, (app.width, app.height), &timer, (&mut transform_mat, &mut projection_mat));
+		draw_mesh(&mesh, &mut app.text_buffer.text, (app.width, app.height), &timer, (&mut transform_mat, &mut projection_mat), &camera);
 
 		poll_events(terminal, &mut app, &mut timer);
 

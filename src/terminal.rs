@@ -98,6 +98,7 @@ pub struct FreeText {
 
 impl FreeText {
 	pub fn from_screen(screen_width: u16, screen_height: u16) -> Self {
+		// I have no fucking clue why but I need to add 1 here
 		let length = (screen_width + 1) as usize * (screen_height + 1) as usize;
 		Self::from_chars(rendering::BACKGROUND_FILL_CHAR, length)
 	}

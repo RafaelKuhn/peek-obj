@@ -9,6 +9,7 @@ pub struct Settings {
 	pub has_custom_path: bool,
 	pub custom_path: String,
 	pub draw_normals: bool,
+	pub draw_wireframe: bool,
 	pub control_mode: ControlMode,
 }
 
@@ -21,6 +22,7 @@ impl Settings {
 			has_custom_path: false,
 			custom_path: "obj/teapot.obj".to_string(),
 			draw_normals: false,
+			draw_wireframe: false,
 			control_mode: ControlMode::Wasd,
 		};
 
@@ -35,12 +37,17 @@ impl Settings {
 					"-c" | "--control" | "--controls" | "--wasd" => {
 						settings.control_mode = ControlMode::Wasd;
 					}
+					"-w" | "--wire" | "--wireframe" => {
+						settings.draw_wireframe = true;
+					}
 					_ => {
 						let chars_after_slash = arg.chars().skip(1);
 						println!("Unknown option -- {}", String::from_iter(chars_after_slash));
 						process::exit(1);
 					}
 				}
+
+				continue;
 			}
 
 			if settings.has_custom_path {

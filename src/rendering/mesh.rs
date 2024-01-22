@@ -2,6 +2,7 @@ use crate::maths::Vec3;
 
 
 pub struct Mesh {
+	pub pos: Vec3,
 	pub verts: Vec<f32>,
 	pub tris_indices: Vec<u16>,
 	pub normals: Vec<f32>,
@@ -12,6 +13,7 @@ pub struct Mesh {
 impl Mesh {
 	pub fn cube() -> Self {
 		Self {
+			pos: Vec3::zero(),
 			verts: vec![
 				 1.0, -1.0, -1.0,
 				 1.0, -1.0,  1.0,
@@ -43,12 +45,12 @@ impl Mesh {
 	
 	pub fn get_vert_at(&self, index: usize) -> Vec3 {
 		let tri_index = self.tris_indices[index];
-		
-		let sz = 3;
+
+		const SZ: usize = 3;
 		Vec3::new(
-			 self.verts[(tri_index * sz) as usize + 0],
-			-self.verts[(tri_index * sz) as usize + 1],
-			 self.verts[(tri_index * sz) as usize + 2],
+			 self.verts[tri_index as usize * SZ + 0],
+			-self.verts[tri_index as usize * SZ + 1],
+			 self.verts[tri_index as usize * SZ + 2],
 		)
 	}
 

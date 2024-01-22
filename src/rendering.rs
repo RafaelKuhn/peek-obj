@@ -1,13 +1,13 @@
 #![allow(unused_variables)]
 
 pub mod mesh;
+pub mod camera;
 
 use std::f32::consts::TAU;
 
 use crate::{maths::*, benchmark::Benchmark, timer::AppTimer};
 
-use self::mesh::Mesh;
-
+use self::{mesh::Mesh, camera::Camera};
 
 
 // ascii luminance:
@@ -62,7 +62,7 @@ pub fn draw_mat4x4(mat: &[f32], pos: &UVec2, buffer: &mut [char], screen_width: 
 	draw_string(&r3, &UVec2::new(pos.x, pos.y+3), buffer, screen_width);
 }
 
-pub fn draw_mesh_wire_and_normals(mesh: &Mesh, buffer: &mut [char], width_height: (u16, u16), timer: &AppTimer, matrices: (&mut [f32], &mut [f32])) {
+pub fn draw_mesh_wire_and_normals(mesh: &Mesh, buffer: &mut [char], width_height: (u16, u16), timer: &AppTimer, matrices: (&mut [f32], &mut [f32]), camera: &Camera) {
 	let (screen_width, screen_height) = width_height;
 	let (proj_mat, transform_mat) = matrices;
 	
@@ -90,7 +90,6 @@ pub fn draw_mesh_wire_and_normals(mesh: &Mesh, buffer: &mut [char], width_height
 	multiply_4x4_matrices(proj_mat, transform_mat);
 
 	let num_tris = mesh.tris_indices.len() / 3;
-
 	for tri_i in 0..num_tris {
 
 		let p0_i = tri_i * 3 + 0;
@@ -118,7 +117,6 @@ pub fn draw_mesh_wire_and_normals(mesh: &Mesh, buffer: &mut [char], width_height
 		let trs_p2 = p2.get_transformed_by_mat4x4(proj_mat);
 
 
-		let screen_p0 = clip_space_to_screen_space(&trs_p0, screen_width, screen_height);
 		let screen_p1 = clip_space_to_screen_space(&trs_p1, screen_width, screen_height);
 		let screen_p2 = clip_space_to_screen_space(&trs_p2, screen_width, screen_height);
 
@@ -138,13 +136,13 @@ pub fn draw_mesh_wire_and_normals(mesh: &Mesh, buffer: &mut [char], width_height
 		// draw_string(&format!("s n1 {},{}", screen_n1.x, screen_n1.y), &UVec2::new(0, 9), buffer, screen_width);
 		// draw_string(&format!("s n2 {},{}", screen_n2.x, screen_n2.y), &UVec2::new(0, 10), buffer, screen_width);
 
-		draw_bresenham_line(&screen_p0, &screen_n0, buffer, screen_width, '.');
+		draw_bresenham_line(&clip_space_to_screen_space(&trs_p0, screen_width, screen_height), &screen_n0, buffer, screen_width, '.');
 		draw_bresenham_line(&screen_p1, &screen_n1, buffer, screen_width, '.');
 		draw_bresenham_line(&screen_p2, &screen_n2, buffer, screen_width, '.');
 
-		draw_bresenham_line(&screen_p0, &screen_p1, buffer, screen_width, FILL_CHAR);
+		draw_bresenham_line(&clip_space_to_screen_space(&trs_p0, screen_width, screen_height), &screen_p1, buffer, screen_width, FILL_CHAR);
 		draw_bresenham_line(&screen_p1, &screen_p2, buffer, screen_width, FILL_CHAR);
-		draw_bresenham_line(&screen_p2, &screen_p0, buffer, screen_width, FILL_CHAR);
+		draw_bresenham_line(&screen_p2, &clip_space_to_screen_space(&trs_p0, screen_width, screen_height), buffer, screen_width, FILL_CHAR);
 
 		draw_point(&screen_n0, buffer, screen_width, '@');
 		draw_point(&screen_n1, buffer, screen_width, '@');
@@ -152,10 +150,10 @@ pub fn draw_mesh_wire_and_normals(mesh: &Mesh, buffer: &mut [char], width_height
 	}
 }
 
-pub fn draw_mesh_wire(mesh: &Mesh, buffer: &mut [char], width_height: (u16, u16), timer: &AppTimer, matrices: (&mut [f32], &mut [f32])) {
+pub fn draw_mesh_wire(mesh: &Mesh, buffer: &mut [char], width_height: (u16, u16), timer: &AppTimer, matrices: (&mut [f32], &mut [f32]), camera: &Camera) {
 	let (screen_width, screen_height) = width_height;
 	let (proj_mat, transform_mat) = matrices;
-	
+
 	apply_identity_to_mat_4x4(proj_mat);
 	apply_projection_to_mat_4x4(proj_mat, width_height);
 
@@ -165,14 +163,22 @@ pub fn draw_mesh_wire(mesh: &Mesh, buffer: &mut [char], width_height: (u16, u16)
 	let start_ms = 89_340;
 	let t = (timer.time_aggr.as_millis() + start_ms) as f32 * 0.001;
 	let (angle_x, angle_y, angle_z) = (t * 0.1, t * 0.83, t * 1.2);
+	// let (angle_x, angle_y, angle_z) = (0.0, 0.0, 0.0);
 
-	let speed = 0.2;
-	let tmod = ((t * speed % 1.0) - 0.5).abs() * 2.0;
-	// let tmod = 0.7;
-	let (scale_x, scale_y, scale_z) = (0.2 + 0.2 * tmod, 0.2 + 0.2 * tmod, 0.2 + 0.2 * tmod);
+	let speed = 0.3;
+	let sharpness = 2.5;
+
+	let tri_wave = triangle_wave(t * speed);
+	let t_smooth_wave = smoothed_0_to_1(tri_wave, sharpness);
+	let tmod = lerp_f32(0.2, 0.4, t_smooth_wave);
+	// let tmod = 1.0;
+	let (scale_x, scale_y, scale_z) = (tmod, tmod, tmod);
+
+	draw_string(&format!("{:.2}", t), &UVec2::new(0, 0), buffer, screen_width);
+	draw_string(&format!("{:.2}", t_smooth_wave), &UVec2::new(0, 1), buffer, screen_width);
+	draw_string(&format!("{:.2}", tmod), &UVec2::new(0, 2), buffer, screen_width);
 
 	apply_identity_to_mat_4x4(transform_mat);
-	
 	apply_scale_to_mat_4x4(transform_mat, scale_x, scale_y, scale_z);
 	apply_rotation_to_mat_4x4(transform_mat, angle_x, angle_y, angle_z);
 	apply_pos_to_mat_4x4(transform_mat, pos_x, pos_y, pos_z);
@@ -183,15 +189,15 @@ pub fn draw_mesh_wire(mesh: &Mesh, buffer: &mut [char], width_height: (u16, u16)
 	for tri_i in 0..num_tris {
 
 		let p0_i = tri_i * 3 + 0;
-		let p0 = mesh.get_vert_at(p0_i);
-		let trs_p0 = p0.get_transformed_by_mat4x4(proj_mat);
-
 		let p1_i = tri_i * 3 + 1;
-		let p1 = mesh.get_vert_at(p1_i);
-		let trs_p1 = p1.get_transformed_by_mat4x4(proj_mat);
-
 		let p2_i = tri_i * 3 + 2;
+
+		let p0 = mesh.get_vert_at(p0_i);
+		let p1 = mesh.get_vert_at(p1_i);
 		let p2 = mesh.get_vert_at(p2_i);
+
+		let trs_p0 = p0.get_transformed_by_mat4x4(proj_mat);
+		let trs_p1 = p1.get_transformed_by_mat4x4(proj_mat);
 		let trs_p2 = p2.get_transformed_by_mat4x4(proj_mat);
 
 		let screen_p0 = clip_space_to_screen_space(&trs_p0, screen_width, screen_height);
@@ -204,16 +210,69 @@ pub fn draw_mesh_wire(mesh: &Mesh, buffer: &mut [char], width_height: (u16, u16)
 	}
 }
 
-// TODO: implement
-pub fn draw_mesh_wire_visible(mesh: &Mesh, buffer: &mut [char], width_height: (u16, u16), timer: &AppTimer) {
-	todo!();
+// TODO: could pass in a global data object with the timer and the matrices
+pub fn draw_mesh_filled(mesh: &Mesh, buffer: &mut [char], width_height: (u16, u16), timer: &AppTimer, matrices: (&mut [f32], &mut [f32]), camera: &Camera) {
+	let (screen_width, screen_height) = width_height;
+	let (proj_mat, transform_mat) = matrices;
+
+	apply_identity_to_mat_4x4(proj_mat);
+	apply_identity_to_mat_4x4(transform_mat);
+
+	apply_projection_to_mat_4x4(proj_mat, width_height);
+
+	// TODO: apply object scale and rotation here
+	// apply_scale_to_mat_4x4(transform_mat, 1.0, 1.0, 1.0);
+	// apply_rotation_to_mat_4x4(transform_mat, TAU * 3.8, TAU * 1.4, 0.0);
+	apply_pos_to_mat_4x4(transform_mat, mesh.pos.x, mesh.pos.y, mesh.pos.z);
+
+	// DRAWS 
+	// let st = &format!("pos {:.2} {:.2} {:.2}", mesh.pos.x, mesh.pos.y, mesh.pos.z);
+	// draw_string(st, &UVec2::new(0, 2), buffer, screen_width);
+	// draw_string("transform", &UVec2::new(0, 3), buffer, screen_width);
+	// draw_mat4x4(&transform_mat, &UVec2::new(4, 4), buffer, screen_width);
+
+	multiply_4x4_matrices(transform_mat, &camera.view_matrix);
+
+	// let st = &format!("pos {:.2} {:.2} {:.2}", camera.get_pos().x, camera.get_pos().y, camera.get_pos().z);
+	// draw_string(st, &UVec2::new(0, 9), buffer, screen_width);
+	// let st = &format!("rot {:.2} {:.2} {:.2}", camera.rotation.x, camera.rotation.y, camera.rotation.z);
+	// draw_string(st, &UVec2::new(0, 10), buffer, screen_width);
+	// draw_string("view", &UVec2::new(0, 11), buffer, screen_width);
+	// draw_mat4x4(&camera.view_matrix, &UVec2::new(4, 12), buffer, screen_width);
+
+	multiply_4x4_matrices(proj_mat, transform_mat);
+	// draw_string("end proj mat", &UVec2::new(0, 35), buffer, screen_width);
+	// draw_mat4x4(&proj_mat, &UVec2::new(4, 36), buffer, screen_width);
+
+	let tris_amt = mesh.tris_indices.len() / 3;
+	for tri_i in 0..tris_amt {
+		let p0_i = tri_i * 3 + 0;
+		let p1_i = tri_i * 3 + 1;
+		let p2_i = tri_i * 3 + 2;
+
+		// // TODO: remove
+		// let p0 = mesh.get_vert_at(p0_i); // .get_transformed_by_mat4x4(proj_mat);
+		// let p1 = mesh.get_vert_at(p1_i); // .get_transformed_by_mat4x4(proj_mat);
+		// let p2 = mesh.get_vert_at(p2_i); // .get_transformed_by_mat4x4(proj_mat);
+		// let trs_p0 = p0.get_transformed_by_mat4x4(proj_mat);
+		// let trs_p1 = p1.get_transformed_by_mat4x4(proj_mat);
+		// let trs_p2 = p2.get_transformed_by_mat4x4(proj_mat);
+
+		let trs_p0 = mesh.get_vert_at(p0_i).get_transformed_by_mat4x4(proj_mat);
+		let trs_p1 = mesh.get_vert_at(p1_i).get_transformed_by_mat4x4(proj_mat);
+		let trs_p2 = mesh.get_vert_at(p2_i).get_transformed_by_mat4x4(proj_mat);
+
+		let screen_p0 = clip_space_to_screen_space(&trs_p0, screen_width, screen_height);
+		let screen_p1 = clip_space_to_screen_space(&trs_p1, screen_width, screen_height);
+		let screen_p2 = clip_space_to_screen_space(&trs_p2, screen_width, screen_height);
+
+		draw_bresenham_line(&screen_p0, &screen_p1, buffer, screen_width, FILL_CHAR);
+		draw_bresenham_line(&screen_p1, &screen_p2, buffer, screen_width, FILL_CHAR);
+		draw_bresenham_line(&screen_p2, &screen_p0, buffer, screen_width, FILL_CHAR);
+	}
 }
 
-pub fn draw_mesh_filled(mesh: &Mesh, buffer: &mut [char], width_height: (u16, u16), timer: &AppTimer) {
-	todo!();
-}
-
-pub fn draw_triangles_filled(screen_space_tris: &mut [ScreenTriangle], buffer: &mut [char], screen_width: u16) {
+pub fn draw_mesh_filled_and_normals(screen_space_tris: &mut [ScreenTriangle], buffer: &mut [char], screen_width: u16) {
 	todo!()
 }
 

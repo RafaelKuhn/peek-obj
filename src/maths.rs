@@ -2,6 +2,21 @@ use core::fmt;
 use std::{fmt::Display, f32::consts::TAU};
 
 
+pub fn lerp_f32(a: f32, b: f32, t: f32) -> f32 {
+	(1.0 - t) * a + b * t
+}
+
+pub fn triangle_wave(t: f32) -> f32 {
+	1.0 - ((t % 1.0) - 0.5).abs() * 2.0
+}
+
+// when smoothness is 1, it's a line, more than that smoothes it
+pub fn smoothed_0_to_1(t: f32, sharpness: f32) -> f32 {
+	let pow_t = t.powf(sharpness);
+	pow_t / ( pow_t + (1.0 - t).powf(sharpness) )
+}
+
+
 pub struct Vec3 {
 	pub x: f32,
 	pub y: f32,
@@ -9,8 +24,12 @@ pub struct Vec3 {
 }
 
 impl Vec3 {
-	pub fn new(x: f32, y: f32, z: f32,) -> Self {
-		Vec3 { x, y, z }
+	pub fn new(x: f32, y: f32, z: f32) -> Self {
+		Self { x, y, z }
+	}
+
+	pub fn zero() -> Self {
+		Self { x: 0.0, y: 0.0, z: 0.0 }
 	}
 
 	pub fn get_transformed_by_mat3x3(&self, mat: &[f32]) -> Self {
@@ -46,11 +65,19 @@ impl Vec3 {
 		Self { x, y, z }
 	}
 
-	fn add_vec(&self, rhs: &Vec3) -> Vec3 {
+	pub fn add_vec(&self, rhs: &Vec3) -> Self {
 		Vec3 {
 			x: rhs.x + self.x,
 			y: rhs.y + self.y,
 			z: rhs.z + self.z,
+		}
+	}
+
+	pub fn inversed(&self) -> Self {
+		Self {
+			x: -self.x,
+			y: -self.y,
+			z: -self.z,
 		}
 	}
 }
@@ -223,14 +250,10 @@ pub fn build_identity_4x4() -> Vec<f32> {
 }
 
 pub fn clip_space_to_screen_space(p: &Vec3, screen_width: u16, screen_height: u16) -> UVec2 {
-	let screen_x = (p.x + 1.0) * 0.5 * screen_width as f32;
+	let screen_x = (p.x + 1.0) * 0.5 * screen_width  as f32;
 	let screen_y = (p.y + 1.0) * 0.5 * screen_height as f32;
 
 	UVec2::new(screen_x as u16, screen_y as u16)
-}
-
-pub fn lerp(a: u32, b: u32, t: f32) -> u32 {
-	(a as f32 * t + (b - a) as f32 * t) as u32
 }
 
 fn transpose_3x3(vec: &mut [f32]) {
@@ -423,6 +446,13 @@ pub fn apply_rotation_to_mat_4x4(mat: &mut [f32], angle_x: f32, angle_y: f32, an
 	mat[2 * sz + 2] = x2_y2;
 }
 
+pub fn apply_pos_vec_to_mat_4x4(mat: &mut [f32], vec: &Vec3) {
+	const SZ: usize = 4;
+	mat[0 * SZ + 3] = vec.x;
+	mat[1 * SZ + 3] = vec.y;
+	mat[2 * SZ + 3] = vec.z;
+}
+
 pub fn apply_pos_to_mat_4x4(mat: &mut [f32], pos_x: f32, pos_y: f32, pos_z: f32) {
 	const SZ: usize = 4;
 	mat[0 * SZ + 3] = pos_x;
@@ -431,48 +461,48 @@ pub fn apply_pos_to_mat_4x4(mat: &mut [f32], pos_x: f32, pos_y: f32, pos_z: f32)
 }
 
 
-pub fn multiply_4x4_matrices(mat: &mut [f32], mat2: &[f32]) {
+pub fn multiply_4x4_matrices(dump: &mut [f32], mat: &[f32]) {
 	const SZ: usize = 4;
 
-	let x0_y0 = mat[0 * SZ + 0] * mat2[0 * SZ + 0]  +  mat[0 * SZ + 1] * mat2[1 * SZ + 0]  +  mat[0 * SZ + 2] * mat2[2 * SZ + 0]  +  mat[0 * SZ + 3] * mat2[3 * SZ + 0];
-	let x0_y1 = mat[0 * SZ + 0] * mat2[0 * SZ + 1]  +  mat[0 * SZ + 1] * mat2[1 * SZ + 1]  +  mat[0 * SZ + 2] * mat2[2 * SZ + 1]  +  mat[0 * SZ + 3] * mat2[3 * SZ + 1];
-	let x0_y2 = mat[0 * SZ + 0] * mat2[0 * SZ + 2]  +  mat[0 * SZ + 1] * mat2[1 * SZ + 2]  +  mat[0 * SZ + 2] * mat2[2 * SZ + 2]  +  mat[0 * SZ + 3] * mat2[3 * SZ + 2];
-	let x0_y3 = mat[0 * SZ + 0] * mat2[0 * SZ + 3]  +  mat[0 * SZ + 1] * mat2[1 * SZ + 3]  +  mat[0 * SZ + 2] * mat2[2 * SZ + 3]  +  mat[0 * SZ + 3] * mat2[3 * SZ + 3];
+	let x0_y0 = dump[0 * SZ + 0] * mat[0 * SZ + 0]  +  dump[0 * SZ + 1] * mat[1 * SZ + 0]  +  dump[0 * SZ + 2] * mat[2 * SZ + 0]  +  dump[0 * SZ + 3] * mat[3 * SZ + 0];
+	let x0_y1 = dump[0 * SZ + 0] * mat[0 * SZ + 1]  +  dump[0 * SZ + 1] * mat[1 * SZ + 1]  +  dump[0 * SZ + 2] * mat[2 * SZ + 1]  +  dump[0 * SZ + 3] * mat[3 * SZ + 1];
+	let x0_y2 = dump[0 * SZ + 0] * mat[0 * SZ + 2]  +  dump[0 * SZ + 1] * mat[1 * SZ + 2]  +  dump[0 * SZ + 2] * mat[2 * SZ + 2]  +  dump[0 * SZ + 3] * mat[3 * SZ + 2];
+	let x0_y3 = dump[0 * SZ + 0] * mat[0 * SZ + 3]  +  dump[0 * SZ + 1] * mat[1 * SZ + 3]  +  dump[0 * SZ + 2] * mat[2 * SZ + 3]  +  dump[0 * SZ + 3] * mat[3 * SZ + 3];
 
-	let x1_y0 = mat[1 * SZ + 0] * mat2[0 * SZ + 0]  +  mat[1 * SZ + 1] * mat2[1 * SZ + 0]  +  mat[1 * SZ + 2] * mat2[2 * SZ + 0]  +  mat[1 * SZ + 3] * mat2[3 * SZ + 0];
-	let x1_y1 = mat[1 * SZ + 0] * mat2[0 * SZ + 1]  +  mat[1 * SZ + 1] * mat2[1 * SZ + 1]  +  mat[1 * SZ + 2] * mat2[2 * SZ + 1]  +  mat[1 * SZ + 3] * mat2[3 * SZ + 1];
-	let x1_y2 = mat[1 * SZ + 0] * mat2[0 * SZ + 2]  +  mat[1 * SZ + 1] * mat2[1 * SZ + 2]  +  mat[1 * SZ + 2] * mat2[2 * SZ + 2]  +  mat[1 * SZ + 3] * mat2[3 * SZ + 2];
-	let x1_y3 = mat[1 * SZ + 0] * mat2[0 * SZ + 3]  +  mat[1 * SZ + 1] * mat2[1 * SZ + 3]  +  mat[1 * SZ + 2] * mat2[2 * SZ + 3]  +  mat[1 * SZ + 3] * mat2[3 * SZ + 3];
+	let x1_y0 = dump[1 * SZ + 0] * mat[0 * SZ + 0]  +  dump[1 * SZ + 1] * mat[1 * SZ + 0]  +  dump[1 * SZ + 2] * mat[2 * SZ + 0]  +  dump[1 * SZ + 3] * mat[3 * SZ + 0];
+	let x1_y1 = dump[1 * SZ + 0] * mat[0 * SZ + 1]  +  dump[1 * SZ + 1] * mat[1 * SZ + 1]  +  dump[1 * SZ + 2] * mat[2 * SZ + 1]  +  dump[1 * SZ + 3] * mat[3 * SZ + 1];
+	let x1_y2 = dump[1 * SZ + 0] * mat[0 * SZ + 2]  +  dump[1 * SZ + 1] * mat[1 * SZ + 2]  +  dump[1 * SZ + 2] * mat[2 * SZ + 2]  +  dump[1 * SZ + 3] * mat[3 * SZ + 2];
+	let x1_y3 = dump[1 * SZ + 0] * mat[0 * SZ + 3]  +  dump[1 * SZ + 1] * mat[1 * SZ + 3]  +  dump[1 * SZ + 2] * mat[2 * SZ + 3]  +  dump[1 * SZ + 3] * mat[3 * SZ + 3];
 
-	let x2_y0 = mat[2 * SZ + 0] * mat2[0 * SZ + 0]  +  mat[2 * SZ + 1] * mat2[1 * SZ + 0]  +  mat[2 * SZ + 2] * mat2[2 * SZ + 0]  +  mat[2 * SZ + 3] * mat2[3 * SZ + 0];
-	let x2_y1 = mat[2 * SZ + 0] * mat2[0 * SZ + 1]  +  mat[2 * SZ + 1] * mat2[1 * SZ + 1]  +  mat[2 * SZ + 2] * mat2[2 * SZ + 1]  +  mat[2 * SZ + 3] * mat2[3 * SZ + 1];
-	let x2_y2 = mat[2 * SZ + 0] * mat2[0 * SZ + 2]  +  mat[2 * SZ + 1] * mat2[1 * SZ + 2]  +  mat[2 * SZ + 2] * mat2[2 * SZ + 2]  +  mat[2 * SZ + 3] * mat2[3 * SZ + 2];
-	let x2_y3 = mat[2 * SZ + 0] * mat2[0 * SZ + 3]  +  mat[2 * SZ + 1] * mat2[1 * SZ + 3]  +  mat[2 * SZ + 2] * mat2[2 * SZ + 3]  +  mat[2 * SZ + 3] * mat2[3 * SZ + 3];
+	let x2_y0 = dump[2 * SZ + 0] * mat[0 * SZ + 0]  +  dump[2 * SZ + 1] * mat[1 * SZ + 0]  +  dump[2 * SZ + 2] * mat[2 * SZ + 0]  +  dump[2 * SZ + 3] * mat[3 * SZ + 0];
+	let x2_y1 = dump[2 * SZ + 0] * mat[0 * SZ + 1]  +  dump[2 * SZ + 1] * mat[1 * SZ + 1]  +  dump[2 * SZ + 2] * mat[2 * SZ + 1]  +  dump[2 * SZ + 3] * mat[3 * SZ + 1];
+	let x2_y2 = dump[2 * SZ + 0] * mat[0 * SZ + 2]  +  dump[2 * SZ + 1] * mat[1 * SZ + 2]  +  dump[2 * SZ + 2] * mat[2 * SZ + 2]  +  dump[2 * SZ + 3] * mat[3 * SZ + 2];
+	let x2_y3 = dump[2 * SZ + 0] * mat[0 * SZ + 3]  +  dump[2 * SZ + 1] * mat[1 * SZ + 3]  +  dump[2 * SZ + 2] * mat[2 * SZ + 3]  +  dump[2 * SZ + 3] * mat[3 * SZ + 3];
 
-	let x3_y0 = mat[3 * SZ + 0] * mat2[0 * SZ + 0]  +  mat[3 * SZ + 1] * mat2[1 * SZ + 0]  +  mat[3 * SZ + 2] * mat2[2 * SZ + 0]  +  mat[3 * SZ + 3] * mat2[3 * SZ + 0];
-	let x3_y1 = mat[3 * SZ + 0] * mat2[0 * SZ + 1]  +  mat[3 * SZ + 1] * mat2[1 * SZ + 1]  +  mat[3 * SZ + 2] * mat2[2 * SZ + 1]  +  mat[3 * SZ + 3] * mat2[3 * SZ + 1];
-	let x3_y2 = mat[3 * SZ + 0] * mat2[0 * SZ + 2]  +  mat[3 * SZ + 1] * mat2[1 * SZ + 2]  +  mat[3 * SZ + 2] * mat2[2 * SZ + 2]  +  mat[3 * SZ + 3] * mat2[3 * SZ + 2];
-	let x3_y3 = mat[3 * SZ + 0] * mat2[0 * SZ + 3]  +  mat[3 * SZ + 1] * mat2[1 * SZ + 3]  +  mat[3 * SZ + 2] * mat2[2 * SZ + 3]  +  mat[3 * SZ + 3] * mat2[3 * SZ + 3];
+	let x3_y0 = dump[3 * SZ + 0] * mat[0 * SZ + 0]  +  dump[3 * SZ + 1] * mat[1 * SZ + 0]  +  dump[3 * SZ + 2] * mat[2 * SZ + 0]  +  dump[3 * SZ + 3] * mat[3 * SZ + 0];
+	let x3_y1 = dump[3 * SZ + 0] * mat[0 * SZ + 1]  +  dump[3 * SZ + 1] * mat[1 * SZ + 1]  +  dump[3 * SZ + 2] * mat[2 * SZ + 1]  +  dump[3 * SZ + 3] * mat[3 * SZ + 1];
+	let x3_y2 = dump[3 * SZ + 0] * mat[0 * SZ + 2]  +  dump[3 * SZ + 1] * mat[1 * SZ + 2]  +  dump[3 * SZ + 2] * mat[2 * SZ + 2]  +  dump[3 * SZ + 3] * mat[3 * SZ + 2];
+	let x3_y3 = dump[3 * SZ + 0] * mat[0 * SZ + 3]  +  dump[3 * SZ + 1] * mat[1 * SZ + 3]  +  dump[3 * SZ + 2] * mat[2 * SZ + 3]  +  dump[3 * SZ + 3] * mat[3 * SZ + 3];
 
-	mat[0 * SZ + 0] = x0_y0;
-	mat[0 * SZ + 1] = x0_y1;
-	mat[0 * SZ + 2] = x0_y2;
-	mat[0 * SZ + 3] = x0_y3;
+	dump[0 * SZ + 0] = x0_y0;
+	dump[0 * SZ + 1] = x0_y1;
+	dump[0 * SZ + 2] = x0_y2;
+	dump[0 * SZ + 3] = x0_y3;
 
-	mat[1 * SZ + 0] = x1_y0;
-	mat[1 * SZ + 1] = x1_y1;
-	mat[1 * SZ + 2] = x1_y2;
-	mat[1 * SZ + 3] = x1_y3;
+	dump[1 * SZ + 0] = x1_y0;
+	dump[1 * SZ + 1] = x1_y1;
+	dump[1 * SZ + 2] = x1_y2;
+	dump[1 * SZ + 3] = x1_y3;
 
-	mat[2 * SZ + 0] = x2_y0;
-	mat[2 * SZ + 1] = x2_y1;
-	mat[2 * SZ + 2] = x2_y2;
-	mat[2 * SZ + 3] = x2_y3;
+	dump[2 * SZ + 0] = x2_y0;
+	dump[2 * SZ + 1] = x2_y1;
+	dump[2 * SZ + 2] = x2_y2;
+	dump[2 * SZ + 3] = x2_y3;
 
-	mat[3 * SZ + 0] = x3_y0;
-	mat[3 * SZ + 1] = x3_y1;
-	mat[3 * SZ + 2] = x3_y2;
-	mat[3 * SZ + 3] = x3_y3;
+	dump[3 * SZ + 0] = x3_y0;
+	dump[3 * SZ + 1] = x3_y1;
+	dump[3 * SZ + 2] = x3_y2;
+	dump[3 * SZ + 3] = x3_y3;
 }
 
 pub fn multiply_4x4_matrices_alloc(mat: &mut [f32], mat2: &[f32]) {

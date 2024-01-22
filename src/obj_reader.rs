@@ -137,6 +137,7 @@ pub fn read_mesh_from_obj(path: &str) -> Result<Mesh, ReaderError> {
 	}
 
 	let mesh = Mesh {
+		pos: Vec3::zero(),
 		verts,
 		tris_indices: tris,
 		normals,
