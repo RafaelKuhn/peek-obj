@@ -36,11 +36,17 @@ impl Camera {
 		self.rotation.z = z;
 	}
 
+	// TODO: implement
+	pub fn look_at(&mut self, dest: &Vec3) {
+		panic!("not implemented");
+	}
+
 	pub fn update_view_matrix(&mut self) {
 		// apply_pos_vec_to_mat_4x4(&mut self.view_matrix, &self.position.inversed());
 		// apply_identity_to_mat_4x4(&mut self.view_matrix);
 		apply_scale_to_mat_4x4(&mut self.view_matrix, 1.0, 1.0, 1.0);
 		apply_rotation_to_mat_4x4(&mut self.view_matrix, self.rotation.x, self.rotation.y, self.rotation.z);
-		apply_pos_vec_to_mat_4x4(&mut self.view_matrix, &self.position.inversed());
+		apply_pos_to_mat_4x4(&mut self.view_matrix, self.position.x, self.position.y, self.position.z);
 	}
+
 }

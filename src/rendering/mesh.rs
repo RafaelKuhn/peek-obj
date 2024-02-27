@@ -56,12 +56,12 @@ impl Mesh {
 
 	pub fn get_normal_at(&self, index: usize) -> Vec3 {
 		let normal_index = self.normal_indices[index];
-		
-		let sz = 3;
+
+		const SZ: usize = 3;
 		Vec3::new(
-			 self.normals[(normal_index * sz) as usize + 0],
-			-self.normals[(normal_index * sz) as usize + 1],
-			 self.normals[(normal_index * sz) as usize + 2],
+			 self.normals[normal_index as usize * SZ + 0],
+			-self.normals[normal_index as usize * SZ + 1],
+			 self.normals[normal_index as usize * SZ + 2],
 		)
 	}
 }

@@ -327,7 +327,8 @@ pub fn apply_projection_to_mat_4x4(mat: &mut [f32], width_height: (u16, u16)) {
 
 	const ZN: f32 =   0.1;
 	const ZF: f32 = 100.0;
-	
+
+	// height of the characters is double the width of the characters
 	let aspect_ratio = (screen_height as f32 * 2.0) / screen_width as f32;
 	const FOV: f32 = 0.25 * TAU;
 
@@ -418,32 +419,31 @@ pub fn apply_rotation_to_mat_4x4(mat: &mut [f32], angle_x: f32, angle_y: f32, an
 	let x2_y1_rot = sin_x * cos_z + cos_x * sin_y * sin_z;
 	let x2_y2_rot = cos_x * cos_y;
 
+	const SZ: usize = 4;
 
-	let sz = 4;
+	let x0_y0 = mat[0 * SZ + 0] * x0_y0_rot  +  mat[0 * SZ + 1] * x0_y1_rot  +  mat[0 * SZ + 2] * x0_y2_rot;
+	let x0_y1 = mat[0 * SZ + 0] * x1_y0_rot  +  mat[0 * SZ + 1] * x1_y1_rot  +  mat[0 * SZ + 2] * x1_y2_rot;
+	let x0_y2 = mat[0 * SZ + 0] * x2_y0_rot  +  mat[0 * SZ + 1] * x2_y1_rot  +  mat[0 * SZ + 2] * x2_y2_rot;
 
-	let x0_y0 = mat[0 * sz + 0] * x0_y0_rot  +  mat[0 * sz + 1] * x0_y1_rot  +  mat[0 * sz + 2] * x0_y2_rot;
-	let x0_y1 = mat[0 * sz + 0] * x1_y0_rot  +  mat[0 * sz + 1] * x1_y1_rot  +  mat[0 * sz + 2] * x1_y2_rot;
-	let x0_y2 = mat[0 * sz + 0] * x2_y0_rot  +  mat[0 * sz + 1] * x2_y1_rot  +  mat[0 * sz + 2] * x2_y2_rot;
+	let x1_y0 = mat[1 * SZ + 0] * x0_y0_rot  +  mat[1 * SZ + 1] * x0_y1_rot  +  mat[1 * SZ + 2] * x0_y2_rot;
+	let x1_y1 = mat[1 * SZ + 0] * x1_y0_rot  +  mat[1 * SZ + 1] * x1_y1_rot  +  mat[1 * SZ + 2] * x1_y2_rot;
+	let x1_y2 = mat[1 * SZ + 0] * x2_y0_rot  +  mat[1 * SZ + 1] * x2_y1_rot  +  mat[1 * SZ + 2] * x2_y2_rot;
 
-	let x1_y0 = mat[1 * sz + 0] * x0_y0_rot  +  mat[1 * sz + 1] * x0_y1_rot  +  mat[1 * sz + 2] * x0_y2_rot;
-	let x1_y1 = mat[1 * sz + 0] * x1_y0_rot  +  mat[1 * sz + 1] * x1_y1_rot  +  mat[1 * sz + 2] * x1_y2_rot;
-	let x1_y2 = mat[1 * sz + 0] * x2_y0_rot  +  mat[1 * sz + 1] * x2_y1_rot  +  mat[1 * sz + 2] * x2_y2_rot;
+	let x2_y0 = mat[2 * SZ + 0] * x0_y0_rot  +  mat[2 * SZ + 1] * x0_y1_rot  +  mat[2 * SZ + 2] * x0_y2_rot;
+	let x2_y1 = mat[2 * SZ + 0] * x1_y0_rot  +  mat[2 * SZ + 1] * x1_y1_rot  +  mat[2 * SZ + 2] * x1_y2_rot;
+	let x2_y2 = mat[2 * SZ + 0] * x2_y0_rot  +  mat[2 * SZ + 1] * x2_y1_rot  +  mat[2 * SZ + 2] * x2_y2_rot;
 
-	let x2_y0 = mat[2 * sz + 0] * x0_y0_rot  +  mat[2 * sz + 1] * x0_y1_rot  +  mat[2 * sz + 2] * x0_y2_rot;
-	let x2_y1 = mat[2 * sz + 0] * x1_y0_rot  +  mat[2 * sz + 1] * x1_y1_rot  +  mat[2 * sz + 2] * x1_y2_rot;
-	let x2_y2 = mat[2 * sz + 0] * x2_y0_rot  +  mat[2 * sz + 1] * x2_y1_rot  +  mat[2 * sz + 2] * x2_y2_rot;
+	mat[0 * SZ + 0] = x0_y0;
+	mat[0 * SZ + 1] = x0_y1;
+	mat[0 * SZ + 2] = x0_y2;
 
-	mat[0 * sz + 0] = x0_y0;
-	mat[0 * sz + 1] = x0_y1;
-	mat[0 * sz + 2] = x0_y2;
+	mat[1 * SZ + 0] = x1_y0;
+	mat[1 * SZ + 1] = x1_y1;
+	mat[1 * SZ + 2] = x1_y2;
 
-	mat[1 * sz + 0] = x1_y0;
-	mat[1 * sz + 1] = x1_y1;
-	mat[1 * sz + 2] = x1_y2;
-
-	mat[2 * sz + 0] = x2_y0;
-	mat[2 * sz + 1] = x2_y1;
-	mat[2 * sz + 2] = x2_y2;
+	mat[2 * SZ + 0] = x2_y0;
+	mat[2 * SZ + 1] = x2_y1;
+	mat[2 * SZ + 2] = x2_y2;
 }
 
 pub fn apply_pos_vec_to_mat_4x4(mat: &mut [f32], vec: &Vec3) {

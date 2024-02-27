@@ -46,6 +46,7 @@ fn main() {
 	let mesh = match mesh_result {
 		// Ok(mesh) => mesh,
 		Ok(mut mesh) => {
+			// TODO: make the camera farther away, not the mesh
 			mesh.pos.x = 0.0;
 			mesh.pos.y = 0.0;
 			mesh.pos.z = 22.0;
@@ -68,9 +69,12 @@ fn main() {
 	let mut benchmark = Benchmark::new(BENCHMARK_REFRESH_RATE);
 
 	let mut camera = Camera::new();
-	camera.set_pos(0.0, 0.0, -12.0);
-	camera.set_rot(0.0,  0.0, 0.0);
-	camera.set_rot(0.0,  6.2831 * 0.0825, 0.0);
+	
+	// TODO: why does setting the camera like this here puts it forward? should be the opposite ...
+	// camera.set_pos(0.0, 0.0, 22.0);
+
+	// camera.set_rot(6.28318530 * 6.5/8.,  0.0, 0.0);
+	// camera.set_rot(0.0,  6.2831 * 0.0825, 0.0);
 	
 	camera.update_view_matrix();
 
