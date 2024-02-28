@@ -64,7 +64,7 @@ pub fn read_mesh_from_obj(path: &str) -> Result<Mesh, ReaderError> {
 
 	for (i, line) in file_content.lines().enumerate() {
 		let line_split_by_space = line.split(' ').skip(1);
-		
+
 		if line.starts_with("v ") {
 			for vert_str in line_split_by_space {
 				if vert_str.is_empty() { continue }

@@ -1,33 +1,33 @@
 #![allow(dead_code)]
+#![allow(unreachable_code)]
 
 #![allow(clippy::identity_op)]
 #![allow(clippy::erasing_op)]
+
 
 mod rendering;
 mod maths;
 mod terminal;
 mod timer;
 mod benchmark;
-mod obj_reader;
+mod file_readers;
 mod settings;
 
 
 use std::{process, env};
 
 use maths::{build_identity_4x4, Vec3};
-use obj_reader::read_mesh_from_obj;
 use rendering::{*};
 use settings::Settings;
 use terminal::{FreeText, configure_terminal, poll_events, render_free_text, get_terminal_width_height};
 use timer::AppTimer;
 use benchmark::Benchmark;
 
+use crate::{file_readers::{obj_reader::{self, read_mesh_from_obj}, yade_dem_reader}, rendering::{camera::Camera, mesh::Mesh}};
 
-use crate::rendering::{mesh::Mesh, camera::Camera};
 
-
-// type DrawFunction = fn(&Mesh, &mut [char], (u16, u16), &AppTimer, (&mut [f32], &mut [f32]));
-type DrawFunction = fn(&Mesh, &mut [char], (u16, u16), &AppTimer, (&mut [f32], &mut [f32]), &Camera);
+// type DrawMeshFunction = fn(&Mesh, &mut [char], (u16, u16), &AppTimer, (&mut [f32], &mut [f32]), &Camera);
+type DrawMeshFunction = fn(&Mesh, buffer: &mut [char], width_height: (u16, u16), &AppTimer, matrices: (&mut [f32], &mut [f32]), &Camera);
 
 
 fn main() {
@@ -35,9 +35,33 @@ fn main() {
 	let args = env::args().skip(1);
 	let settings = Settings::from_args(args);
 
+	if !settings.has_custom_path {
+		println!("Provide a path");
+		return;
+	}
+
+	let read_yade_dem = yade_dem_reader::read_data(&settings.custom_path);
+
+	// #if VERBOSE
+	println!();
+	for (i, tri) in read_yade_dem.tris.into_iter().enumerate() {
+		println!("TRIANGLE {:3}: {:+.4} {:+.4} {:+.4}  ({:+.3} {:+.3} {:+.3})  ({:+.3} {:+.3} {:+.3})  ({:+.3} {:+.3} {:+.3})", i, tri.x, tri.y, tri.z, 
+		tri.p0x, tri.p0y, tri.p0z, tri.p1x, tri.p1y, tri.p1z, tri.p2x, tri.p2y, tri.p2z );
+	}
+
+	println!();
+	for (i, circ) in read_yade_dem.circs.into_iter().enumerate() {
+		println!("CIRCLE {:3}: {:+.4} {:+.4} {:+.4} rad {:+.4}", i, circ.x, circ.y, circ.z, circ.rad);
+	}
+	// #endif
+
+
+	return;
+
+
 	// TODO: check custom only if file is not found
 	let mesh_result = if !settings.has_custom_path {
-		let raw_teapot_result = read_mesh_from_obj("objs/teapot.obj");
+		let raw_teapot_result = obj_reader::read_mesh_from_obj("objs/teapot.obj");
 		obj_reader::translate_mesh(raw_teapot_result, &Vec3::new(0.0, -1.575, 0.0))
 	} else {
 		read_mesh_from_obj(&settings.custom_path)
@@ -81,7 +105,7 @@ fn main() {
 	let mut transform_mat  = build_identity_4x4();
 	let mut projection_mat = build_identity_4x4();
 
-	let draw_mesh: DrawFunction = if settings.draw_wireframe {
+	let draw_mesh: DrawMeshFunction = if settings.draw_wireframe {
 		if settings.draw_normals { draw_mesh_wire_and_normals } else { draw_mesh_wire }
 	} else {
 		if settings.draw_normals { panic!("Can't draw normals + filled yet") } else { draw_mesh_filled }
