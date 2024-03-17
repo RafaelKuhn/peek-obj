@@ -5,7 +5,7 @@ pub mod camera;
 
 use std::f32::consts::TAU;
 
-use crate::{maths::*, benchmark::Benchmark, timer::AppTimer};
+use crate::{benchmark::Benchmark, file_readers::yade_dem_reader::YadeDemData, maths::*, timer::AppTimer};
 
 use self::{mesh::Mesh, camera::Camera};
 
@@ -38,14 +38,20 @@ pub fn render_clear(buffer: &mut [char]) {
 	// for i in 0..buffer.len() { buffer[i] = BACKGROUND_FILL_CHAR; }
 }
 
-pub fn draw_string(str: &str, pos: &UVec2, buffer: &mut [char], screen_width: u16) {
+pub fn draw_string(string: &str, pos: &UVec2, buffer: &mut [char], screen_width: u16) {
 	let mut index = pos.y as usize * screen_width as usize + pos.x as usize;
-	for ch in str.chars() {
+	for ch in string.chars() {
 		// TODO: bounds check
 		if index > buffer.len() { continue; }
 		buffer[index] = ch;
 		index += 1;
 	}
+}
+
+pub fn draw_char(ch: char, pos: &UVec2, buffer: &mut [char], screen_width: u16) {
+	let index = pos.y as usize * screen_width as usize + pos.x as usize;
+	if index > buffer.len() { return }
+	buffer[index] = ch;
 }
 
 pub fn draw_mat4x4(mat: &[f32], pos: &UVec2, buffer: &mut [char], screen_width: u16) {
@@ -275,6 +281,73 @@ pub fn draw_mesh_filled(mesh: &Mesh, buffer: &mut [char], width_height: (u16, u1
 pub fn draw_mesh_filled_and_normals(screen_space_tris: &mut [ScreenTriangle], buffer: &mut [char], screen_width: u16) {
 	todo!()
 }
+
+
+pub fn draw_yade(yade_data: &YadeDemData, buffer: &mut [char], width_height: (u16, u16), timer: &AppTimer, matrices: (&mut [f32], &mut [f32]), camera: &Camera) {
+	let (screen_width, screen_height) = width_height;
+	let (proj_mat, transform_mat) = matrices;
+
+	apply_identity_to_mat_4x4(proj_mat);
+	apply_projection_to_mat_4x4(proj_mat, width_height);
+
+
+	let (pos_x, pos_y, pos_z) = (0.0, 0.0, 12.0);
+
+	let start_ms = 89_340;
+	let t = (timer.time_aggr.as_millis() + start_ms) as f32 * 0.001;
+	let (angle_x, angle_y, angle_z) = (TAU * 0.25, t, 0.0);
+
+	let speed = 0.3;
+	let sharpness = 2.5;
+
+	let tri_wave = triangle_wave(t * speed);
+	let t_smooth_wave = smoothed_0_to_1(tri_wave, sharpness);
+	let tmod = lerp_f32(0.2, 0.4, t_smooth_wave) * 15.0;
+	// let tmod = 1.0;
+	// let (scale_x, scale_y, scale_z) = (tmod, tmod, tmod);
+
+	let scale = 12.0;
+	let (scale_x, scale_y, scale_z) = (scale, scale, scale);
+
+	draw_string(&format!("{:.2}", t), &UVec2::new(0, 0), buffer, screen_width);
+	draw_string(&format!("{:.2}", t_smooth_wave), &UVec2::new(0, 1), buffer, screen_width);
+	draw_string(&format!("{:.2}", tmod), &UVec2::new(0, 2), buffer, screen_width);
+
+	apply_identity_to_mat_4x4(transform_mat);
+	apply_scale_to_mat_4x4(transform_mat, scale_x, scale_y, scale_z);
+	apply_rotation_to_mat_4x4(transform_mat, angle_x, angle_y, angle_z);
+	apply_pos_to_mat_4x4(transform_mat, pos_x, pos_y, pos_z);
+
+	multiply_4x4_matrices(proj_mat, transform_mat);
+
+	for tri in yade_data.tris.iter() {
+
+		let p0 = &tri.p0 + &tri.pos;
+		let p1 = &tri.p1 + &tri.pos;
+		let p2 = &tri.p2 + &tri.pos;
+
+		let trs_p0 = p0.get_transformed_by_mat4x4(proj_mat);
+		let trs_p1 = p1.get_transformed_by_mat4x4(proj_mat);
+		let trs_p2 = p2.get_transformed_by_mat4x4(proj_mat);
+
+		let screen_p0 = clip_space_to_screen_space(&trs_p0, screen_width, screen_height);
+		let screen_p1 = clip_space_to_screen_space(&trs_p1, screen_width, screen_height);
+		let screen_p2 = clip_space_to_screen_space(&trs_p2, screen_width, screen_height);
+
+		draw_bresenham_line(&screen_p0, &screen_p1, buffer, screen_width, FILL_CHAR);
+		draw_bresenham_line(&screen_p1, &screen_p2, buffer, screen_width, FILL_CHAR);
+		draw_bresenham_line(&screen_p2, &screen_p0, buffer, screen_width, FILL_CHAR);
+	}
+
+	for circ in yade_data.circs.iter() {
+
+		let circ_pos = circ.pos.get_transformed_by_mat4x4(&proj_mat);
+		let screen_circ = clip_space_to_screen_space(&circ_pos, screen_width, screen_height);
+
+		draw_char('R', &screen_circ, buffer, screen_width);
+	}
+}
+
 
 pub fn draw_benchmark(buffer: &mut [char], screen_width: u16, screen_height: u16, benchmark: &Benchmark) {
 	let mut lowest_pos = UVec2::new(0, screen_height - 3 - 6);

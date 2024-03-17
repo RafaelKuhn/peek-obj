@@ -59,7 +59,7 @@ pub fn poll_events(terminal: &mut CrosstermTerminal, app: &mut App, timer: &mut 
 						timer.time_scale = 0.0;
 					}
 				} 
-				KeyCode::Esc => quit(terminal),
+				KeyCode::Esc | KeyCode::Char('q') => quit(terminal),
 				// return
 				_ => (),
 			}

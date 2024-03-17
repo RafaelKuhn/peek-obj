@@ -16,6 +16,7 @@ mod settings;
 
 use std::{process, env};
 
+use file_readers::yade_dem_reader::YadeDemData;
 use maths::{build_identity_4x4, Vec3};
 use rendering::{*};
 use settings::Settings;
@@ -40,47 +41,47 @@ fn main() {
 		return;
 	}
 
-	let read_yade_dem = yade_dem_reader::read_data(&settings.custom_path);
+	let yade_data = yade_dem_reader::read_data(&settings.custom_path);
 
 	// #if VERBOSE
-	println!();
-	for (i, tri) in read_yade_dem.tris.into_iter().enumerate() {
-		println!("TRIANGLE {:3}: {:+.4} {:+.4} {:+.4}  ({:+.3} {:+.3} {:+.3})  ({:+.3} {:+.3} {:+.3})  ({:+.3} {:+.3} {:+.3})", i, tri.x, tri.y, tri.z, 
-		tri.p0x, tri.p0y, tri.p0z, tri.p1x, tri.p1y, tri.p1z, tri.p2x, tri.p2y, tri.p2z );
-	}
+	// println!();
+	// for (i, tri) in read_yade_dem.tris.into_iter().enumerate() {
+	// 	println!("TRIANGLE {:3}: {:+.4} {:+.4} {:+.4}  ({:+.3} {:+.3} {:+.3})  ({:+.3} {:+.3} {:+.3})  ({:+.3} {:+.3} {:+.3})", i, tri.x, tri.y, tri.z, 
+	// 	tri.p0x, tri.p0y, tri.p0z, tri.p1x, tri.p1y, tri.p1z, tri.p2x, tri.p2y, tri.p2z );
+	// }
 
-	println!();
-	for (i, circ) in read_yade_dem.circs.into_iter().enumerate() {
-		println!("CIRCLE {:3}: {:+.4} {:+.4} {:+.4} rad {:+.4}", i, circ.x, circ.y, circ.z, circ.rad);
-	}
+	// println!();
+	// for (i, circ) in read_yade_dem.circs.into_iter().enumerate() {
+	// 	println!("CIRCLE {:3}: {:+.4} {:+.4} {:+.4} rad {:+.4}", i, circ.x, circ.y, circ.z, circ.rad);
+	// }
 	// #endif
 
 
-	return;
 
-
+	// #if MESH
 	// TODO: check custom only if file is not found
-	let mesh_result = if !settings.has_custom_path {
-		let raw_teapot_result = obj_reader::read_mesh_from_obj("objs/teapot.obj");
-		obj_reader::translate_mesh(raw_teapot_result, &Vec3::new(0.0, -1.575, 0.0))
-	} else {
-		read_mesh_from_obj(&settings.custom_path)
-	};
+	// let mesh_result = if !settings.has_custom_path {
+	// 	let raw_teapot_result = obj_reader::read_mesh_from_obj("objs/teapot.obj");
+	// 	obj_reader::translate_mesh(raw_teapot_result, &Vec3::new(0.0, -1.575, 0.0))
+	// } else {
+	// 	read_mesh_from_obj(&settings.custom_path)
+	// };
+	// let mesh = match mesh_result {
+	// 	// Ok(mesh) => mesh,
+	// 	Ok(mut mesh) => {
+	// 		// TODO: make the camera farther away, not the mesh
+	// 		mesh.pos.x = 0.0;
+	// 		mesh.pos.y = 0.0;
+	// 		mesh.pos.z = 22.0;
+	// 		mesh
+	// 	}
+	// 	Err(err) => {
+	// 		println!("{:}", err);
+	// 		process::exit(1);
+	// 	},
+	// };
+	// #endif
 
-	let mesh = match mesh_result {
-		// Ok(mesh) => mesh,
-		Ok(mut mesh) => {
-			// TODO: make the camera farther away, not the mesh
-			mesh.pos.x = 0.0;
-			mesh.pos.y = 0.0;
-			mesh.pos.z = 22.0;
-			mesh
-		}
-		Err(err) => {
-			println!("{:}", err);
-			process::exit(1);
-		},
-	};
 
 	let terminal = &mut configure_terminal();
 	let (width, height) = get_terminal_width_height(terminal);
@@ -105,11 +106,15 @@ fn main() {
 	let mut transform_mat  = build_identity_4x4();
 	let mut projection_mat = build_identity_4x4();
 
-	let draw_mesh: DrawMeshFunction = if settings.draw_wireframe {
-		if settings.draw_normals { draw_mesh_wire_and_normals } else { draw_mesh_wire }
-	} else {
-		if settings.draw_normals { panic!("Can't draw normals + filled yet") } else { draw_mesh_filled }
-	};
+	// #if MESH
+	// let draw_mesh: DrawMeshFunction = if settings.draw_wireframe {
+	// 	if settings.draw_normals { draw_mesh_wire_and_normals } else { draw_mesh_wire }
+	// } else {
+	// 	if settings.draw_normals { panic!("Can't draw normals + filled yet") } else { draw_mesh_filled }
+	// };
+	// #endif
+
+	// let draw_yade: DrawMeshFunction
 
 	loop {
 		if app.has_paused_rendering {
@@ -120,7 +125,8 @@ fn main() {
 
 		render_clear(&mut app.text_buffer.text);
 
-		draw_mesh(&mesh, &mut app.text_buffer.text, (app.width, app.height), &timer, (&mut transform_mat, &mut projection_mat), &camera);
+		// draw_mesh(&mesh, &mut app.text_buffer.text, (app.width, app.height), &timer, (&mut transform_mat, &mut projection_mat), &camera);
+		draw_yade(&yade_data, &mut app.text_buffer.text, (app.width, app.height), &timer, (&mut transform_mat, &mut projection_mat), &camera);
 
 		poll_events(terminal, &mut app, &mut timer);
 
