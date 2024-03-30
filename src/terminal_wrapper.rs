@@ -139,22 +139,30 @@ pub static UTF32_BYTES_PER_CHAR: usize = 1;
 
 pub fn queue_draw_to_terminal_and_flush(buf: &TerminalBuffer, terminal: &mut CrosstermTerminal) {
 
-	for y in 0..buf.hei {
+	terminal.stdout.queue(MoveTo(0, 0)).unwrap();
 
-		terminal.stdout.queue(MoveTo(0, y)).unwrap();
-		let y_start = y       as usize * buf.wid as usize * UTF32_BYTES_PER_CHAR;
-		let y_end   = (y + 1) as usize * buf.wid as usize * UTF32_BYTES_PER_CHAR;
+	// let buf_str = unsafe { std::str::from_utf8_unchecked(&buf.vec) };
+	let buf_str = std::str::from_utf8(&buf.vec).unwrap();
 
-		// TODO: draw this into a file if gets problematic
-
-		// let buf_str = unsafe { std::str::from_utf8_unchecked(&buf.vec[y_start..y_end]) };
-		let buf_str = std::str::from_utf8(&buf.vec[y_start .. y_end]).unwrap();
-
-		terminal.stdout.queue(Hide).unwrap();
-		terminal.stdout.queue(Print(buf_str)).unwrap();
-	}
-
+	terminal.stdout.queue(Print(buf_str)).unwrap();
 	terminal.stdout.flush().unwrap();
+
+
+	// // line by line sys calls
+	// for y in 0..buf.hei {
+
+	// 	terminal.stdout.queue(MoveTo(0, y)).unwrap();
+	// 	let y_start = y       as usize * buf.wid as usize * UTF32_BYTES_PER_CHAR;
+	// 	let y_end   = (y + 1) as usize * buf.wid as usize * UTF32_BYTES_PER_CHAR;
+
+	// 	let buf_str = unsafe { std::str::from_utf8_unchecked(&buf.vec[y_start..y_end]) };
+	// 	// let buf_str = std::str::from_utf8(&buf.vec[y_start .. y_end]).unwrap();
+
+	// 	terminal.stdout.queue(Hide).unwrap();
+	// 	terminal.stdout.queue(Print(buf_str)).unwrap();
+	// }
+
+	// terminal.stdout.flush().unwrap();
 }
 
 

@@ -28,13 +28,16 @@ impl Timer {
 		}
 	}
 
+	pub fn run_frame(&mut self) {
+		self.frame_count += 1;
+		self.run();
+	}
+
 	pub fn run(&mut self) {
 		let now = Instant::now();
 
 		self.delta_time = (now - self.last_tick).mul_f32(self.time_scale);
 		self.last_tick = now;
-
-		self.frame_count += 1;
 
 		self.time_since_start = now - self.start;
 		self.time_aggr += self.delta_time;

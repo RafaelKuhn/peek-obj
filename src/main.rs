@@ -118,9 +118,9 @@ fn main() {
 
 	loop {
 		just_poll_while_paused(&mut app, terminal_mut, &mut timer);
-		poll_events(terminal_mut, &mut app, &mut timer);
-
 		render_clear(&mut app.buf);
+
+		poll_events(terminal_mut, &mut app, &mut timer);
 
 		// TODO: render other crap
 
@@ -130,7 +130,7 @@ fn main() {
 		// draw_mesh(&mesh, &mut app.text_buffer.text, (app.width, app.height), &timer, (&mut transform_mat, &mut projection_mat), &camera);
 		render_yade(&yade_data, &mut app.buf, &timer, &camera);
 
-		timer.run();
+		timer.run_frame();
 
 		queue_draw_to_terminal_and_flush(&app.buf, terminal_mut);
 	}
@@ -148,6 +148,7 @@ fn just_poll_while_paused(app: &mut App, terminal_mut: &mut CrosstermTerminal, t
 
 	while app.has_paused_rendering {
 		poll_events(terminal_mut, app, timer);
+		timer.run();
 	};
 }
 

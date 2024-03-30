@@ -128,9 +128,12 @@ pub fn render_bresenham_line(p0: &UVec2, p1: &UVec2, buf: &mut TerminalBuffer, f
 pub fn render_benchmark(benchmark: &Benchmark, buffer: &mut TerminalBuffer) {
 	let mut lowest_pos = UVec2::new(0, buffer.hei - 6);
 
-	render_string(&format!("fps: {}", benchmark.fps), &lowest_pos, buffer);
+	let wxh = buffer.wid as u32 * buffer.hei as u32;
+	let aspect = buffer.wid as f32 / buffer.hei as f32;
+
+	render_string(&format!("fps: {:.2}", benchmark.fps), &lowest_pos, buffer);
 	lowest_pos.y += 1;
-	render_string(&format!("dt: {:.2}ms", benchmark.delta_time_millis), &lowest_pos, buffer);
+	render_string(&format!("dt: {:.4}ms", benchmark.delta_time_millis), &lowest_pos, buffer);
 	lowest_pos.y += 1;
 	render_string(&format!("time scale: {:.1}", benchmark.time_scale), &lowest_pos, buffer);
 	lowest_pos.y += 1;
@@ -138,7 +141,7 @@ pub fn render_benchmark(benchmark: &Benchmark, buffer: &mut TerminalBuffer) {
 	lowest_pos.y += 1;
 	render_string(&format!("frame n: {}", benchmark.total_frame_count), &lowest_pos, buffer);
 	lowest_pos.y += 1;
-	render_string(&format!("w: {}, h: {}, w*h: {}", buffer.wid, buffer.hei, buffer.wid as u32 * buffer.hei as u32), &lowest_pos, buffer);
+	render_string(&format!("w: {}, h: {}, w*h: {}, a: {:.2}", buffer.wid, buffer.hei, wxh, aspect), &lowest_pos, buffer);
 }
 
 pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Timer, _camera: &Camera) {
