@@ -3,11 +3,11 @@
 pub mod mesh;
 pub mod camera;
 
-use std::{f32::consts::TAU, fmt::format};
+use std::{f32::consts::TAU};
 
-use crossterm::{cursor::MoveTo, style::Print, QueueableCommand};
 
-use crate::{benchmark::Benchmark, file_readers::yade_dem_reader::YadeDemData, maths::*, terminal_wrapper::{CrosstermTerminal, TerminalBuffer, UTF32_BYTES_PER_CHAR}, timer::Timer, App};
+
+use crate::{benchmark::Benchmark, file_readers::yade_dem_reader::YadeDemData, maths::*, terminal_wrapper::{TerminalBuffer, UTF32_BYTES_PER_CHAR}, timer::Timer};
 
 use self::{mesh::Mesh, camera::Camera};
 
@@ -96,10 +96,10 @@ pub fn render_bresenham_line(p0: &UVec2, p1: &UVec2, buf: &mut TerminalBuffer, f
 
 	// TODO: have a look at 
 
-	let i_screen_width = buf.wid as i32;
+	let _i_screen_width = buf.wid as i32;
 	loop {
 		// let mut index = (y * i_screen_width + x) as usize;
-		let mut index = xy_to_it(x as u16, y as u16, buf.wid);
+		let index = xy_to_it(x as u16, y as u16, buf.wid);
 
 		// handle out of bounds
 		if x >= 0 && x < width && y >= 0 && y < height {
@@ -141,7 +141,7 @@ pub fn render_benchmark(benchmark: &Benchmark, buffer: &mut TerminalBuffer) {
 	render_string(&format!("w: {}, h: {}, w*h: {}", buffer.wid, buffer.hei, buffer.wid as u32 * buffer.hei as u32), &lowest_pos, buffer);
 }
 
-pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Timer, camera: &Camera) {
+pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Timer, _camera: &Camera) {
 
 	apply_identity_to_mat_4x4(&mut buf.proj_mat);
 	apply_projection_to_mat_4x4(&mut buf.proj_mat, buf.wid, buf.hei);
@@ -161,7 +161,7 @@ pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Ti
 	apply_rotation_to_mat_4x4(&mut buf.transf_mat, angle_x, angle_y, angle_z);
 	apply_pos_to_mat_4x4(&mut buf.transf_mat, pos_x, pos_y, pos_z);
 
-	multiply_4x4_matrices(&mut buf.proj_mat, &mut buf.transf_mat);
+	multiply_4x4_matrices(&mut buf.proj_mat, &buf.transf_mat);
 
 	for tri in yade_data.tris.iter() {
 
@@ -169,9 +169,9 @@ pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Ti
 		let p1 = &tri.p1 + &tri.pos;
 		let p2 = &tri.p2 + &tri.pos;
 
-		let trs_p0 = p0.get_transformed_by_mat4x4(&mut buf.proj_mat);
-		let trs_p1 = p1.get_transformed_by_mat4x4(&mut buf.proj_mat);
-		let trs_p2 = p2.get_transformed_by_mat4x4(&mut buf.proj_mat);
+		let trs_p0 = p0.get_transformed_by_mat4x4(&buf.proj_mat);
+		let trs_p1 = p1.get_transformed_by_mat4x4(&buf.proj_mat);
+		let trs_p2 = p2.get_transformed_by_mat4x4(&buf.proj_mat);
 
 		let screen_p0 = clip_space_to_screen_space(&trs_p0, buf.wid, buf.hei);
 		let screen_p1 = clip_space_to_screen_space(&trs_p1, buf.wid, buf.hei);
@@ -184,7 +184,7 @@ pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Ti
 
 	for circ in yade_data.circs.iter() {
 
-		let circ_pos = circ.pos.get_transformed_by_mat4x4(&mut buf.proj_mat);
+		let circ_pos = circ.pos.get_transformed_by_mat4x4(&buf.proj_mat);
 		let screen_circ = clip_space_to_screen_space(&circ_pos, buf.wid, buf.hei);
 
 		render_char('R', &screen_circ, buf);
@@ -229,7 +229,7 @@ pub fn draw_mat4x4(mat: &[f32], pos: &UVec2, buffer: &mut [char], screen_width: 
 	draw_string(&r3, &UVec2::new(pos.x, pos.y+3), buffer, screen_width);
 }
 
-pub fn draw_mesh_wire_and_normals(mesh: &Mesh, buffer: &mut [char], width_height: (u16, u16), timer: &Timer, matrices: (&mut [f32], &mut [f32]), camera: &Camera) {
+pub fn draw_mesh_wire_and_normals(mesh: &Mesh, buffer: &mut [char], width_height: (u16, u16), timer: &Timer, matrices: (&mut [f32], &mut [f32]), _camera: &Camera) {
 	let (screen_width, screen_height) = width_height;
 	let (proj_mat, transform_mat) = matrices;
 	
@@ -239,10 +239,10 @@ pub fn draw_mesh_wire_and_normals(mesh: &Mesh, buffer: &mut [char], width_height
 	let (pos_x, pos_y, pos_z) = (0.0, 0.0, 12.0);
 
 	let t = timer.time_aggr.as_millis() as f32 * 0.001;
-	let (angle_x, angle_y, angle_z) = (0.0, 0.0, 0.0);
+	let (_angle_x, _angle_y, _angle_z) = (0.0, 0.0, 0.0);
 	let (angle_x, angle_y, angle_z) = (t * 0.1, t * 0.83, t * 1.2);
 
-	let speed = 0.2;
+	let _speed = 0.2;
 	// let tmod = ((t * speed % 1.0) - 0.5).abs() * 2.0;
 	let tmod = 0.6;
 	let (scale_x, scale_y, scale_z) = (0.2 + 0.2 * tmod, 0.2 + 0.2 * tmod, 0.2 + 0.2 * tmod);
@@ -317,7 +317,7 @@ pub fn draw_mesh_wire_and_normals(mesh: &Mesh, buffer: &mut [char], width_height
 	}
 }
 
-pub fn draw_mesh_wire(mesh: &Mesh, buffer: &mut [char], width_height: (u16, u16), timer: &Timer, matrices: (&mut [f32], &mut [f32]), camera: &Camera) {
+pub fn draw_mesh_wire(mesh: &Mesh, buffer: &mut [char], width_height: (u16, u16), timer: &Timer, matrices: (&mut [f32], &mut [f32]), _camera: &Camera) {
 	let (screen_width, screen_height) = width_height;
 	let (proj_mat, transform_mat) = matrices;
 
@@ -378,7 +378,7 @@ pub fn draw_mesh_wire(mesh: &Mesh, buffer: &mut [char], width_height: (u16, u16)
 }
 
 // TODO: could pass in a global data object with the timer and the matrices
-pub fn draw_mesh_filled(mesh: &Mesh, buffer: &mut [char], width_height: (u16, u16), timer: &Timer, matrices: (&mut [f32], &mut [f32]), camera: &Camera) {
+pub fn draw_mesh_filled(mesh: &Mesh, buffer: &mut [char], width_height: (u16, u16), _timer: &Timer, matrices: (&mut [f32], &mut [f32]), camera: &Camera) {
 	let (screen_width, screen_height) = width_height;
 	let (proj_mat, transform_mat) = matrices;
 
@@ -439,11 +439,11 @@ pub fn draw_mesh_filled(mesh: &Mesh, buffer: &mut [char], width_height: (u16, u1
 	}
 }
 
-pub fn draw_mesh_filled_and_normals(screen_space_tris: &mut [ScreenTriangle], buffer: &mut [char], screen_width: u16) {
+pub fn draw_mesh_filled_and_normals(_screen_space_tris: &mut [ScreenTriangle], _buffer: &mut [char], _screen_width: u16) {
 	todo!()
 }
 
-pub fn draw_yade(yade_data: &YadeDemData, buffer: &mut [char], width_height: (u16, u16), timer: &Timer, matrices: (&mut [f32], &mut [f32]), camera: &Camera) {
+pub fn draw_yade(yade_data: &YadeDemData, buffer: &mut [char], width_height: (u16, u16), timer: &Timer, matrices: (&mut [f32], &mut [f32]), _camera: &Camera) {
 	let (screen_width, screen_height) = width_height;
 	let (proj_mat, transform_mat) = matrices;
 
@@ -501,7 +501,7 @@ pub fn draw_yade(yade_data: &YadeDemData, buffer: &mut [char], width_height: (u1
 
 	for circ in yade_data.circs.iter() {
 
-		let circ_pos = circ.pos.get_transformed_by_mat4x4(&proj_mat);
+		let circ_pos = circ.pos.get_transformed_by_mat4x4(proj_mat);
 		let screen_circ = clip_space_to_screen_space(&circ_pos, screen_width, screen_height);
 
 		draw_char('R', &screen_circ, buffer, screen_width);

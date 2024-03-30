@@ -37,7 +37,7 @@ impl Camera {
 	}
 
 	// TODO: implement
-	pub fn look_at(&mut self, dest: &Vec3) {
+	pub fn look_at(&mut self, _dest: &Vec3) {
 		panic!("not implemented");
 	}
 

@@ -1,8 +1,8 @@
-use core::fmt;
-use std::{error::Error, fmt::Display, io::{self, Stdout, Write}, process, time::Duration};
+
+use std::{fmt::Display, io::{self, Stdout, Write}, process, time::Duration};
 
 use crossterm::{
-cursor::{Hide, MoveTo, Show}, event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode}, execute, queue, style::Print, terminal::{disable_raw_mode, enable_raw_mode, size, EnterAlternateScreen, LeaveAlternateScreen}, QueueableCommand
+cursor::{Hide, MoveTo, Show}, event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode}, execute, style::Print, terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen}, QueueableCommand
 };
 
 // use tui::{
@@ -16,7 +16,7 @@ pub struct CrosstermTerminal {
 	pub stdout: Stdout
 }
 
-use crate::{maths::build_identity_4x4, render_clear, rendering, timer::Timer, App, BACKGROUND_FILL_CHAR};
+use crate::{maths::build_identity_4x4, render_clear, timer::Timer, App};
 
 
 pub fn configure_terminal() -> CrosstermTerminal {

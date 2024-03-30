@@ -14,19 +14,19 @@ mod file_readers;
 mod settings;
 
 
-use std::{env, fmt::{write, Debug, Display}, io::{stdout, Write}, process};
+use std::{env, io::{stdout, Write}};
 
-use crossterm::{cursor::*, event::*, execute, queue, style::Print, terminal::{self, *}, QueueableCommand};
-use file_readers::yade_dem_reader::YadeDemData;
-use maths::{build_identity_4x4, Vec3};
-use rand::Rng;
+use crossterm::{cursor::*, queue, style::Print, terminal::{*}};
+
+
+
 use rendering::{*};
 use settings::Settings;
 use terminal_wrapper::CrosstermTerminal;
 use timer::Timer;
 use benchmark::Benchmark;
 
-use crate::{file_readers::{obj_reader::{self, read_mesh_from_obj}, yade_dem_reader}, maths::UVec2, rendering::{camera::Camera, mesh::Mesh}, terminal_wrapper::{configure_terminal, poll_events, queue_draw_to_terminal_and_flush, restore_terminal, TerminalBuffer}};
+use crate::{file_readers::{yade_dem_reader}, maths::UVec2, rendering::{camera::Camera, mesh::Mesh}, terminal_wrapper::{configure_terminal, poll_events, queue_draw_to_terminal_and_flush, restore_terminal, TerminalBuffer}};
 
 
 // type DrawMeshFunction = fn(&Mesh, &mut [char], (u16, u16), &AppTimer, (&mut [f32], &mut [f32]), &Camera);
@@ -138,16 +138,16 @@ fn main() {
 	restore_terminal(terminal_mut);
 }
 
-fn just_poll_while_paused(mut app: &mut App, terminal_mut: &mut CrosstermTerminal, mut timer: &mut Timer) {
+fn just_poll_while_paused(app: &mut App, terminal_mut: &mut CrosstermTerminal, timer: &mut Timer) {
 	
 	if !app.has_paused_rendering { return; }
 
 	let paused_str = "PAUSED!";
 	render_string(paused_str, &UVec2::new(app.buf.wid - paused_str.len() as u16, app.buf.hei - 1), &mut app.buf);
-	queue_draw_to_terminal_and_flush(&mut app.buf, terminal_mut);
+	queue_draw_to_terminal_and_flush(&app.buf, terminal_mut);
 
 	while app.has_paused_rendering {
-		poll_events(terminal_mut, &mut app, &mut timer);
+		poll_events(terminal_mut, app, timer);
 	};
 }
 
@@ -202,7 +202,7 @@ fn test_shit() {
 
 	stdout.flush().unwrap();
 
-	let mut buf = vec![
+	let _buf = vec![
 		b'a', b'a', b'a', b'a', //  0  1  2  3
 		b'b', 0, 0, 0, //  4  5  6  7
 		b'c', 0, 0, 0, //  8  9 10 11
