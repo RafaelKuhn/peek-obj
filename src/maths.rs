@@ -322,14 +322,13 @@ pub fn apply_identity_to_mat_4x4(mat: &mut [f32]) {
 	mat[3 * SZ + 3] = 1.0;
 }
 
-pub fn apply_projection_to_mat_4x4(mat: &mut [f32], width_height: (u16, u16)) {
-	let (screen_width, screen_height) = width_height;
+pub fn apply_projection_to_mat_4x4(mat: &mut [f32], width: u16, height: u16) {
 
 	const ZN: f32 =   0.1;
 	const ZF: f32 = 100.0;
 
 	// height of the characters is double the width of the characters
-	let aspect_ratio = (screen_height as f32 * 2.0) / screen_width as f32;
+	let aspect_ratio = (height as f32 * 2.0) / width as f32;
 	const FOV: f32 = 0.25 * TAU;
 
 	let inv_tan_half_fov = 1.0 / ((FOV / 2.0).tan());

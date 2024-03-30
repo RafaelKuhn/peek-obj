@@ -1,7 +1,7 @@
 use std::time::{Instant, Duration};
 
 
-pub struct AppTimer {
+pub struct Timer {
 	pub frame_count: u32,
 	pub delta_time: Duration,
 	pub time_since_start: Duration,
@@ -12,8 +12,8 @@ pub struct AppTimer {
 	last_tick: Instant,
 }
 
-impl AppTimer {
-	pub fn init() -> Self {
+impl Timer {
+	pub fn new() -> Self {
 		let now = Instant::now();
 		let duration_of_2ms = Duration::from_millis(2);
 		Self {

@@ -26,7 +26,7 @@ pub struct Tri {
 
 
 pub fn read_data(path: &str) -> YadeDemData {
-	println!("Reading file '{}'", path);
+	// println!("Reading file '{}'", path);
 
 	// let file_content = fs::read_to_string(path).map_err(|err| err.to_string())?;
 	let file_content = match fs::read_to_string(path) {
@@ -44,7 +44,7 @@ pub fn read_data(path: &str) -> YadeDemData {
 		// println!(" {}: '{}'", i, line);
 		let mut line_split = line.split(", ").skip(1);
 
-		if line.starts_with("0") {
+		if line.starts_with('0') {
 
 			// TODO: port to juicier Rust
 			// let [ x, y, z, rad ] = line_split.next_chunk().unwrap();
@@ -60,7 +60,7 @@ pub fn read_data(path: &str) -> YadeDemData {
 			continue;
 		}
 
-		if line.starts_with("1") {
+		if line.starts_with('1') {
 
 			// TODO: port to juicier Rust
 			// let [ x, y, z, p0x, p0y, p0z, p1x, p1y, p1z, p2x, p2y, p2z ] = line_split.next_chunk().unwrap();

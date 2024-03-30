@@ -1,11 +1,13 @@
-#![allow(unused_variables)]
+// #![allow(unused_variables)]
 
 pub mod mesh;
 pub mod camera;
 
-use std::f32::consts::TAU;
+use std::{f32::consts::TAU, fmt::format};
 
-use crate::{benchmark::Benchmark, file_readers::yade_dem_reader::YadeDemData, maths::*, timer::AppTimer};
+use crossterm::{cursor::MoveTo, style::Print, QueueableCommand};
+
+use crate::{benchmark::Benchmark, file_readers::yade_dem_reader::YadeDemData, maths::*, terminal_wrapper::{CrosstermTerminal, TerminalBuffer, UTF32_BYTES_PER_CHAR}, timer::Timer, App};
 
 use self::{mesh::Mesh, camera::Camera};
 
@@ -13,6 +15,8 @@ use self::{mesh::Mesh, camera::Camera};
 // ascii luminance:
 // . , - ~ : ; = ! & # @"
 pub static BACKGROUND_FILL_CHAR: char = ' ';
+// pub static BACKGROUND_FILL_CHAR: char = '*';
+// pub static BACKGROUND_FILL_CHAR: char = '⠥';
 
 // static LUMIN: &str = " .,-~:;=!&#@";
 // static DIRS: &str =
@@ -23,6 +27,7 @@ pub static BACKGROUND_FILL_CHAR: char = ' ';
 static FILL_CHAR: char = '*';
 
 
+
 #[derive(Debug)]
 pub struct ScreenTriangle {
 	pub p0: UVec2,
@@ -30,13 +35,169 @@ pub struct ScreenTriangle {
 	pub p2: UVec2,
 }
 
-
-
-pub fn render_clear(buffer: &mut [char]) {
-	for ch in buffer { *ch = BACKGROUND_FILL_CHAR; }
-	// same as
-	// for i in 0..buffer.len() { buffer[i] = BACKGROUND_FILL_CHAR; }
+fn xy_to_it(x: u16, y: u16, width: u16) -> usize {
+	let y_offset = y as usize * width as usize * UTF32_BYTES_PER_CHAR;
+	y_offset + x as usize * UTF32_BYTES_PER_CHAR
 }
+
+pub fn render_clear(buffer: &mut TerminalBuffer) {
+
+	// TODO: figure out data structure to write braille (UTF32)
+	// let def_pad = UTF32_BYTES_PER_CHAR - char::len_utf8(BACKGROUND_FILL_CHAR);
+
+	for y in 0..buffer.hei {
+
+		let y_offset = y as usize * buffer.wid as usize * UTF32_BYTES_PER_CHAR;
+		for x in 0..buffer.wid {
+			let it = y_offset + x as usize * UTF32_BYTES_PER_CHAR;
+
+			// note: needs to fill [0, 0, 0, 0] because encode_utf8 only fills the required utf-8 leaving trash in there
+			buffer.vec[it .. it+UTF32_BYTES_PER_CHAR].fill(0);
+
+			// BACKGROUND_FILL_CHAR.encode_utf8(&mut buffer.vec[it + def_pad .. it+4]);
+			BACKGROUND_FILL_CHAR.encode_utf8(&mut buffer.vec[it .. it+UTF32_BYTES_PER_CHAR]);
+		}
+	}
+}
+
+pub fn render_char(ch: char, pos: &UVec2, buffer: &mut TerminalBuffer) {
+	let index = xy_to_it(pos.x, pos.y, buffer.wid);
+	ch.encode_utf8(&mut buffer.vec[index .. index+UTF32_BYTES_PER_CHAR]);
+}
+
+pub fn render_string(string: &str, pos: &UVec2, buffer: &mut TerminalBuffer) {
+	// string can't overflow the line
+	debug_assert!(pos.x as usize + string.len() - 1 < buffer.wid.into());
+
+	let mut index = xy_to_it(pos.x, pos.y, buffer.wid);
+	for byte in string.bytes() {
+		buffer.vec[index] = byte;
+		index += UTF32_BYTES_PER_CHAR
+	}
+}
+
+pub fn render_bresenham_line(p0: &UVec2, p1: &UVec2, buf: &mut TerminalBuffer, fill_char: char) {
+	let x0 = p0.x as i32;
+	let y0 = p0.y as i32;
+	let x1 = p1.x as i32;
+	let y1 = p1.y as i32;
+
+	let dx = (x1 - x0).abs();
+	let dy = (y1 - y0).abs();
+	let sx = if x0 < x1 { 1 } else { -1 };
+	let sy = if y0 < y1 { 1 } else { -1 };
+
+	let width  = buf.wid as i32;
+	let height = buf.hei as i32;
+
+	let mut deriv_diff = dx - dy;
+	let mut x = x0;
+	let mut y = y0;
+
+	// TODO: have a look at 
+
+	let i_screen_width = buf.wid as i32;
+	loop {
+		// let mut index = (y * i_screen_width + x) as usize;
+		let mut index = xy_to_it(x as u16, y as u16, buf.wid);
+
+		// handle out of bounds
+		if x >= 0 && x < width && y >= 0 && y < height {
+
+			// TODO: figure out how would this work with UTF8
+			fill_char.encode_utf8(&mut buf.vec[index..index+UTF32_BYTES_PER_CHAR]);
+		}
+
+		if x == x1 && y == y1 {
+			break;
+		}
+
+		let double_deriv_diff = deriv_diff * 2;
+		if double_deriv_diff > -dy {
+			deriv_diff -= dy;
+			x += sx;
+		}
+		if double_deriv_diff < dx {
+			deriv_diff += dx;
+			y += sy;
+		}
+	}
+}
+
+
+pub fn render_benchmark(benchmark: &Benchmark, buffer: &mut TerminalBuffer) {
+	let mut lowest_pos = UVec2::new(0, buffer.hei - 6);
+
+	render_string(&format!("fps: {}", benchmark.fps), &lowest_pos, buffer);
+	lowest_pos.y += 1;
+	render_string(&format!("dt: {:.2}ms", benchmark.delta_time_millis), &lowest_pos, buffer);
+	lowest_pos.y += 1;
+	render_string(&format!("time scale: {:.1}", benchmark.time_scale), &lowest_pos, buffer);
+	lowest_pos.y += 1;
+	render_string(&format!("scaled time: {:.2}", benchmark.time_aggr.as_millis() as f32 * 0.001), &lowest_pos, buffer);
+	lowest_pos.y += 1;
+	render_string(&format!("frame n: {}", benchmark.total_frame_count), &lowest_pos, buffer);
+	lowest_pos.y += 1;
+	render_string(&format!("w: {}, h: {}, w*h: {}", buffer.wid, buffer.hei, buffer.wid as u32 * buffer.hei as u32), &lowest_pos, buffer);
+}
+
+pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Timer, camera: &Camera) {
+
+	apply_identity_to_mat_4x4(&mut buf.proj_mat);
+	apply_projection_to_mat_4x4(&mut buf.proj_mat, buf.wid, buf.hei);
+
+	// TODO: figure out crappy camera
+	let (pos_x, pos_y, pos_z) = (0.0, 0.0, 12.0);
+
+	let start_ms = 89_340;
+	let t = (timer.time_aggr.as_millis() + start_ms) as f32 * 0.001;
+	let (angle_x, angle_y, angle_z) = (TAU * 0.25, t, 0.0);
+
+	let scale = 12.0;
+	let (scale_x, scale_y, scale_z) = (scale, scale, scale);
+
+	apply_identity_to_mat_4x4(&mut buf.transf_mat);
+	apply_scale_to_mat_4x4(&mut buf.transf_mat, scale_x, scale_y, scale_z);
+	apply_rotation_to_mat_4x4(&mut buf.transf_mat, angle_x, angle_y, angle_z);
+	apply_pos_to_mat_4x4(&mut buf.transf_mat, pos_x, pos_y, pos_z);
+
+	multiply_4x4_matrices(&mut buf.proj_mat, &mut buf.transf_mat);
+
+	for tri in yade_data.tris.iter() {
+
+		let p0 = &tri.p0 + &tri.pos;
+		let p1 = &tri.p1 + &tri.pos;
+		let p2 = &tri.p2 + &tri.pos;
+
+		let trs_p0 = p0.get_transformed_by_mat4x4(&mut buf.proj_mat);
+		let trs_p1 = p1.get_transformed_by_mat4x4(&mut buf.proj_mat);
+		let trs_p2 = p2.get_transformed_by_mat4x4(&mut buf.proj_mat);
+
+		let screen_p0 = clip_space_to_screen_space(&trs_p0, buf.wid, buf.hei);
+		let screen_p1 = clip_space_to_screen_space(&trs_p1, buf.wid, buf.hei);
+		let screen_p2 = clip_space_to_screen_space(&trs_p2, buf.wid, buf.hei);
+
+		render_bresenham_line(&screen_p0, &screen_p1, buf, FILL_CHAR);
+		render_bresenham_line(&screen_p1, &screen_p2, buf, FILL_CHAR);
+		render_bresenham_line(&screen_p2, &screen_p0, buf, FILL_CHAR);
+	}
+
+	for circ in yade_data.circs.iter() {
+
+		let circ_pos = circ.pos.get_transformed_by_mat4x4(&mut buf.proj_mat);
+		let screen_circ = clip_space_to_screen_space(&circ_pos, buf.wid, buf.hei);
+
+		render_char('R', &screen_circ, buf);
+	}
+
+}
+
+
+
+
+
+
+
 
 pub fn draw_string(string: &str, pos: &UVec2, buffer: &mut [char], screen_width: u16) {
 	let mut index = pos.y as usize * screen_width as usize + pos.x as usize;
@@ -68,12 +229,12 @@ pub fn draw_mat4x4(mat: &[f32], pos: &UVec2, buffer: &mut [char], screen_width: 
 	draw_string(&r3, &UVec2::new(pos.x, pos.y+3), buffer, screen_width);
 }
 
-pub fn draw_mesh_wire_and_normals(mesh: &Mesh, buffer: &mut [char], width_height: (u16, u16), timer: &AppTimer, matrices: (&mut [f32], &mut [f32]), camera: &Camera) {
+pub fn draw_mesh_wire_and_normals(mesh: &Mesh, buffer: &mut [char], width_height: (u16, u16), timer: &Timer, matrices: (&mut [f32], &mut [f32]), camera: &Camera) {
 	let (screen_width, screen_height) = width_height;
 	let (proj_mat, transform_mat) = matrices;
 	
 	apply_identity_to_mat_4x4(proj_mat);
-	apply_projection_to_mat_4x4(proj_mat, width_height);
+	apply_projection_to_mat_4x4(proj_mat, screen_width, screen_height);
 
 	let (pos_x, pos_y, pos_z) = (0.0, 0.0, 12.0);
 
@@ -156,12 +317,12 @@ pub fn draw_mesh_wire_and_normals(mesh: &Mesh, buffer: &mut [char], width_height
 	}
 }
 
-pub fn draw_mesh_wire(mesh: &Mesh, buffer: &mut [char], width_height: (u16, u16), timer: &AppTimer, matrices: (&mut [f32], &mut [f32]), camera: &Camera) {
+pub fn draw_mesh_wire(mesh: &Mesh, buffer: &mut [char], width_height: (u16, u16), timer: &Timer, matrices: (&mut [f32], &mut [f32]), camera: &Camera) {
 	let (screen_width, screen_height) = width_height;
 	let (proj_mat, transform_mat) = matrices;
 
 	apply_identity_to_mat_4x4(proj_mat);
-	apply_projection_to_mat_4x4(proj_mat, width_height);
+	apply_projection_to_mat_4x4(proj_mat, screen_width, screen_height);
 
 
 	let (pos_x, pos_y, pos_z) = (0.0, 0.0, 12.0);
@@ -217,14 +378,14 @@ pub fn draw_mesh_wire(mesh: &Mesh, buffer: &mut [char], width_height: (u16, u16)
 }
 
 // TODO: could pass in a global data object with the timer and the matrices
-pub fn draw_mesh_filled(mesh: &Mesh, buffer: &mut [char], width_height: (u16, u16), timer: &AppTimer, matrices: (&mut [f32], &mut [f32]), camera: &Camera) {
+pub fn draw_mesh_filled(mesh: &Mesh, buffer: &mut [char], width_height: (u16, u16), timer: &Timer, matrices: (&mut [f32], &mut [f32]), camera: &Camera) {
 	let (screen_width, screen_height) = width_height;
 	let (proj_mat, transform_mat) = matrices;
 
 	apply_identity_to_mat_4x4(proj_mat);
 	apply_identity_to_mat_4x4(transform_mat);
 
-	apply_projection_to_mat_4x4(proj_mat, width_height);
+	apply_projection_to_mat_4x4(proj_mat, screen_width, screen_height);
 
 	// TODO: apply object scale and rotation here
 	// apply_scale_to_mat_4x4(transform_mat, 1.0, 1.0, 1.0);
@@ -282,13 +443,12 @@ pub fn draw_mesh_filled_and_normals(screen_space_tris: &mut [ScreenTriangle], bu
 	todo!()
 }
 
-
-pub fn draw_yade(yade_data: &YadeDemData, buffer: &mut [char], width_height: (u16, u16), timer: &AppTimer, matrices: (&mut [f32], &mut [f32]), camera: &Camera) {
+pub fn draw_yade(yade_data: &YadeDemData, buffer: &mut [char], width_height: (u16, u16), timer: &Timer, matrices: (&mut [f32], &mut [f32]), camera: &Camera) {
 	let (screen_width, screen_height) = width_height;
 	let (proj_mat, transform_mat) = matrices;
 
 	apply_identity_to_mat_4x4(proj_mat);
-	apply_projection_to_mat_4x4(proj_mat, width_height);
+	apply_projection_to_mat_4x4(proj_mat, screen_width, screen_height);
 
 
 	let (pos_x, pos_y, pos_z) = (0.0, 0.0, 12.0);
@@ -348,24 +508,6 @@ pub fn draw_yade(yade_data: &YadeDemData, buffer: &mut [char], width_height: (u1
 	}
 }
 
-
-pub fn draw_benchmark(buffer: &mut [char], screen_width: u16, screen_height: u16, benchmark: &Benchmark) {
-	let mut lowest_pos = UVec2::new(0, screen_height - 3 - 6);
-
-	draw_string(&format!("time scale: {:.1} playing: {}", if benchmark.is_paused { 0.0 } else { 1.0 },  !benchmark.is_paused), &lowest_pos, buffer, screen_width);
-	lowest_pos.y += 1;
-	draw_string(&format!("dt: {:.2}ms", benchmark.delta_time_millis), &lowest_pos, buffer, screen_width);
-	lowest_pos.y += 1;
-	draw_string(&format!("fps: {}", benchmark.fps),                   &lowest_pos, buffer, screen_width);
-	lowest_pos.y += 1;
-	draw_string(&format!("w: {}, h: {}, w*h: {}", screen_width, screen_height, screen_width as u32 * screen_height as u32), &lowest_pos, buffer, screen_width);
-	lowest_pos.y += 1;
-	draw_string(&format!("iteration: {}", benchmark.total_frame_count),  &lowest_pos, buffer, screen_width);
-}
-
-pub fn draw_timer(buffer: &mut [char], screen_width: u16, screen_height: u16, timer: &AppTimer) {
-	draw_string(&format!("scaled time: {:.4}", timer.time_aggr.as_millis()), &UVec2::new(0, screen_height - 3), buffer, screen_width);
-}
 
 pub fn draw_point(p: &UVec2, buffer: &mut [char], screen_width: u16, fill_char: char) {
 	let index: usize = p.y as usize * screen_width as usize + p.x as usize;

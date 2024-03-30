@@ -7,28 +7,30 @@
 
 mod rendering;
 mod maths;
-mod terminal;
+mod terminal_wrapper;
 mod timer;
 mod benchmark;
 mod file_readers;
 mod settings;
 
 
-use std::{process, env};
+use std::{env, fmt::{write, Debug, Display}, io::{stdout, Write}, process};
 
+use crossterm::{cursor::*, event::*, execute, queue, style::Print, terminal::{self, *}, QueueableCommand};
 use file_readers::yade_dem_reader::YadeDemData;
 use maths::{build_identity_4x4, Vec3};
+use rand::Rng;
 use rendering::{*};
 use settings::Settings;
-use terminal::{FreeText, configure_terminal, poll_events, render_free_text, get_terminal_width_height};
-use timer::AppTimer;
+use terminal_wrapper::CrosstermTerminal;
+use timer::Timer;
 use benchmark::Benchmark;
 
-use crate::{file_readers::{obj_reader::{self, read_mesh_from_obj}, yade_dem_reader}, rendering::{camera::Camera, mesh::Mesh}};
+use crate::{file_readers::{obj_reader::{self, read_mesh_from_obj}, yade_dem_reader}, maths::UVec2, rendering::{camera::Camera, mesh::Mesh}, terminal_wrapper::{configure_terminal, poll_events, queue_draw_to_terminal_and_flush, restore_terminal, TerminalBuffer}};
 
 
 // type DrawMeshFunction = fn(&Mesh, &mut [char], (u16, u16), &AppTimer, (&mut [f32], &mut [f32]), &Camera);
-type DrawMeshFunction = fn(&Mesh, buffer: &mut [char], width_height: (u16, u16), &AppTimer, matrices: (&mut [f32], &mut [f32]), &Camera);
+type DrawMeshFunction = fn(&Mesh, buffer: &mut [char], width_height: (u16, u16), &Timer, matrices: (&mut [f32], &mut [f32]), &Camera);
 
 
 fn main() {
@@ -37,8 +39,8 @@ fn main() {
 	let settings = Settings::from_args(args);
 
 	if !settings.has_custom_path {
-		println!("Provide a path");
-		return;
+		eprintln!("Provide a path");
+		std::process::exit(1);
 	}
 
 	let yade_data = yade_dem_reader::read_data(&settings.custom_path);
@@ -55,7 +57,6 @@ fn main() {
 	// 	println!("CIRCLE {:3}: {:+.4} {:+.4} {:+.4} rad {:+.4}", i, circ.x, circ.y, circ.z, circ.rad);
 	// }
 	// #endif
-
 
 
 	// #if MESH
@@ -82,29 +83,30 @@ fn main() {
 	// };
 	// #endif
 
+	let terminal_mut = &mut configure_terminal();
+	restore_terminal(terminal_mut);
 
-	let terminal = &mut configure_terminal();
-	let (width, height) = get_terminal_width_height(terminal);
+	// test_shit(); return;
 
-	let mut app = App::new(width, height);
+	let mut app = App::init_with_screen();
+	// let mut app = App::init(width-1, height-1);
+	// let mut app = App::init(32, 32);
 
-	let mut timer = AppTimer::init();
+	let mut timer = Timer::new();
 
 	const BENCHMARK_REFRESH_RATE: f32 = 0.5;
 	let mut benchmark = Benchmark::new(BENCHMARK_REFRESH_RATE);
 
 	let mut camera = Camera::new();
-	
+
 	// TODO: why does setting the camera like this here puts it forward? should be the opposite ...
 	// camera.set_pos(0.0, 0.0, 22.0);
 
 	// camera.set_rot(6.28318530 * 6.5/8.,  0.0, 0.0);
 	// camera.set_rot(0.0,  6.2831 * 0.0825, 0.0);
-	
-	camera.update_view_matrix();
 
-	let mut transform_mat  = build_identity_4x4();
-	let mut projection_mat = build_identity_4x4();
+	// why?
+	camera.update_view_matrix();
 
 	// #if MESH
 	// let draw_mesh: DrawMeshFunction = if settings.draw_wireframe {
@@ -114,62 +116,141 @@ fn main() {
 	// };
 	// #endif
 
-	// let draw_yade: DrawMeshFunction
-
 	loop {
-		if app.has_paused_rendering {
-			timer.run();
-			poll_events(terminal, &mut app, &mut timer);
-			continue;
-		}
+		just_poll_while_paused(&mut app, terminal_mut, &mut timer);
+		poll_events(terminal_mut, &mut app, &mut timer);
 
-		render_clear(&mut app.text_buffer.text);
+		render_clear(&mut app.buf);
 
-		// draw_mesh(&mesh, &mut app.text_buffer.text, (app.width, app.height), &timer, (&mut transform_mat, &mut projection_mat), &camera);
-		draw_yade(&yade_data, &mut app.text_buffer.text, (app.width, app.height), &timer, (&mut transform_mat, &mut projection_mat), &camera);
-
-		poll_events(terminal, &mut app, &mut timer);
+		// TODO: render other crap
 
 		benchmark.profile_frame(&timer);
-		draw_benchmark(&mut app.text_buffer.text, app.width, app.height, &benchmark);
-		draw_timer(&mut app.text_buffer.text, app.width, app.height, &timer);
+		render_benchmark(&benchmark, &mut app.buf);
+
+		// draw_mesh(&mesh, &mut app.text_buffer.text, (app.width, app.height), &timer, (&mut transform_mat, &mut projection_mat), &camera);
+		render_yade(&yade_data, &mut app.buf, &timer, &camera);
 
 		timer.run();
 
-		terminal.draw(|frame| render_free_text(frame, &app.text_buffer)).unwrap();
+		queue_draw_to_terminal_and_flush(&app.buf, terminal_mut);
 	}
+
+	restore_terminal(terminal_mut);
+}
+
+fn just_poll_while_paused(mut app: &mut App, terminal_mut: &mut CrosstermTerminal, mut timer: &mut Timer) {
+	
+	if !app.has_paused_rendering { return; }
+
+	let paused_str = "PAUSED!";
+	render_string(paused_str, &UVec2::new(app.buf.wid - paused_str.len() as u16, app.buf.hei - 1), &mut app.buf);
+	queue_draw_to_terminal_and_flush(&mut app.buf, terminal_mut);
+
+	while app.has_paused_rendering {
+		poll_events(terminal_mut, &mut app, &mut timer);
+	};
+}
+
+
+fn test_shit() {
+	
+	let mut buf = [
+		0, 0, 0, 0,
+		0, 0, 0, 0,
+		0, 0, 0, 0,
+		0, 0, 0, 0,
+		
+		0, 0, 0, 0,
+		0, 0, 0, 0,
+		0, 0, 0, 0,
+		0, 0, 0, 0,
+		
+		0, 0, 0, 0,
+		0, 0, 0, 0,
+		0, 0, 0, 0,
+		0, 0, 0, 0,
+
+		0, 0, 0, 0,
+		0, 0, 0, 0,
+		0, 0, 0, 0,
+		0, 0, 0, 0,
+	];
+
+	let mut stdout = stdout();
+	
+	BACKGROUND_FILL_CHAR.encode_utf8(&mut buf[0..16]);
+	BACKGROUND_FILL_CHAR.encode_utf8(&mut buf[4..16]);
+	BACKGROUND_FILL_CHAR.encode_utf8(&mut buf[8..16]);
+	BACKGROUND_FILL_CHAR.encode_utf8(&mut buf[12..16]);
+	
+	// BACKGROUND_FILL_CHAR.encode_utf8(&mut slice[1..4]);
+	BACKGROUND_FILL_CHAR.encode_utf8(&mut buf[16..32]);
+	BACKGROUND_FILL_CHAR.encode_utf8(&mut buf[20..32]);
+	BACKGROUND_FILL_CHAR.encode_utf8(&mut buf[24..32]);
+	BACKGROUND_FILL_CHAR.encode_utf8(&mut buf[28..32]);
+	// BACKGROUND_FILL_CHAR.encode_utf8(&mut slice[5..8]);
+
+	
+	// let buf_str = unsafe { std::str::from_utf8_unchecked(&slice) };
+	let buf_str = std::str::from_utf8(&buf[0..16]).unwrap();
+	queue!(stdout, MoveTo(0, 0)).unwrap();
+	queue!(stdout, Print(buf_str)).unwrap();
+	
+	let buf_str = std::str::from_utf8(&buf[16..32]).unwrap();
+	queue!(stdout, MoveTo(0, 1)).unwrap();
+	queue!(stdout, Print(buf_str)).unwrap();
+
+	stdout.flush().unwrap();
+
+	let mut buf = vec![
+		b'a', b'a', b'a', b'a', //  0  1  2  3
+		b'b', 0, 0, 0, //  4  5  6  7
+		b'c', 0, 0, 0, //  8  9 10 11
+		b' ', 0, 0, 0, // 12 13 14 15
+		0,    0, 0, 0, // 16 17 18 19
+		// invalid utf8 example
+		// 0xf0, 0x28, 0x8c, 0xbc,
+		// 128, 223,
+	];
+
+	// '💖'.encode_utf8(&mut buf[16..20]);
+
 }
 
 
 pub struct App {
-	pub width:  u16,
-	pub height: u16,
+	pub can_resize: bool,
 	pub has_paused_rendering: bool,
 
-	pub text_buffer: FreeText,
+	pub buf: TerminalBuffer,
 }
 
 
 impl App {
-	fn new(screen_width: u16, screen_height: u16) -> App {
+	fn init_with_screen() -> App {
+		let (screen_width, screen_height) = size().unwrap();
 		Self {
-			text_buffer: FreeText::from_screen(screen_width, screen_height),
-			width: screen_width,
-			height: screen_height,
+			can_resize: true,
 			has_paused_rendering: false,
+			buf: TerminalBuffer::new(screen_width, screen_height)
 		}
 	}
 
-	// fn resize_realloc(&mut self, w: u16, h: u16, terminal: &mut CrosstermTerminal) {
+	fn init(screen_width: u16, screen_height: u16) -> App {
+		Self {
+			can_resize: false,
+			has_paused_rendering: false,
+			buf: TerminalBuffer::new(screen_width, screen_height)
+		}
+	}
+
 	fn resize_realloc(&mut self, w: u16, h: u16) {
 
-		// I have no fucking clue why but I need to add 1 here
-		self.width  = w + 1;
-		self.height = h ;
+		if !self.can_resize { return; }
 
-		self.text_buffer = FreeText::from_screen(w, h);
+		self.buf.resize_and_render_clear(w + 1, h + 1);
 
-		// not a good idea but when rendering is disabled, we could copy the content of the previous frame to the new one and draw
-		// this would require a mut ref to the terminal
+		// not a good idea but when rendering is disabled, we could copy the content of the previous frame
+		// reescale it and draw it into the new one (this would require a mut ref to the terminal)
 	}
 }
