@@ -1,4 +1,4 @@
-use crate::maths::Vec3;
+use crate::{maths::Vec3};
 
 
 pub struct Mesh {
@@ -8,7 +8,6 @@ pub struct Mesh {
 	pub normals: Vec<f32>,
 	pub normal_indices: Vec<u16>,
 }
-
 
 impl Mesh {
 	pub fn cube() -> Self {
@@ -64,6 +63,25 @@ impl Mesh {
 			 self.normals[normal_index as usize * SZ + 2],
 		)
 	}
-}
 
+	pub fn invert_mesh_yz(&mut self) {
+		let mut i = 0;
+		while i < self.verts.len() {
+
+			// let vert_x = self.verts[i];
+			i += 1;
+
+			let vert_y = self.verts[i];
+			i += 1;
+			let vert_z = self.verts[i];
+
+			// y
+			self.verts[i-1] = vert_z;
+			// z
+			self.verts[i] = vert_y;
+
+			i += 1;
+		}
+	}
+}
 

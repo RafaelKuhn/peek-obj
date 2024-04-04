@@ -16,22 +16,34 @@ mod settings;
 
 use std::{env, io::{stdout, Write}};
 
-use crossterm::{cursor::*, queue, style::Print, terminal::{*}};
+use crossterm::{cursor::*, queue, style::Print, terminal::*, QueueableCommand};
 
 
 
-use rendering::{*};
+use file_readers::yade_dem_reader::YadeDemData;
+use rendering::{renderer::Renderer, yade_renderer::YadeRenderer, *};
 use settings::Settings;
 use terminal_wrapper::CrosstermTerminal;
 use timer::Timer;
 use benchmark::Benchmark;
 
-use crate::{file_readers::{yade_dem_reader}, maths::UVec2, rendering::{camera::Camera, mesh::Mesh}, terminal_wrapper::{configure_terminal, poll_events, queue_draw_to_terminal_and_flush, restore_terminal, TerminalBuffer}};
+use crate::{file_readers::{obj_reader::{read_mesh_from_obj, translate_mesh}, yade_dem_reader}, maths::{UVec2, Vec3}, obj_renderer::ObjRenderer, rendering::{camera::Camera, mesh::Mesh}, terminal_wrapper::{configure_terminal, poll_events, queue_draw_to_terminal_and_flush, restore_terminal, TerminalBuffer}};
 
 
 // type DrawMeshFunction = fn(&Mesh, &mut [char], (u16, u16), &AppTimer, (&mut [f32], &mut [f32]), &Camera);
 type DrawMeshFunction = fn(&Mesh, buffer: &mut [char], width_height: (u16, u16), &Timer, matrices: (&mut [f32], &mut [f32]), &Camera);
 
+// TODO: isolate
+enum FileType {
+	Mesh(Mesh),
+	YadeData(YadeDemData),
+}
+
+// type DrawFunction = fn(FileType, buffer: &mut [char], width_height: (u16, u16), &Timer, matrices: (&mut [f32], &mut [f32]), &Camera);
+
+// TODO: figure out how to do it more functionally if I wanted to
+type RenderMeshFn = fn(&Mesh, &mut TerminalBuffer, &Timer, &Camera);
+type RenderYadeFn = fn(&YadeDemData, &mut TerminalBuffer, &Timer, &Camera);
 
 fn main() {
 
@@ -43,53 +55,15 @@ fn main() {
 		std::process::exit(1);
 	}
 
-	let yade_data = yade_dem_reader::read_data(&settings.custom_path);
-
-	// #if VERBOSE
-	// println!();
-	// for (i, tri) in read_yade_dem.tris.into_iter().enumerate() {
-	// 	println!("TRIANGLE {:3}: {:+.4} {:+.4} {:+.4}  ({:+.3} {:+.3} {:+.3})  ({:+.3} {:+.3} {:+.3})  ({:+.3} {:+.3} {:+.3})", i, tri.x, tri.y, tri.z, 
-	// 	tri.p0x, tri.p0y, tri.p0z, tri.p1x, tri.p1y, tri.p1z, tri.p2x, tri.p2y, tri.p2z );
-	// }
-
-	// println!();
-	// for (i, circ) in read_yade_dem.circs.into_iter().enumerate() {
-	// 	println!("CIRCLE {:3}: {:+.4} {:+.4} {:+.4} rad {:+.4}", i, circ.x, circ.y, circ.z, circ.rad);
-	// }
-	// #endif
-
-
-	// #if MESH
-	// TODO: check custom only if file is not found
-	// let mesh_result = if !settings.has_custom_path {
-	// 	let raw_teapot_result = obj_reader::read_mesh_from_obj("objs/teapot.obj");
-	// 	obj_reader::translate_mesh(raw_teapot_result, &Vec3::new(0.0, -1.575, 0.0))
-	// } else {
-	// 	read_mesh_from_obj(&settings.custom_path)
-	// };
-	// let mesh = match mesh_result {
-	// 	// Ok(mesh) => mesh,
-	// 	Ok(mut mesh) => {
-	// 		// TODO: make the camera farther away, not the mesh
-	// 		mesh.pos.x = 0.0;
-	// 		mesh.pos.y = 0.0;
-	// 		mesh.pos.z = 22.0;
-	// 		mesh
-	// 	}
-	// 	Err(err) => {
-	// 		println!("{:}", err);
-	// 		process::exit(1);
-	// 	},
-	// };
-	// #endif
+	let data_to_draw = if settings.custom_path.ends_with(".obj") {
+		FileType::Mesh(read_mesh_from_obj(&settings.custom_path).unwrap())
+	} else {
+		FileType::YadeData(YadeDemData::read_from_file_or_quit(&settings.custom_path))
+	};
 
 	let terminal_mut = &mut configure_terminal();
-	restore_terminal(terminal_mut);
-
-	// test_shit(); return;
 
 	let mut app = App::init_with_screen();
-	// let mut app = App::init(width-1, height-1);
 	// let mut app = App::init(32, 32);
 
 	let mut timer = Timer::new();
@@ -116,6 +90,18 @@ fn main() {
 	// };
 	// #endif
 
+	// TODO: try doing it with this:
+	// https://refactoring.guru/design-patterns/abstract-factory/rust/example
+	
+	// TODO: try this less blurry crap
+	// https://stackoverflow.com/questions/25445761/returning-a-closure-from-a-function
+
+	// let renderer = make_renderer(data_to_draw);
+
+	// BUNNY config
+	// mesh.invert_mesh_yz();
+	// translate_mesh(&mut mesh, &Vec3::new(0.0, 0.0, -0.125));
+
 	loop {
 		just_poll_while_paused(&mut app, terminal_mut, &mut timer);
 		render_clear(&mut app.buf);
@@ -127,8 +113,14 @@ fn main() {
 		benchmark.profile_frame(&timer);
 		render_benchmark(&benchmark, &mut app.buf);
 
-		// draw_mesh(&mesh, &mut app.text_buffer.text, (app.width, app.height), &timer, (&mut transform_mat, &mut projection_mat), &camera);
-		render_yade(&yade_data, &mut app.buf, &timer, &camera);
+		match data_to_draw {
+			FileType::Mesh(ref mesh) => render_mesh(&mesh, &mut app.buf, &timer, &camera),
+			FileType::YadeData(ref yade_data) => render_yade(&yade_data, &mut app.buf, &timer, &camera),
+		}
+
+		// render_mesh(&mesh, &mut app.buf, &timer, &camera);
+		// render_yade(&yade_data, &mut app.buf, &timer, &camera);
+		// renderer.render(&mut app.buf, &timer, &camera);
 
 		timer.run_frame();
 
@@ -136,6 +128,14 @@ fn main() {
 	}
 
 	restore_terminal(terminal_mut);
+}
+
+// TODO: try doing this with static dispatch (maybe make a RenderLoop function that accepts a generic shit like this)
+
+// fn render<T: Renderer>(renderer: &T, buf: &mut TerminalBuffer, timer: &Timer, camera: &Camera) {
+// fn render(renderer: &dyn Renderer, buf: &mut TerminalBuffer, timer: &Timer, camera: &Camera) {
+fn render(renderer: Box<dyn Renderer>, buf: &mut TerminalBuffer, timer: &Timer, camera: &Camera) {
+	renderer.render(buf, timer, camera);
 }
 
 fn just_poll_while_paused(app: &mut App, terminal_mut: &mut CrosstermTerminal, timer: &mut Timer) {
@@ -152,9 +152,8 @@ fn just_poll_while_paused(app: &mut App, terminal_mut: &mut CrosstermTerminal, t
 	};
 }
 
+fn test_shit2() {
 
-fn test_shit() {
-	
 	let mut buf = [
 		0, 0, 0, 0,
 		0, 0, 0, 0,

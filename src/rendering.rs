@@ -2,14 +2,19 @@
 
 pub mod mesh;
 pub mod camera;
+pub mod utils;
+
+pub mod renderer;
+pub mod yade_renderer;
+pub mod obj_renderer;
 
 use std::{f32::consts::TAU};
 
 
 
-use crate::{benchmark::Benchmark, file_readers::yade_dem_reader::YadeDemData, maths::*, terminal_wrapper::{TerminalBuffer, UTF32_BYTES_PER_CHAR}, timer::Timer};
+use crate::{benchmark::Benchmark, file_readers::yade_dem_reader::YadeDemData, maths::*, terminal_wrapper::{TerminalBuffer}, timer::Timer};
 
-use self::{mesh::Mesh, camera::Camera};
+use self::{camera::Camera, mesh::Mesh, utils::xy_to_it};
 
 
 // ascii luminance:
@@ -24,7 +29,10 @@ pub static BACKGROUND_FILL_CHAR: char = ' ';
 //   "← · →" +
 //   "↙ ↓ ↘";
 
-static FILL_CHAR: char = '*';
+static FILL_CHAR: char = '@';
+
+pub static UTF32_BYTES_PER_CHAR: usize = 1;
+// pub static UTF32_BYTES_PER_CHAR: usize = 4;
 
 
 
@@ -33,11 +41,6 @@ pub struct ScreenTriangle {
 	pub p0: UVec2,
 	pub p1: UVec2,
 	pub p2: UVec2,
-}
-
-fn xy_to_it(x: u16, y: u16, width: u16) -> usize {
-	let y_offset = y as usize * width as usize * UTF32_BYTES_PER_CHAR;
-	y_offset + x as usize * UTF32_BYTES_PER_CHAR
 }
 
 pub fn render_clear(buffer: &mut TerminalBuffer) {
@@ -144,7 +147,7 @@ pub fn render_benchmark(benchmark: &Benchmark, buffer: &mut TerminalBuffer) {
 	render_string(&format!("w: {}, h: {}, w*h: {}, a: {:.2}", buffer.wid, buffer.hei, wxh, aspect), &lowest_pos, buffer);
 }
 
-pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Timer, _camera: &Camera) {
+pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Timer, camera: &Camera) {
 
 	apply_identity_to_mat_4x4(&mut buf.proj_mat);
 	apply_projection_to_mat_4x4(&mut buf.proj_mat, buf.wid, buf.hei);
@@ -195,6 +198,74 @@ pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Ti
 
 }
 
+pub fn render_mesh(mesh: &Mesh, buf: &mut TerminalBuffer, timer: &Timer, _camera: &Camera) {
+
+	apply_identity_to_mat_4x4(&mut buf.proj_mat);
+	apply_projection_to_mat_4x4(&mut buf.proj_mat, buf.wid, buf.hei);
+
+
+	let (pos_x, pos_y, pos_z) = (0.0, 0.0, 25.0);
+
+	let start_ms = 89_340;
+	let t = (timer.time_aggr.as_millis() + start_ms) as f32 * 0.001;
+	let (angle_x, angle_y, angle_z) = (t * 0.1, t * 0.83, t * 1.2);
+	// let (angle_x, angle_y, angle_z) = (0.0, 0.0, 0.0);
+
+	let speed = 0.3;
+	let sharpness = 2.5;
+
+	let tri_wave = triangle_wave(t * speed);
+	let t_smooth_wave = smoothed_0_to_1(tri_wave, sharpness);
+	let tmod = lerp_f32(0.2, 0.4, t_smooth_wave);
+	// let tmod = 1.0;
+	let (scale_x, scale_y, scale_z) = (tmod, tmod, tmod);
+
+
+	// TODO: remove these
+	let start_ms = 89_340;
+	let t = (timer.time_aggr.as_millis() + start_ms) as f32 * 0.001;
+	let (angle_x, angle_y, angle_z) = (TAU * 0.25, t, 0.0);
+
+	let scale = 1.0;
+	let (scale_x, scale_y, scale_z) = (scale, scale, scale);
+
+
+
+	render_string(&format!("{:.2}", t), &UVec2::new(0, 0), buf);
+	render_string(&format!("{:.2}", t_smooth_wave), &UVec2::new(0, 1), buf);
+	render_string(&format!("{:.2}", tmod), &UVec2::new(0, 2), buf);
+
+	apply_identity_to_mat_4x4(&mut buf.transf_mat);
+	apply_scale_to_mat_4x4(&mut buf.transf_mat, scale_x, scale_y, scale_z);
+	apply_rotation_to_mat_4x4(&mut buf.transf_mat, angle_x, angle_y, angle_z);
+	apply_pos_to_mat_4x4(&mut buf.transf_mat, pos_x, pos_y, pos_z);
+
+	multiply_4x4_matrices(&mut buf.proj_mat, &buf.transf_mat);
+
+	let num_tris = mesh.tris_indices.len() / 3;
+	for tri_i in 0..num_tris {
+
+		let p0_i = tri_i * 3 + 0;
+		let p1_i = tri_i * 3 + 1;
+		let p2_i = tri_i * 3 + 2;
+
+		let p0 = mesh.get_vert_at(p0_i);
+		let p1 = mesh.get_vert_at(p1_i);
+		let p2 = mesh.get_vert_at(p2_i);
+
+		let trs_p0 = p0.get_transformed_by_mat4x4(&buf.proj_mat);
+		let trs_p1 = p1.get_transformed_by_mat4x4(&buf.proj_mat);
+		let trs_p2 = p2.get_transformed_by_mat4x4(&buf.proj_mat);
+
+		let screen_p0 = clip_space_to_screen_space(&trs_p0, buf.wid, buf.hei);
+		let screen_p1 = clip_space_to_screen_space(&trs_p1, buf.wid, buf.hei);
+		let screen_p2 = clip_space_to_screen_space(&trs_p2, buf.wid, buf.hei);
+
+		render_bresenham_line(&screen_p0, &screen_p1, buf, FILL_CHAR);
+		render_bresenham_line(&screen_p1, &screen_p2, buf, FILL_CHAR);
+		render_bresenham_line(&screen_p2, &screen_p0, buf, FILL_CHAR);
+	}
+}
 
 
 

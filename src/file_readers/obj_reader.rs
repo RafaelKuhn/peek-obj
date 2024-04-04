@@ -4,6 +4,7 @@ use crate::{rendering::mesh::Mesh, maths::Vec3};
 
 
 // pub enum ReaderError<'a> {
+#[derive(Debug)]
 pub enum ReaderError {
 	// BadFormat(&'a str),
 	BadFormat(String),
@@ -51,6 +52,8 @@ impl From<ParseIntError> for ReaderError {
 }
 
 // TODO: instead of propagating the shit all the way, I can make ReaderError have a string that expands with the error (shows lines that went bad)
+
+// TODO: make it Mesh::read_from_file
 pub fn read_mesh_from_obj(path: &str) -> Result<Mesh, ReaderError> {
 
 	let file_content = fs::read_to_string(path).map_err(|err| ReaderError::from_io_error(err, path))?;
@@ -136,6 +139,31 @@ pub fn read_mesh_from_obj(path: &str) -> Result<Mesh, ReaderError> {
 		}
 	}
 
+
+	// #if MESH
+	// TODO: check custom only if file is not found
+	// let mesh_result = if !settings.has_custom_path {
+	// 	let raw_teapot_result = obj_reader::read_mesh_from_obj("objs/teapot.obj");
+	// 	obj_reader::translate_mesh(raw_teapot_result, &Vec3::new(0.0, -1.575, 0.0))
+	// } else {
+	// 	read_mesh_from_obj(&settings.custom_path)
+	// };
+	// let mesh = match mesh_result {
+	// 	// Ok(mesh) => mesh,
+	// 	Ok(mut mesh) => {
+	// 		// TODO: make the camera farther away, not the mesh
+	// 		mesh.pos.x = 0.0;
+	// 		mesh.pos.y = 0.0;
+	// 		mesh.pos.z = 22.0;
+	// 		mesh
+	// 	}
+	// 	Err(err) => {
+	// 		println!("{:}", err);
+	// 		process::exit(1);
+	// 	},
+	// };
+	// #endif
+
 	let mesh = Mesh {
 		pos: Vec3::zero(),
 		verts,
@@ -147,9 +175,8 @@ pub fn read_mesh_from_obj(path: &str) -> Result<Mesh, ReaderError> {
 	Ok(mesh)
 }
 
-pub fn translate_mesh(mesh_res: Result<Mesh, ReaderError>, translation: &Vec3) -> Result<Mesh, ReaderError> {
-	let mut mesh = mesh_res?;
-	let mesh_mut = &mut mesh;
+// TODO: put it in Mesh struct
+pub fn translate_mesh(mesh_mut: &mut Mesh, translation: &Vec3) {
 
 	let mut i = 0;
 	while i < mesh_mut.verts.len() {
@@ -166,7 +193,4 @@ pub fn translate_mesh(mesh_res: Result<Mesh, ReaderError>, translation: &Vec3) -
 		mesh_mut.verts[i] = vert_z + translation.z;
 		i += 1;
 	}
-
-	Ok(mesh)
 }
-

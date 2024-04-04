@@ -1,22 +1,15 @@
 
-use std::{fmt::Display, io::{self, Stdout, Write}, process, time::Duration};
+use std::{io::{self, Stdout, Write}, process, time::Duration};
 
 use crossterm::{
-cursor::{Hide, MoveTo, Show}, event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode}, execute, style::Print, terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen}, QueueableCommand
+cursor::{Hide, MoveTo, Show}, event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode}, execute, queue, style::Print, terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen}, QueueableCommand
 };
-
-// use tui::{
-// 	backend::{Backend},
-// 	Terminal, Frame, layout::Rect, widgets::Widget, buffer::Buffer,
-// };
-
-// type CrosstermTerminal = Terminal<CrosstermBackend<Stdout>>;
 
 pub struct CrosstermTerminal {
 	pub stdout: Stdout
 }
 
-use crate::{maths::build_identity_4x4, render_clear, timer::Timer, App};
+use crate::{maths::build_identity_4x4, render_clear, timer::Timer, App, UTF32_BYTES_PER_CHAR};
 
 
 pub fn configure_terminal() -> CrosstermTerminal {
@@ -122,29 +115,13 @@ impl TerminalBuffer {
 
 }
 
-
-// TODO: delete
-impl Display for TerminalBuffer {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		// let buf_str = unsafe { std::str::from_utf8_unchecked(&self.vec) };
-		let buf_str = std::str::from_utf8(&self.vec).unwrap();
-
-		write!(f, "{}", buf_str)
-	}
-}
-
-
-pub static UTF32_BYTES_PER_CHAR: usize = 1;
-// pub static UTF32_BYTES_PER_CHAR: usize = 4;
-
 pub fn queue_draw_to_terminal_and_flush(buf: &TerminalBuffer, terminal: &mut CrosstermTerminal) {
-
-	terminal.stdout.queue(MoveTo(0, 0)).unwrap();
 
 	// let buf_str = unsafe { std::str::from_utf8_unchecked(&buf.vec) };
 	let buf_str = std::str::from_utf8(&buf.vec).unwrap();
 
-	terminal.stdout.queue(Print(buf_str)).unwrap();
+	queue!(terminal.stdout, MoveTo(0, 0), Hide, Print(buf_str)).unwrap();
+
 	terminal.stdout.flush().unwrap();
 
 
@@ -164,56 +141,3 @@ pub fn queue_draw_to_terminal_and_flush(buf: &TerminalBuffer, terminal: &mut Cro
 
 	// terminal.stdout.flush().unwrap();
 }
-
-
-
-// #[derive(Debug)]
-// pub struct FreeText {
-// 	pub text: Vec<char>,
-// }
-
-// impl FreeText {
-// 	pub fn from_screen(screen_width: u16, screen_height: u16) -> Self {
-// 		// I have no fucking clue why but I need to add 1 here
-// 		let length = (screen_width + 1) as usize * (screen_height + 1) as usize;
-// 		Self::from_chars(rendering::BACKGROUND_FILL_CHAR, length)
-// 	}
-
-// 	fn from_chars(char: char, length: usize) -> Self {
-// 		Self {
-// 			text: vec![char; length],
-// 		}
-// 	}
-// }
-
-
-// impl Widget for &FreeText {
-// 	fn render(self, area: Rect, buf: &mut Buffer) {
-
-// 		let x_start = 0;
-// 		let y_start = 0;
-
-// 		let area_bottom = area.bottom();
-// 		let area_right  = area.right();
-
-// 		// TODO: figure out
-// 		// debug_assert!((area_bottom+1) * (area_right+1) == self.text.len() as u16,
-// 		// 	"{}",
-// 		// 	format!(": {}*{}={} != {}", area_bottom+1, area_right+1, (area_bottom+1)*(area_right+1), self.text.len()));
-
-// 		let mut char_i = 0;
-// 		for y in y_start..area_bottom {
-// 			for x in x_start..area_right {
-
-// 				// TODO: debug_assert, dont try drawing smth thats off
-// 				if let Some(ch) = self.text.get(char_i) {
-// 					buf.get_mut(x, y).set_char(*ch);
-// 				}
-
-// 				// buf.get_mut(x, y).set_char(self.text[char_i]);
-
-// 				char_i += 1;
-// 			}
-// 		}
-// 	}
-// }
