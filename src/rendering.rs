@@ -63,9 +63,14 @@ pub fn render_clear(buffer: &mut TerminalBuffer) {
 	}
 }
 
+// TODO: figure out a way of drawing this with ascii only / braille
 pub fn render_char(ch: char, pos: &UVec2, buffer: &mut TerminalBuffer) {
 	let index = xy_to_it(pos.x, pos.y, buffer.wid);
-	ch.encode_utf8(&mut buffer.vec[index .. index+UTF32_BYTES_PER_CHAR]);
+	encode_char_in(ch, index, &mut buffer.vec);
+}
+
+pub fn encode_char_in(ch: char, index: usize, vec: &mut [u8]) {
+	ch.encode_utf8(&mut vec[index .. index+UTF32_BYTES_PER_CHAR]);
 }
 
 pub fn render_string(string: &str, pos: &UVec2, buffer: &mut TerminalBuffer) {
@@ -265,6 +270,59 @@ pub fn render_mesh(mesh: &Mesh, buf: &mut TerminalBuffer, timer: &Timer, _camera
 		render_bresenham_line(&screen_p1, &screen_p2, buf, FILL_CHAR);
 		render_bresenham_line(&screen_p2, &screen_p0, buf, FILL_CHAR);
 	}
+}
+
+pub fn render_circle(pos: &Vec2, rad: f32, buf: &mut TerminalBuffer, timer: &Timer) {
+	let mut x = 0 as i32;
+	let mut y = rad as i32;
+
+	let (base_x, base_y) = (pos.x as i32, pos.y as i32);
+
+	let mut d = 3 - 2 * (rad as i32);
+
+	// TODO: render char that accepts a x,y
+	plot_mirrored_octets(x, y, base_x, base_y, buf);
+
+    while y >= x {
+        x += 1;
+        if d > 0 {
+            y -= 1;
+            d = d + 4 * (x - y) + 10;
+        } else {
+            d = d + 4 * x + 6;
+        }
+
+		plot_mirrored_octets(x, y, base_x, base_y, buf);
+		// let coord = xy_to_it((base_x + x) as u16, (base_y + y) as u16, buf.wid);
+		// '*'.encode_utf8(&mut buf.vec[coord .. coord+UTF32_BYTES_PER_CHAR]);
+    }
+}
+
+pub fn plot_mirrored_octets(x: i32, y: i32, base_x: i32, base_y: i32, buf: &mut TerminalBuffer) {
+
+	let scaled_x = x * 2;
+	let scaled_y = y * 2;
+	let ch = '@';
+
+	render_string(&format!("{}", scaled_x), &UVec2::new(0, (base_y + y) as u16), buf);
+
+	let coord = xy_to_it((base_x + scaled_x) as u16, (base_y + y) as u16, buf.wid);
+	encode_char_in(ch, coord, &mut buf.vec);
+	let coord = xy_to_it((base_x - scaled_x) as u16, (base_y + y) as u16, buf.wid);
+	encode_char_in(ch, coord, &mut buf.vec);
+	let coord = xy_to_it((base_x + scaled_x) as u16, (base_y - y) as u16, buf.wid);
+	encode_char_in(ch, coord, &mut buf.vec);
+	let coord = xy_to_it((base_x - scaled_x) as u16, (base_y - y) as u16, buf.wid);
+	encode_char_in(ch, coord, &mut buf.vec);
+
+	let coord = xy_to_it((base_x + scaled_y) as u16, (base_y + x) as u16, buf.wid);
+	encode_char_in(ch, coord, &mut buf.vec);
+	let coord = xy_to_it((base_x + scaled_y) as u16, (base_y - x) as u16, buf.wid);
+	encode_char_in(ch, coord, &mut buf.vec);
+	let coord = xy_to_it((base_x - scaled_y) as u16, (base_y + x) as u16, buf.wid);
+	encode_char_in(ch, coord, &mut buf.vec);
+	let coord = xy_to_it((base_x - scaled_y) as u16, (base_y - x) as u16, buf.wid);
+	encode_char_in(ch, coord, &mut buf.vec);
 }
 
 

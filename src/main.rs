@@ -27,7 +27,7 @@ use terminal_wrapper::CrosstermTerminal;
 use timer::Timer;
 use benchmark::Benchmark;
 
-use crate::{file_readers::{obj_reader::{read_mesh_from_obj, translate_mesh}, yade_dem_reader}, maths::{UVec2, Vec3}, obj_renderer::ObjRenderer, rendering::{camera::Camera, mesh::Mesh}, terminal_wrapper::{configure_terminal, poll_events, queue_draw_to_terminal_and_flush, restore_terminal, TerminalBuffer}};
+use crate::{file_readers::{obj_reader::{read_mesh_from_obj, translate_mesh}, yade_dem_reader}, maths::{UVec2, Vec2, Vec3}, obj_renderer::ObjRenderer, rendering::{camera::Camera, mesh::Mesh}, terminal_wrapper::{configure_terminal, poll_events, queue_draw_to_terminal_and_flush, restore_terminal, TerminalBuffer}};
 
 
 // type DrawMeshFunction = fn(&Mesh, &mut [char], (u16, u16), &AppTimer, (&mut [f32], &mut [f32]), &Camera);
@@ -102,6 +102,11 @@ fn main() {
 	// mesh.invert_mesh_yz();
 	// translate_mesh(&mut mesh, &Vec3::new(0.0, 0.0, -0.125));
 
+	let renderer: Box<dyn Renderer> = match data_to_draw {
+		FileType::YadeData(yade_data) => Box::new(YadeRenderer::new(yade_data)),
+		FileType::Mesh(mesh) => Box::new(ObjRenderer::new(mesh)),
+	};
+
 	loop {
 		just_poll_while_paused(&mut app, terminal_mut, &mut timer);
 		render_clear(&mut app.buf);
@@ -109,18 +114,17 @@ fn main() {
 		poll_events(terminal_mut, &mut app, &mut timer);
 
 		// TODO: render other crap
+		render_circle(&Vec2::new(app.buf.wid as f32 / 2.0, app.buf.hei as f32 / 2.0), app.buf.hei as f32 / 4.0, &mut app.buf, &timer);
 
 		benchmark.profile_frame(&timer);
 		render_benchmark(&benchmark, &mut app.buf);
 
-		match data_to_draw {
-			FileType::Mesh(ref mesh) => render_mesh(&mesh, &mut app.buf, &timer, &camera),
-			FileType::YadeData(ref yade_data) => render_yade(&yade_data, &mut app.buf, &timer, &camera),
-		}
+		renderer.render(&mut app.buf, &timer, &camera);
 
-		// render_mesh(&mesh, &mut app.buf, &timer, &camera);
-		// render_yade(&yade_data, &mut app.buf, &timer, &camera);
-		// renderer.render(&mut app.buf, &timer, &camera);
+		// match data_to_draw {
+		// 	FileType::Mesh(ref mesh) => render_mesh(&mesh, &mut app.buf, &timer, &camera),
+		// 	FileType::YadeData(ref yade_data) => render_yade(&yade_data, &mut app.buf, &timer, &camera),
+		// }
 
 		timer.run_frame();
 

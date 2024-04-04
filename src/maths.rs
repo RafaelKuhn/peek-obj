@@ -98,6 +98,19 @@ impl std::ops::Add<Vec3> for Vec3 {
 	}
 }
 
+// TODO: generic?
+
+pub struct Vec2 {
+	pub x: f32,
+	pub y: f32,
+}
+
+impl Vec2 {
+	pub fn new(x: f32, y: f32) -> Self {
+		Self { x, y }
+	}
+}
+
 
 pub struct UVec2 {
 	pub x: u16,
@@ -109,6 +122,7 @@ impl UVec2 {
 		Self { x, y }
 	}
 }
+
 
 impl Display for UVec2 {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

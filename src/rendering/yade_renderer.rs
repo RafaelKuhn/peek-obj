@@ -1,4 +1,4 @@
-use crate::{camera::Camera, file_readers::yade_dem_reader::YadeDemData, renderer::Renderer, terminal_wrapper::TerminalBuffer, timer::Timer};
+use crate::{camera::Camera, file_readers::yade_dem_reader::YadeDemData, render_yade, renderer::Renderer, terminal_wrapper::TerminalBuffer, timer::Timer};
 
 pub struct YadeRenderer {
 	data: YadeDemData,
@@ -10,8 +10,8 @@ impl YadeRenderer {
 	}
 }
 
-impl Renderer for &YadeRenderer {
+impl Renderer for YadeRenderer {
 	fn render(&self, buf: &mut TerminalBuffer, timer: &Timer, camera: &Camera) {
-		todo!()
+		render_yade(&self.data, buf, timer, camera);
 	}
 }
