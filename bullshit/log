@@ -1,0 +1,80 @@
+
+
+
+# optimizations
+
+fps: 5
+dt: 175.43ms
+time scale: 0.0
+w: 1430, h: 329, w*h: 470470, a: 4.35
+framessofar: 2630
+
+
+fps: 9
+dt: 155.00ms
+time scale: 0.0
+scaled time: 127.82
+w: 1430, h: 329, w*h: 470470, a: 4.35
+
+
+fps: 11
+dt: 79.87ms
+time scale: 0.0
+scaled time: 4.94
+w: 1430 h: 329, w*h: 470470, a: 4.35
+
+
+
+# aspect ratios
+
+fps: 42
+dt: 36.83ms
+time scale: 0.0
+scaled time: 45.87
+frame n: 26233
+w: 715, h: 247, w*h: 176605, a: 2.89
+
+fps: 41
+dt: 40.05ms
+time scale: 0.0
+scaled time: 21.44
+frame n: 48442
+w: 715, h: 247, w*h: 176605, a: 2.89
+
+
+fps: 11.30
+dt: 133.44ms
+time scale: 0.0
+scaled time: 20.54
+frame n: 16470
+w: 1430, h: 329, w*h: 470470, a: 4.35
+
+
+
+fps: 12.26
+dt: 135.5130ms
+time scale: 0.0
+scaled time: 7.47
+frame n: 1156
+w: 1438, h: 329, w*h: 473102, a: 4.37
+
+
+
+
+
+
+
+fps: 6.83
+dt: 145.24ms
+time scale: 0.0
+scaled time: 12.08
+frame n: 346
+w: 1300, h: 1008, w*h: 1310400, a: 1.29
+
+
+fps: 11.20
+dt: 42.7050ms
+time scale: 0.0
+scaled time: 22.23
+frame n: 21605
+w: 1430, h: 329, w*h: 470470, a: 4.35

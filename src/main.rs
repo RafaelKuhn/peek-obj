@@ -16,9 +16,7 @@ mod settings;
 
 use std::{env, io::{stdout, Write}};
 
-use crossterm::{cursor::*, queue, style::Print, terminal::*, QueueableCommand};
-
-
+use crossterm::{cursor::*, queue, style::Print, terminal::*};
 
 use file_readers::yade_dem_reader::YadeDemData;
 use rendering::{renderer::Renderer, yade_renderer::YadeRenderer, *};
@@ -27,23 +25,17 @@ use terminal_wrapper::CrosstermTerminal;
 use timer::Timer;
 use benchmark::Benchmark;
 
-use crate::{file_readers::{obj_reader::{read_mesh_from_obj, translate_mesh}, yade_dem_reader}, maths::{UVec2, Vec2, Vec3}, obj_renderer::ObjRenderer, rendering::{camera::Camera, mesh::Mesh}, terminal_wrapper::{configure_terminal, poll_events, queue_draw_to_terminal_and_flush, restore_terminal, TerminalBuffer}};
-
-
-// type DrawMeshFunction = fn(&Mesh, &mut [char], (u16, u16), &AppTimer, (&mut [f32], &mut [f32]), &Camera);
-type DrawMeshFunction = fn(&Mesh, buffer: &mut [char], width_height: (u16, u16), &Timer, matrices: (&mut [f32], &mut [f32]), &Camera);
-
-// TODO: isolate
-enum FileType {
-	Mesh(Mesh),
-	YadeData(YadeDemData),
-}
-
-// type DrawFunction = fn(FileType, buffer: &mut [char], width_height: (u16, u16), &Timer, matrices: (&mut [f32], &mut [f32]), &Camera);
+use crate::{file_readers::obj_reader::read_mesh_from_obj, maths::*, obj_renderer::ObjRenderer, rendering::{camera::Camera, mesh::Mesh}, terminal_wrapper::{configure_terminal, poll_events, queue_draw_to_terminal_and_flush, restore_terminal, TerminalBuffer}};
 
 // TODO: figure out how to do it more functionally if I wanted to
 type RenderMeshFn = fn(&Mesh, &mut TerminalBuffer, &Timer, &Camera);
 type RenderYadeFn = fn(&YadeDemData, &mut TerminalBuffer, &Timer, &Camera);
+
+enum FileDataType {
+	Mesh(Mesh),
+	YadeData(YadeDemData),
+}
+
 
 fn main() {
 
@@ -56,9 +48,9 @@ fn main() {
 	}
 
 	let data_to_draw = if settings.custom_path.ends_with(".obj") {
-		FileType::Mesh(read_mesh_from_obj(&settings.custom_path).unwrap())
+		FileDataType::Mesh(read_mesh_from_obj(&settings.custom_path).unwrap())
 	} else {
-		FileType::YadeData(YadeDemData::read_from_file_or_quit(&settings.custom_path))
+		FileDataType::YadeData(YadeDemData::read_from_file_or_quit(&settings.custom_path))
 	};
 
 	let terminal_mut = &mut configure_terminal();
@@ -73,13 +65,11 @@ fn main() {
 
 	let mut camera = Camera::new();
 
-	// TODO: why does setting the camera like this here puts it forward? should be the opposite ...
-	// camera.set_pos(0.0, 0.0, 22.0);
+	// TODO: why does setting the camera like this here puts it forward? should be ... Z?
+	camera.set_pos(20., 1.0, 0.0);
+	// camera.set_rot(6.28318530 * 0.1,  0.0, 0.0);
+	// camera.set_rot(0.0, 6.2831 * 0.01, 0.0);
 
-	// camera.set_rot(6.28318530 * 6.5/8.,  0.0, 0.0);
-	// camera.set_rot(0.0,  6.2831 * 0.0825, 0.0);
-
-	// why?
 	camera.update_view_matrix();
 
 	// #if MESH
@@ -96,16 +86,17 @@ fn main() {
 	// TODO: try this less blurry crap
 	// https://stackoverflow.com/questions/25445761/returning-a-closure-from-a-function
 
-	// let renderer = make_renderer(data_to_draw);
 
 	// BUNNY config
 	// mesh.invert_mesh_yz();
 	// translate_mesh(&mut mesh, &Vec3::new(0.0, 0.0, -0.125));
 
 	let renderer: Box<dyn Renderer> = match data_to_draw {
-		FileType::YadeData(yade_data) => Box::new(YadeRenderer::new(yade_data)),
-		FileType::Mesh(mesh) => Box::new(ObjRenderer::new(mesh)),
+		FileDataType::YadeData(yade_data) => Box::new(YadeRenderer::new(yade_data)),
+		FileDataType::Mesh(mesh) => Box::new(ObjRenderer::new(mesh)),
 	};
+
+	let mesh = Mesh::pillars();
 
 	loop {
 		just_poll_while_paused(&mut app, terminal_mut, &mut timer);
@@ -113,18 +104,28 @@ fn main() {
 
 		poll_events(terminal_mut, &mut app, &mut timer);
 
-		// TODO: render other crap
-		render_circle(&Vec2::new(app.buf.wid as f32 / 2.0, app.buf.hei as f32 / 2.0), app.buf.hei as f32 / 4.0, &mut app.buf, &timer);
+		app.buf.update_proj_matrix();
 
-		benchmark.profile_frame(&timer);
-		render_benchmark(&benchmark, &mut app.buf);
+		// camera.position = Vec3::new(camera.position.x + app.pos.x, camera.position.y + app.pos.y, )
+		camera.position = &camera.position + &app.pos;
+		camera.rotation = &camera.rotation + &app.rot;
+		camera.update_view_matrix();
+
+		// TODO: render other crap
+		render_axes(&mut app.buf, &timer, &camera);
+
+		// let rad = 0.01 * YADE_SCALE_TEMP;
+		// render_sphere(&Vec3::new(0.0, 0.0, 12.0), rad, &mut app.buf, &timer);
+
+		// render_circle(&UVec2::new(app.buf.wid / 2, app.buf.hei / 2), app.buf.hei as f32 / 4.0, &mut app.buf);
+
+		// render_mesh(&mesh, &mut app.buf, &timer, &camera);
+
 
 		renderer.render(&mut app.buf, &timer, &camera);
 
-		// match data_to_draw {
-		// 	FileType::Mesh(ref mesh) => render_mesh(&mesh, &mut app.buf, &timer, &camera),
-		// 	FileType::YadeData(ref yade_data) => render_yade(&yade_data, &mut app.buf, &timer, &camera),
-		// }
+		benchmark.profile_frame(&timer);
+		render_benchmark(&benchmark, &mut app.buf);
 
 		timer.run_frame();
 
@@ -142,7 +143,7 @@ fn render(renderer: Box<dyn Renderer>, buf: &mut TerminalBuffer, timer: &Timer, 
 	renderer.render(buf, timer, camera);
 }
 
-fn just_poll_while_paused(app: &mut App, terminal_mut: &mut CrosstermTerminal, timer: &mut Timer) {
+pub fn just_poll_while_paused(app: &mut App, terminal_mut: &mut CrosstermTerminal, timer: &mut Timer) {
 	
 	if !app.has_paused_rendering { return; }
 
@@ -227,24 +228,30 @@ pub struct App {
 	pub has_paused_rendering: bool,
 
 	pub buf: TerminalBuffer,
+
+	pub pos: Vec3,
+	pub rot: Vec3,
 }
 
 
 impl App {
 	fn init_with_screen() -> App {
 		let (screen_width, screen_height) = size().unwrap();
-		Self {
-			can_resize: true,
-			has_paused_rendering: false,
-			buf: TerminalBuffer::new(screen_width, screen_height)
-		}
+		Self::init(screen_width, screen_height, true)
 	}
 
-	fn init(screen_width: u16, screen_height: u16) -> App {
+	fn init_wh(width: u16, height: u16) -> App {
+		Self::init(width, height, false)
+	}
+
+	fn init(width: u16, height: u16, can_resize: bool) -> App {
 		Self {
-			can_resize: false,
+			can_resize,
 			has_paused_rendering: false,
-			buf: TerminalBuffer::new(screen_width, screen_height)
+
+			buf: TerminalBuffer::new(width, height),
+			pos: Vec3::zero(),
+			rot: Vec3::zero(),
 		}
 	}
 

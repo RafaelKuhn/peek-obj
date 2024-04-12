@@ -98,6 +98,13 @@ impl std::ops::Add<Vec3> for Vec3 {
 	}
 }
 
+impl fmt::Debug for Vec3 {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		write!(f, "[{:+.2},{:+.2},{:+.2}]", self.x, self.y, self.z)
+	}
+}
+
+
 // TODO: generic?
 
 pub struct Vec2 {
@@ -254,6 +261,7 @@ pub fn build_rot_mat_xyz_4x4(angle_x: f32, angle_y: f32, angle_z: f32) -> Vec<f3
 	// ]
 }
 
+
 pub fn build_identity_4x4() -> Vec<f32> {
 	vec![
 		1.0, 0.0, 0.0, 0.0,
@@ -263,6 +271,10 @@ pub fn build_identity_4x4() -> Vec<f32> {
 	]
 }
 
+pub fn copy_mat4x4(vec_src: &[f32], vec_dst: &mut [f32]) {
+	vec_dst.copy_from_slice(vec_src);
+}
+
 pub fn clip_space_to_screen_space(p: &Vec3, screen_width: u16, screen_height: u16) -> UVec2 {
 	let screen_x = (p.x + 1.0) * 0.5 * screen_width  as f32;
 	let screen_y = (p.y + 1.0) * 0.5 * screen_height as f32;
@@ -270,11 +282,95 @@ pub fn clip_space_to_screen_space(p: &Vec3, screen_width: u16, screen_height: u1
 	UVec2::new(screen_x as u16, screen_y as u16)
 }
 
+// TODO: maybe make generic
+pub fn xy_to_i(x: u16, y: u16, width: u16) -> usize {
+	(y * width + x).into()
+}
+
+// TODO: optimize the shit out of this
+pub fn create_view_matrix(position: &Vec3, rotation: &Vec3) -> Vec<f32> {
+    let center = [
+        position.x + rotation.x.cos() * rotation.y.cos(),
+        position.y + rotation.x.sin(),
+        position.z + rotation.x.cos() * rotation.y.sin(),
+    ];
+    let up = [
+        -rotation.y.sin() * rotation.z.cos(),
+        rotation.y.cos()  * rotation.z.cos(),
+        rotation.z.sin(),
+    ];
+
+	// TODO: invert like this for XYZ coordinate systems
+	// let up = [
+    //     rotation.z.cos() * rotation.y.sin(),
+    //     rotation.z.sin(),
+    //     rotation.z.cos() * rotation.y.cos(),
+    // ];
+
+	let looking_at = [
+		center[0] - position.x,
+		center[1] - position.y,
+		center[2] - position.z
+	];
+
+    let cam_forward = normalize(looking_at);
+    let cam_side = normalize(cross_product(cam_forward, up));
+    let cam_up = cross_product(cam_side, cam_forward);
+
+    let mut view_matrix = build_identity_4x4();
+
+	const SZ: u16 = 4;
+
+    view_matrix[xy_to_i(0, 0, SZ)] = cam_side[0];
+    view_matrix[xy_to_i(1, 0, SZ)] = cam_side[1];
+    view_matrix[xy_to_i(2, 0, SZ)] = cam_side[2];
+
+    view_matrix[xy_to_i(0, 1, SZ)] = cam_up[0];
+    view_matrix[xy_to_i(1, 1, SZ)] = cam_up[1];
+    view_matrix[xy_to_i(2, 1, SZ)] = cam_up[2];
+
+    view_matrix[xy_to_i(0, 2, SZ)] = -cam_forward[0];
+    view_matrix[xy_to_i(1, 2, SZ)] = -cam_forward[1];
+    view_matrix[xy_to_i(2, 2, SZ)] = -cam_forward[2];
+
+    view_matrix[xy_to_i(3, 0, SZ)] = -dot_product(cam_side, &position);
+    view_matrix[xy_to_i(3, 1, SZ)] = -dot_product(cam_up, &position);
+    view_matrix[xy_to_i(3, 2, SZ)] = dot_product(cam_forward, &position);
+    view_matrix[xy_to_i(3, 3, SZ)] = 1.0;
+
+	// TODO: try inverting the mat
+
+    view_matrix
+}
+
+// TODO: Vec3
+fn normalize(v: [f32; 3]) -> [f32; 3] {
+    let length = (v[0].powi(2) + v[1].powi(2) + v[2].powi(2)).sqrt();
+    [v[0] / length, v[1] / length, v[2] / length]
+}
+
+// TODO: Vec3
+fn cross_product(a: [f32; 3], b: [f32; 3]) -> [f32; 3] {
+    [
+        a[1] * b[2] - a[2] * b[1],
+        a[2] * b[0] - a[0] * b[2],
+        a[0] * b[1] - a[1] * b[0],
+    ]
+}
+
+// TODO: Vec3
+fn dot_product(a: [f32; 3], b: &Vec3) -> f32 {
+    a[0] * b.x + a[1] * b.y + a[2] * b.z
+}
+
+
+
 fn transpose_3x3(vec: &mut [f32]) {
 	let mut temp: f32;
 	
 	const SZ: usize = 3;
 
+	// TODO: xy_to_i
 	let x = 1; let y = 0;
 	temp = vec[y * SZ + x];
 	vec[y * SZ + x] = vec[x * SZ + 0];
@@ -296,6 +392,7 @@ fn transpose_3x3_area_in_4x4(vec: &mut [f32]) {
 	
 	const SZ: usize = 4;
 
+	// TODO: xy_to_i
 	let x = 1; let y = 0;
 	temp = vec[y * SZ + x];
 	vec[y * SZ + x] = vec[x * SZ + 0];
@@ -314,7 +411,8 @@ fn transpose_3x3_area_in_4x4(vec: &mut [f32]) {
 
 pub fn apply_identity_to_mat_4x4(mat: &mut [f32]) {
 	const SZ: usize = 4;
-	
+
+	// TODO: xy_to_i
 	mat[0 * SZ + 0] = 1.0;
 	mat[0 * SZ + 1] = 0.0;
 	mat[0 * SZ + 2] = 0.0;
@@ -343,15 +441,16 @@ pub fn apply_projection_to_mat_4x4(mat: &mut [f32], width: u16, height: u16) {
 
 	// height of the characters is double the width of the characters
 	let aspect_ratio = (height as f32 * 2.0) / width as f32;
-	const FOV: f32 = 0.25 * TAU;
+	// const FOV: f32 = 0.25 * TAU;
+	const FOV: f32 = 0.3 * TAU;
 
 	let inv_tan_half_fov = 1.0 / ((FOV / 2.0).tan());
 	let z_range = ZF - ZN;
 
 	let fir = aspect_ratio * inv_tan_half_fov;
 	let sec = inv_tan_half_fov;
-	let thi = ZF / (z_range);
-	let fou = (-ZF *ZN) / (z_range);
+	let thi = ZF / z_range;
+	let fou = (-ZF * ZN) / z_range;
 
 	// let mut proj_mat = vec![
 	// 	fir, 0.0, 0.0, 0.0,
@@ -368,6 +467,7 @@ pub fn apply_projection_to_mat_4x4(mat: &mut [f32], width: u16, height: u16) {
 	// ];
 
 	const SZ: usize = 4;
+	// TODO: xy_to_i
 	mat[0 * SZ + 0] = fir;
 	mat[1 * SZ + 1] = sec;
 	mat[2 * SZ + 2] = thi;
@@ -384,7 +484,8 @@ pub fn apply_scale_to_mat_4x4(mat: &mut [f32], scale_x: f32, scale_y: f32, scale
 	let x0_y0 = mat[0 * SZ + 0] * scale_x;
 	let x1_y1 = mat[1 * SZ + 1] * scale_y;
 	let x2_y2 = mat[2 * SZ + 2] * scale_z;
-	
+
+	// TODO: xy_to_i
 	mat[0 * SZ + 0] = x0_y0;
 	mat[0 * SZ + 1] = 0.0;
 	mat[0 * SZ + 2] = 0.0;
@@ -518,7 +619,7 @@ pub fn multiply_4x4_matrices(dump: &mut [f32], mat: &[f32]) {
 	dump[3 * SZ + 3] = x3_y3;
 }
 
-pub fn multiply_4x4_matrices_alloc(mat: &mut [f32], mat2: &[f32]) {
+fn multiply_4x4_matrices_alloc(mat: &mut [f32], mat2: &[f32]) {
 	let mut result = [0.0; 16];
 
 	const SZ: usize = 4;
@@ -540,13 +641,14 @@ pub fn multiply_4x4_matrices_alloc(mat: &mut [f32], mat2: &[f32]) {
 	// }
 }
 
-pub fn apply_mat_generic(mat: &mut [f32]) {
+fn apply_mat_generic(mat: &mut [f32]) {
 	
 	// build any mat_4x4 here to test
 	let mat2 = Vec::<f32>::new();
 	
 	const SZ: usize = 4;
 
+	// TODO: xy_to_i
 	let x0_y0 = mat[0 * SZ + 0] * mat2[0 * SZ + 0]  +  mat[0 * SZ + 1] * mat2[1 * SZ + 0]  +  mat[0 * SZ + 2] * mat2[2 * SZ + 0]  +  mat[0 * SZ + 3] * mat2[3 * SZ + 0];
 	let x0_y1 = mat[0 * SZ + 0] * mat2[0 * SZ + 1]  +  mat[0 * SZ + 1] * mat2[1 * SZ + 1]  +  mat[0 * SZ + 2] * mat2[2 * SZ + 1]  +  mat[0 * SZ + 3] * mat2[3 * SZ + 1];
 	let x0_y2 = mat[0 * SZ + 0] * mat2[0 * SZ + 2]  +  mat[0 * SZ + 1] * mat2[1 * SZ + 2]  +  mat[0 * SZ + 2] * mat2[2 * SZ + 2]  +  mat[0 * SZ + 3] * mat2[3 * SZ + 2];
@@ -606,4 +708,8 @@ pub fn apply_mat_generic(mat: &mut [f32]) {
 	mat[3 * SZ + 1] = x3_y1;
 	mat[3 * SZ + 2] = x3_y2;
 	mat[3 * SZ + 3] = x3_y3;
+}
+
+fn slope_of_line(p0: &UVec2, p1: &UVec2) -> f32 {
+	(p1.y as f32 - p0.y as f32) / (p1.x as f32 - p0.x as f32)
 }

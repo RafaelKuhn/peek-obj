@@ -1,0 +1,905 @@
+
+// Sphere rasterization prototype by Lezing
+// (c) 2023 NIP Labs
+// Triplanar texture mapping of spheres
+// Const-Z slices allow affine texture mapping
+// Concurrent rasterization yields correct Z-culling without Z-buffering
+
+/*
+Controls:
+   Insert     - Add a new sphere at the cursor
+   Delete     - Remove sphere under the cursor (hold CTRL to clear all)
+   LMB        - Drag control points (hold CTRL to snap to pixel grid)
+   G, RMB     - Toggle pixel grid
+   A, Z       - Double/halve grid size (affects sampling quality)
+   <, >       - Rotate sphere (CTRL to rotate all; SHIFT to rotate light)
+   Wheel      - Resize sphere (hold SHIFT adjust global depth)
+   PgUp, PgDn - Adjust global depth offset (spheres only)
+   -, =       - Double/halve texture scale
+   E          - Toggle absolute texture scaling
+   S          - Cycle through five shapes (hold SHIFT to reverse)
+   D          - Cycle through four shading modes
+   L          - Lighting on/off
+   1, 2, 3, 4 - Switch shading modes (none, depth, normals, textured)
+   SHIFT+1..5 - Switch shapes (circles, disks, two modes for spheres, annuli)
+   [, ]       - Change field of view (also adjusts distance)
+   R          - Rotate view with mouse (temporary, no editing)
+   P          - Pause animation
+   V          - Step-by-step render (one-time, const-z spheres only)
+   SHIFT+V    - Use mouse wheel to step forward/back
+   T          - Cycle opacity (50 to 100 percent)
+   Backspace  - Toggle back-face culling mode
+   Num/, Num* - Adjust const-z sphere subsampling
+   I          - Show/hide info
+   /          - Reset view & scene
+*/
+
+enum { MAXN=256, PREVIEWSEGS=16, GAMMASIZ=4096, MAXDIM=2048, SCREENGAMMA=2.2,
+       SKIPTHRESHOLD=0.001, ZCULLTHRESHOLD=1e-4, BKGCOLOR=0x181818, DEPTHFOGBASE=-2,
+       HDRFACTOR=2, LDRFACTOR=(1/HDRFACTOR)^(1/SCREENGAMMA) };
+enum {
+   SUBKEY=12, ADDKEY=13, INSKEY=0xD2, DELKEY=0xD3, PGUPKEY=0xC9, PGDNKEY=0xD1
+  ,EKEY=18, RKEY=19, TKEY=20, IKEY=23, OKEY=24, PKEY=25, LBRKEY=0x1A, RBRKEY=0x1B
+  ,AKEY=30, SKEY=31, DKEY=32, GKEY=34, LKEY=38
+  ,ZKEY=44, VKEY=47, COMMAKEY=51, PERIODKEY=52, SLASHKEY=53
+  ,LCTRLKEY=0x1D, RCTRLKEY=0x9D, LSHIFTKEY=0x2A, RSHIFTKEY=0x36
+  ,BACKEY=0x0E, DIVKEY=0xB5, MULKEY=0x37
+};
+enum { TESTANNULMINR=0.9, TESTANNULOFF=0.2 };
+
+static init, px[MAXN], py[MAXN], ptn, shape, texsiz, texadj,
+ lc, ls, dt, lastt, alpha, pivot, lights, infobox, culling,
+ closest, mode, grid, sub[2], curx, cury, lastx, lasty,
+ slope, aslope, off, axis, inc, scan[2], subsmp, lookaround, globy0,
+ projx0, projy0, projfov, zoom, step, cutoff, frm, litdir, pause,
+ fps, fpsdue, fpsacc, fpscount, cutoffstate, cutoffcount,
+ bfr[3][MAXDIM^2], scbfr[MAXDIM], gamma[GAMMASIZ], gammaexp[256],
+ setr, setg, setb, bfrx1, bfry1, bfrcx, bfrcy, pmb, pmx, pmy,
+ prepnx0, prepnxdx, prepny0, prepnydy, prepnz0, prepnzdx, prtsiz, czsn;
+
+struct constzspheredrawcontext {
+   h, q0, s0, qdh, sdh, sdh2, cx, cy, cz, b2,
+   ot, ox, oy, oz, or, radius, ang, nextz, state;
+};
+static constzspheredrawcontext czs[MAXN];
+
+() {
+   if(!init) {
+      init=1; step=2; mode=3; shape=2; subsmp=1; texsiz=64;
+      texadj=0; alpha=1; pivot=0; lights=1; culling=0;
+      frm=litdir=0; pause=0; fpsdue=klock(); fps=fpscount=0; infobox=1;
+      ptn=2; projfov=500; grid=0; cutoffstate=cutoffcount=0;
+      px[0]=32, py[0]=32;
+      px[1]=40, py[1]=-32;
+      for(i=0,a=1/GAMMASIZ; i<GAMMASIZ; i++) gamma[i]=floor((i*a)^(1/SCREENGAMMA)*256);
+      for(i=0,a=1/256; i<256; i++) gammaexp[i]=(i*a)^SCREENGAMMA*(256*HDRFACTOR);
+   }
+   input();
+   clearbuffer();
+   //parascan(litdir);
+   do_spheres();
+   showbuffer();
+   if(grid && !keystatus[RKEY]) {
+      setcol(60,60,60);
+      plot_grid();
+      plot_geometry();
+   }
+   if(infobox) display_info();
+}
+
+getradius(i) { return sqrt((px[i+1]-px[i])^2+(py[i+1]-py[i])^2); }
+getangle(i) { return atan2(px[i+1]-px[i], py[i+1]-py[i]); }
+is_sphere() { return shape>=2 && shape<4; }
+transform_sphere(i,ang,sc) {
+   vx=px[i+1]-px[i]; vy=py[i+1]-py[i];
+   if(sc!=1) { // Limit size
+      r=getradius(i); rmax=2048/step;
+      if(r*sc>rmax) sc=rmax/r;
+   }
+   c=cos(ang)*sc; s=sin(ang)*sc;
+   px[i+1]=px[i]+vx*c+vy*s;
+   py[i+1]=py[i]+vy*c-vx*s;
+}
+
+do_spheres() {
+   czsn=0; z0=projfov/step; a0=frm+lookaround;
+   chgcolor(154,171,83);
+   zoff=twosides=0;
+   if(is_sphere()) { zoff=pivot*.01; twosides=alpha<1; }
+   if(twosides) cull0=0, cull1=!culling; else cull0=cull1=culling;
+   for(i=0;i<ptn-1;i+=2) {
+      cr = getradius(i); ang = a0+getangle(i);
+      x=px[i]; y=z0+cr*zoff; z=py[i];
+      
+      if(lookaround) rotate2d(x,y,lookaround,0,z0);
+      for(c=cull1; c>=cull0; c--) drawsel(x,y,z,cr,ang,c);
+   }
+   runczs();
+   //fillring(64,64,32,48+mousx/16,48+mousy/16,24);
+}
+
+rotate2d(&x,&y,ang,pivx,pivy) {
+   c=cos(ang); s=sin(ang); ox=x-pivx; oy=y-pivy;
+   x=ox*c+oy*s+pivx;
+   y=oy*c-ox*s+pivy;
+}
+
+drawsel(cx,cy,cz,cr,ang,backface) {
+   if(shape==3) draw2(cx,cy,cz,cr,ang,backface);
+           else draw3(cx,cy,cz,cr,ang,backface);
+}
+
+mkshade(rx,ry,rz) {
+   if(mode==0) return;
+   if(mode==2) { chgcolor(128+ry*64, 128-rx*64, 128-rz*64); return; }
+   if(mode==1) { f=exp(-1-ry); chgcolor(154*f, 171*f, 83*f); return; }
+   // Triplanar
+   if(abs(ry)>=abs(rz) && abs(ry)>=abs(rx))
+      pic((rx+1)*prtsiz, (1-rz)*prtsiz*sgn(ry), r,g,b); else if(abs(rx)>=abs(rz))
+      pic((1-rz)*prtsiz*sgn(rx), (ry+1)*prtsiz, r,g,b); else
+      pic((ry+1)*prtsiz, (1-rx)*prtsiz*sgn(rz), r,g,b);
+   if(lights) {
+      v = rx*lc-ry*ls;
+      if(v<0) v*=-200, g*=1.25, b*=1.5; else v*=4000;
+      v=gamma[v]*0.006; r*=v; g*=v; b*=v;
+   }
+   chgcolor(r,g,b);
+}
+
+mktsiz(r) { prtsiz = texsiz; if(texadj) prtsiz*=r; }
+mktex(x0,y0,z0,z,r,ang) {
+   uc = cos(ang);        us = sin(ang);
+   la = litdir+lookaround-ang;
+   lc = cos(la); ls = sin(la);
+   x0-=.5; y0-=.5;
+   prepnxdx = z*uc;
+   prepnzdx = z*us;
+   prepnydy = z;
+   prepnx0  = -z0*us-prepnxdx*x0;
+   prepnz0  = +z0*uc-prepnzdx*x0;
+   prepny0  = -prepnydy*y0;
+   mktsiz(r);
+}
+
+chgcolor(r,g,b) {
+   if(alpha==1) {
+      setr=min(max(floor(r),0),255);
+      setg=min(max(floor(g),0),255);
+      setb=min(max(floor(b),0),255);
+      return;
+   }
+   setr=gammaexp[min(max(r*LDRFACTOR,0),255)];
+   setg=gammaexp[min(max(g*LDRFACTOR,0),255)];
+   setb=gammaexp[min(max(b*LDRFACTOR,0),255)];
+}
+chglincol(r,g,b) {
+   if(alpha==1) {
+      setr=min(max(floor(gamma[min(r*16,GAMMASIZ-1)]),0),255);
+      setg=min(max(floor(gamma[min(g*16,GAMMASIZ-1)]),0),255);
+      setb=min(max(floor(gamma[min(b*16,GAMMASIZ-1)]),0),255);
+      return;
+   }
+   setr=r; setg=g; setb=b;
+}
+
+put_pixel(x,y) {
+   if(x<0 || y<0) return 0;
+   if(x>=bfrx1 || y>=bfry1) return 0;
+   a=x+y*bfrx1;
+   if(alpha==1) { // Opaque mode uses a simpler buffer format
+      bfr[0][a]=setb+setg*256+setr*65536;
+      return 1;
+   }
+   bfr[0][a]+=(setr-bfr[0][a])*alpha;
+   bfr[1][a]+=(setg-bfr[1][a])*alpha;
+   bfr[2][a]+=(setb-bfr[2][a])*alpha;
+   return alpha;
+}
+put_bkg_pixel(x,y) {
+   a=x+y*bfrx1;
+   if(alpha==1) { bfr[0][a]=setb+setg*256+setr*65536; return; }
+   bfr[0][a]=setr; bfr[1][a]=setg; bfr[2][a]=setb;
+}
+
+fillhline(y,x0,x1) {
+   if(x1<=x0 || x1<=0 || x0>=bfrx1) return 0; // Assume y already in bounds
+   x0=max(0,x0); x1=min(bfrx1,x1);
+   nx = prepnx0 + prepnxdx*x0;
+   ny = prepny0 + prepnydy*y;
+   nz = prepnz0 + prepnzdx*x0;
+   for(sx=x0; sx<x1; sx++) {
+      if(mode>=2) mkshade(nx,nz,ny), nx+=prepnxdx, nz+=prepnzdx;
+      put_pixel(sx, y);
+   }
+   return 1;
+}
+
+enum { FILLRADBIAS=1e-5, SPHEREHBIAS=1e-3, BACKHBIAS=0.5 };
+
+filldisk(cx,cy,r,outline) {
+   r+=FILLRADBIAS+outline*.5;
+   auto ds[2], ddh[2], xb[2];
+   y0          = ceil(cy-r-.5);
+   y1          = floor(cy+r+.5);
+   if(y1<=0 || y0>=bfry1) return 0;
+   ymid        = ceil(cy);
+   xb[0]=xb[1] = floor(cx);
+
+   v = y0-cy+.5;
+   h = xb[0]-cx+.5;
+   ds[0]=ds[1]  = v*v+h*h-r*r;
+   ddv = 2*v+1;
+   ddh[0]=ddh[1] = 2*h;
+   ddh[0]--; ddh[1]++;
+   ds[0]-=ddh[0], ddh[0]-=2;
+   for(sy=y0; sy<ymid; sy++,ds[0]+=ddv,ds[1]+=ddv,ddv+=2) {
+      if(outline) {
+         if(xb[1]>xb[0]) {
+            if(ds[0]>0) put_pixel(xb[0],sy);
+            if(ds[1]>0) put_pixel(xb[1]-1,sy);
+         }
+         while(ds[0]<=0) xb[0]--, put_pixel(xb[0],sy), ds[0]-=ddh[0], ddh[0]-=2;
+         while(ds[1]<=0) put_pixel(xb[1],sy), xb[1]++, ds[1]+=ddh[1], ddh[1]+=2;
+      } else {
+         while(ds[0]<=0) xb[0]--, ds[0]-=ddh[0], ddh[0]-=2;
+         while(ds[1]<=0) xb[1]++, ds[1]+=ddh[1], ddh[1]+=2;
+         fillhline(sy,xb[0],xb[1]);
+      }
+   }
+   // Adjust parameters for the bottom half
+   ddh[0]+=2; ds[0]+=ddh[0]; ddh[0]+=2;
+   ddh[1]-=2; ds[1]-=ddh[1]; ddh[1]-=2;
+   if(outline) {
+      while(ds[0]>0 && xb[0]<xb[1]) xb[0]++, ds[0]+=ddh[0], ddh[0]+=2;
+      while(ds[1]>0 && xb[0]<xb[1]) xb[1]--, ds[1]-=ddh[1], ddh[1]-=2;
+      ds[0]+=ddv, ds[1]+=ddv, ddv+=2;
+   }
+   
+   for(r=0; sy<y1; sy++,ds[0]+=ddv,ds[1]+=ddv,ddv+=2) {
+      if(outline) {
+         if(ds[0]<=0) put_pixel(xb[0],sy);
+         if(ds[1]<=0) put_pixel(xb[1]-1,sy);
+         while(ds[0]>0 && xb[0]<xb[1])
+            put_pixel(xb[0],sy), xb[0]++, ds[0]+=ddh[0], ddh[0]+=2;
+         
+         while(ds[1]>0 && xb[0]<xb[1])
+            xb[1]--, put_pixel(xb[1],sy), ds[1]-=ddh[1], ddh[1]-=2;
+      } else {
+         while(ds[0]>0 && xb[0]<xb[1]) xb[0]++, ds[0]+=ddh[0], ddh[0]+=2;
+         while(ds[1]>0 && xb[0]<xb[1]) xb[1]--, ds[1]-=ddh[1], ddh[1]-=2;
+         r=max(r, fillhline(sy,xb[0],xb[1]));
+      }
+   }
+   return r;
+}
+
+fillring(ax,ay,ar,bx,by,br) {
+   ar+=FILLRADBIAS; br+=FILLRADBIAS;
+   auto ds[4], ddh[4], xb[4], ymid[2], ddv[2], px[2], py[2], pr[2], ys[4];
+   px[0]=ax; py[0]=ay; pr[0]=ar;
+   px[1]=bx; py[1]=by; pr[1]=br;
+   for(i=0,k=3; i<2; i++,k--) {
+      ys[i] =  ceil(py[i]-pr[i]-.5);
+      ys[k] = floor(py[i]+pr[i]+.5);
+   }
+   if(ys[3]<=0 || ys[0]>=bfry1) return 0;
+   ys[0] = max(0, ys[0]);     ys[3] = min(bfry1, ys[3]);
+   ys[1] = max(ys[1], ys[0]); ys[2] = min(ys[2], ys[3]);
+   
+   for(i=k=0,l=1; i<2; i++,k+=2,l+=2) {
+      ymid[i]     = max(floor(py[i]), ys[i]);
+      xb[k]=xb[l] = floor(px[i]);
+      v = ys[i]-py[i]+.5;
+      h = xb[k]-px[i]+.5;
+      ds[k] = ds[l] = v*v+h*h-pr[i]^2;
+      ddv[i] = 2*v+1;
+      ddh[k] = ddh[l] = 2*h;
+      ddh[k]--; ddh[l]++; xb[k]++;
+   }
+   sy=ys[0]; ys[2]=min(ys[2],ys[3]);
+   r=0;
+   for(j=1,n=1; j<4; j++,n=3-n) {
+      for(; sy<ys[j]; sy++) {
+         for(i=k=0,l=1; i<n; i++,k+=2,l+=2) {
+            if(sy<=ymid[i]) {
+               while(ds[k]<=0) xb[k]--, ds[k]-=ddh[k], ddh[k]-=2;
+               while(ds[l]<=0) xb[l]++, ds[l]+=ddh[l], ddh[l]+=2;
+               if(sy==ymid[i]) {
+                  ddh[k]+=2; ddh[l]-=2;
+                  ds[k]+=ddh[k]; ds[l]-=ddh[l];
+                  ddh[k]+=2; ddh[l]-=2;
+               }
+            } else {
+               while(ds[k]>0 && xb[k]<xb[l]) xb[k]++, ds[k]+=ddh[k], ddh[k]+=2;
+               while(ds[l]>0 && xb[k]<xb[l]) xb[l]--, ds[l]-=ddh[l], ddh[l]-=2;
+            }
+            ds[k]+=ddv[i]; ds[l]+=ddv[i]; ddv[i]+=2;
+         }
+         if(n==1) { fillhline(sy,xb[0],xb[1]); continue; }
+         r=max(r, fillhline(sy, xb[0], min(xb[1],xb[2])));
+         r=max(r, fillhline(sy, max(xb[0],xb[3]), xb[1]));
+      }
+   }
+   return r;
+}
+
+// Const-z rasterizer
+stepconstzsph(constzspheredrawcontext c) {
+   if(c.state==2) { // Fill remaining area and finish
+      if(mode>=2) mktex(c.ox, c.oy, c.ot, c.oz, c.radius, c.ang);
+             else mkshade(0, DEPTHFOGBASE+(c.ot+c.cy)*c.radius, 0);
+      if(c.or!=0 && cutoff!=0) filldisk(c.ox, c.oy, c.or, 0);
+      c.state=0; return;
+   }
+   
+   h2 = c.h^2;
+   p = h2 + c.b2;
+   q = -h2*c.cy + c.q0;
+   s = h2*c.sdh2 + c.s0;
+   
+   if(c.state>=4) { // Back face
+      t = (q+sqrt(s))/p;
+      if(t>c.ot) { c.state=0; return; }
+   } else { // Front face
+      t = (q-sqrt(s))/p; // t should lie within [-1.0, +1.0]
+      if(t>c.ot) { c.state=2; goto proceed; } // t must decrease
+   }
+   if(c.ot-t<SKIPTHRESHOLD) goto proceed;
+   
+   z = zoom*(t+c.cy);
+   if(z<ZCULLTHRESHOLD) { c.state=0; return; }
+   zr = 1/z;
+   x = c.cx*zr;
+   y = c.cz*zr;
+   r = sqrt(1-t*t)*zr;
+   x+=bfrcx; y+=bfrcy;
+  
+   if(c.state==4) {
+      if(mode>=2) mktex(x, y, t, z, c.radius, c.ang);
+             else mkshade(0, DEPTHFOGBASE+(t+c.cy)*c.radius, 0);
+      filldisk(x, y, r, 0);
+   } else if(c.or) { // Use midpoint for precise texture mapping
+      if(mode>=2) mktex((x+c.ox)/2, (y+c.oy)/2, (t+c.ot)/2, (z+c.oz)/2,
+                        c.radius, c.ang);
+             else mkshade(0, DEPTHFOGBASE+((t+c.ot)/2+c.cy)*c.radius, 0);
+      if(c.state>=4) drew=fillring(x, y, r, c.ox, c.oy, c.or);
+                else drew=fillring(c.ox, c.oy, c.or, x, y, r);
+      if(!drew) {c.state=0; return; }
+   }
+        if(c.state==3) c.state=1;
+   else if(c.state==4) c.state=5;
+   else if(--cutoff==0) { c.state=2; return; }
+   c.ox=x; c.oy=y; c.or=r; c.ot=t; c.oz=z; c.nextz=z*c.radius;
+proceed:
+   c.h+=SUBSMP;
+   c.q0+=c.qdh;
+   c.s0+=c.sdh;
+}
+
+draw3(cx,cy,cz,cr,ang,backface) {
+   constzspheredrawcontext c; c.radius=cr*zoom*2; c.ang=ang;
+   crr=1/cr; cy*=crr;
+   if(!is_sphere()) {
+      if(mode>=2) mktex(cx+bfrcx,cz+bfrcy,0,zoom*cy,c.radius,ang);
+      if(shape==4) {
+         x=cx+bfrcx; y=cz+bfrcy; d=cr*TESTANNULOFF;
+         lx=sin(ang)*d; ly=cos(ang)*d;
+         fillring(x,y,cr,x+lx,y+ly,cr*TESTANNULMINR);
+      } else filldisk(cx+bfrcx,cz+bfrcy,cr,shape==0);
+      return;
+   }
+   cx*=crr; cz*=crr;
+   c.cx=cx; c.cy=cy; c.cz=cz;
+   a2 = c.cx^2+c.cz^2; c2 = c.cy^2;
+   a  = sqrt(a2);
+   b  = 1/zoom; c.b2 = b^2;
+   
+   // h maps to buffer pixels measured from projection center to section edge
+   ip = a2+c2-1;
+   ia = b / (ip*(c2-1));
+   ib = a*c.cy*ip;
+   ic = a2*sqrt(ip);
+   id = c2*(c2*(a2+c2-3)-2*a2+3) + a2-1;
+   if(!backface) {
+      c.h  = ia*(ib-ic-sqrt(id)) + SPHEREHBIAS;
+   } else {
+      c.h  = ia*(ib+ic+sqrt(id)) - SPHEREHBIAS;
+      pole = a*b / (c.cy+1);
+      //c.h-=16;
+      c.h += ceil((pole-c.h)/subsmp)*subsmp;
+      //c.h  = pole + BACKHBIAS;
+   }
+   c.qdh = a*b;
+   c.sdh = c.b2*(2*a*b*c.cy);
+   c.sdh2= c.b2*(1-c2);
+   c.q0 = c.h*c.qdh;
+   c.s0 = c.h*c.sdh + c.b2^2*(1-a2);
+   c.qdh*=SUBSMP; c.sdh*=SUBSMP;
+   
+   c.ox=c.oy=c.or=c.oz=0; c.ot=1;
+   c.nextz = zoom*(1+c.cy)*c.radius;
+   if(!backface) c.state=3; else c.state=4;
+   czs[czsn++]=c; // Will be rendered concurrently by stepconstzsph function
+}
+
+runczs() {
+   if(cutoffstate) cutoff=ceil(cutoffcount); else cutoff=-1;
+   while(czsn) { // Run concurrent rasterizer
+      maxz=0; m=-1;
+      if(keystatus[8]) { if(czsn) m=0; } else
+      for(i=0; i<czsn; i++) if(czs[i].nextz>maxz) maxz=czs[i].nextz, m=i;
+      if(m<0) break;
+      stepconstzsph(czs[m]);
+      if(cutoff==0) break;
+      if(czs[m].state==0) czs[m]=czs[--czsn];
+   }
+   if(cutoff!=0) cutoffstate=cutoffcount=0;
+}
+
+
+
+// Slightly optimized scanline rasterizer
+draw2(cx,cy,cz,cr,ang,backface) {
+   uc = cos(ang); us = sin(ang);
+   lc = cos(litdir-ang); ls = sin(litdir-ang);
+   centerx = bfrcx-0.5; centery = bfrcy-0.5;
+   drwx0   = bfrcx;     drwy0   = bfrcy;
+   dimx    = bfrcx*2;   dimy    = bfrcy*2;
+   zscale  = cr*zoom*2;
+   if(!backface) backface=-1;
+   
+   crr = 1/cr; cx*=crr; cy*=crr; cz*=crr;
+   syz = 2*cy*cz;    szx = 2*cz*cx;    sxy = 2*cx*cy;
+   cx2 = cx^2;       cy2 = cy^2;       cz2 = cz^2;
+   sdx = 1-cy2-cz2;  sdy = 1-cz2-cx2;  sdz = 1-cx2-cy2;
+   x0  = -centerx*zoom;
+   xs0 = x0^2;
+   d0  = sdy + sdx*xs0 + sxy*x0;
+   dd0 = (sdx*(2*x0+zoom)+sxy) * zoom;
+   ddbot = zoom^2*2;
+   dbot0 = 2*zoom*x0 + ddbot*0.5;
+   ddy   = syz + szx*x0;
+   dddy  = szx*zoom;
+   ddd   = sdx*ddbot; ar = 1/ddd;
+   xs0+=1;
+   top0 = cx*x0 + cy;
+   dtop = zoom*cx;
+   
+   for(sy=0; sy<dimy; sy++) {
+      y  = (sy-centery)*zoom;
+      ys = y^2;
+      d  = d0 + sdz*ys + ddy*y;
+      dd = dd0 + dddy*y;
+      x    = x0; 
+      dbot = dbot0;
+      bot  = xs0 + ys;
+      top  = top0 + cz*y;
+      
+      if(d<0) { // Skip air pixels
+         p = dd*ar;
+         q = (d+dd/2)*2*ar;
+         r = p*p-q; if(r<0) continue;
+         r = sqrt(r)*sgn(p);
+         s1 = max(0,    ceil(0.5+r-p));
+         d+=(dd+ddd*(s1-1)/2)*s1;
+         bot+=(dbot+ddbot*(s1-1)/2)*s1;
+         dd+=ddd*s1;
+         dbot+=ddbot*s1;
+         top+=dtop*s1; x+=zoom*s1;
+      } else s1=0;
+
+      for(sx=s1; sx<dimx; sx++, x+=zoom, bot+=dbot, dbot+=ddbot,
+                          d+=dd, dd+=ddd, top+=dtop) {
+         if(d<0) break;
+         root=sqrt(d);
+         r = (top+backface*root) / bot;
+         if(r<0) continue; // Behind the viewer
+         nx = x*r-cx;
+         ny = r-cy;
+         nz = y*r-cz;
+         if(mode>=2) mktsiz(cr*zoom*2),mkshade(nx*uc-ny*us,ny*uc+nx*us,nz);
+                else mkshade(nx,(ny+pivot*.01)*zscale,nz);
+         put_pixel(sx,sy);
+      }
+   }
+}
+
+
+
+// Slow but parallelizable brute-force raytracer
+raysph(x,y,cx,cy,cz,cr,&rx,&ry,&rz) {
+   crr = 1/cr; cx*=crr; cy*=crr; cz*=crr;
+   x2 = cy*y - cz;
+   y2 = cz*x - cx*y;
+   z2 = cx   - cy*x;
+   d0 = x^2+y^2+1;
+   d  = d0 - (x2^2+y2^2+z2^2);
+   if(d<0) { rx=ry=rz=0; return d; }
+   r=sqrt(d); if(culling!=0 && alpha==1) r=-r;
+   t = (cx*x + cy + cz*y - r) / d0;
+   rx = t*x - cx;
+   ry = t   - cy;
+   rz = t*y - cz;
+   return t;
+}
+
+draw1(cx,cy,cz,cr,ang) {
+   if(mode>=2) uc = cos(ang), us = sin(ang); else uc=1,us=0;
+   lc = cos(litdir-ang); ls = sin(litdir-ang);
+   centerx = bfrcx-0.5; centery = bfrcy-0.5;
+   drwx0   = bfrcx;     drwy0   = bfrcy;
+   dimx    = bfrcx*2;   dimy    = bfrcy*2;
+
+   for(sy=0,y=-centery*zoom; sy<dimy; sy++,y+=zoom) {
+      for(sx=0,x=-centerx*zoom; sx<dimx; sx++,x+=zoom) {
+         d = raysph(x,y,cx,cy,cz,cr,&rx,&ry,&rz);
+         if(d<0) continue;
+         if(cy+cr*ry<0) continue;
+         mkshade(rx*uc-ry*us,ry*uc+rx*us,rz);
+         put_pixel(sx,sy);
+      }
+   }
+}
+
+parascan(ang) {
+   dcx=-zoom; cx=-dcx*bfrcx;
+   bkg=BKGCOLOR%256;
+   for(sx=0; sx<bfrx1; sx++,cx+=dcx) {
+      dv=zoom/sqrt(cx^2+1); v=-dv*bfrcy;
+      a=(atan2(cx,1)+ang)%(pi*2);
+      u=a%pi-pi/2;
+      r=g=b=1;
+      if(a<pi) l=200, g=1.25, b=1.5; else l=4000;
+      l=gamma[l]*0.006; r*=l; g*=l; b*=l;
+      r^=SCREENGAMMA; g^=SCREENGAMMA; b^=SCREENGAMMA;
+      d0=u^2;
+      if(d0>0.1) {
+         chglincol(0,0,0);
+         for(sy=0; sy<bfry1; sy++) put_bkg_pixel(sx, sy);
+         continue;
+      }
+      for(sy=0; sy<bfry1; sy++,v+=dv) {
+         d=d0+v^2; l=0.00004/(d*d*d+0.00000001);
+         //chgcolor(max(bkg,r*l),max(bkg,g*l),max(bkg,b*l));
+         chglincol(r*l,g*l,b*l);
+         put_bkg_pixel(sx, sy);
+      }
+   }
+}
+
+clearbuffer() {
+   if(alpha==1) {
+      bufset(bfr[0], BKGCOLOR, bfrx1*bfry1);
+      return;
+   }
+   c=gammaexp[BKGCOLOR%256]*(1/HDRFACTOR);
+   for(i=0; i<bfrx1*bfry1; i++) bfr[0][i]=bfr[1][i]=bfr[2][i]=c;
+}
+
+showbuffer() {
+   if(alpha==1) {
+      if(step<=1) {
+         for(by=a=0; by<bfry1; by++) {
+            for(bx=0; bx<bfrx1; bx++,a++) scbfr[bx]=bfr[0][a];
+            sethlin(0,by,scbfr,xres);
+         }
+      } else {
+         padx=projx0%step; pady=projy0%step;
+         y=0;
+         for(by=0; by<bfry1; by++) {
+            x=0;
+            a=by*bfrx1;
+            for(bx=0; bx<bfrx1; bx++,a++) {
+               if(bx) i=step; else i=padx;
+               for(; i>0; i--,x++) scbfr[x]=bfr[0][a];
+            }
+            if(by) i=step; else i=pady;
+            for(; i>0; i--,y++) sethlin(0,y,scbfr,xres);
+         }
+      }
+      return;
+   }
+   if(step<=1) {
+      for(by=a=0; by<bfry1; by++) {
+         for(bx=0; bx<bfrx1; bx++,a++) {
+            c=rgb(gamma[min(bfr[0][a]*16, GAMMASIZ-1)],
+                  gamma[min(bfr[1][a]*16, GAMMASIZ-1)],
+                  gamma[min(bfr[2][a]*16, GAMMASIZ-1)]);
+            scbfr[bx]=c;
+         }
+         sethlin(0,by,scbfr,xres);
+      }
+   } else {
+      padx=projx0%step; pady=projy0%step;
+      y=0;
+      for(by=0; by<bfry1; by++) {
+         x=0;
+         a=by*bfrx1;
+         for(bx=0; bx<bfrx1; bx++,a++) {
+            if(bx) i=step; else i=padx;
+            c=rgb(gamma[min(bfr[0][a]*16, GAMMASIZ-1)],
+                  gamma[min(bfr[1][a]*16, GAMMASIZ-1)],
+                  gamma[min(bfr[2][a]*16, GAMMASIZ-1)]);
+            for(; i>0; i--,x++)
+               scbfr[x]=c;
+         }
+         if(by) i=step; else i=pady;
+         for(; i>0; i--,y++) sethlin(0,y,scbfr,xres);
+      }
+   }
+   //c=gammaexp[BKGCOLOR%256]*(1/HDRFACTOR);
+   //for(i; i<bfrx1*bfry1; i++) bfr[0][i]=bfr[1][i]=bfr[2][i]=c;
+}
+
+plot_grid() {
+   if(step<=2) return;
+   x0=projx0%step; y0=projy0%step;
+   for(y=y0;y<yres;y+=step) moveto(0,y), lineto(xres,y);
+   for(x=x0;x<xres;x+=step) moveto(x,0), lineto(x,yres);
+   if(step<=4) return;
+   for(y=y0-step/2;y<yres;y+=step) for(x=x0-step/2;x<xres;x+=step) setpix(x,y);
+}
+
+display_coords(x,y) {
+   moveto(projx0+x*step+4, projy0+y*step-12);
+   setfont(6,8);
+   printf("(%.2f, %.2f)", x, y);
+}
+
+display_radius(x,y,r) {
+   moveto(projx0+x*step+8, projy0+y*step-12);
+   setfont(6,8);
+   printf("r = %.2f", r);
+}
+
+plot_geometry() {
+   for(i=0; i<ptn-1; i+=2) {
+      f  = projfov/step;
+      r  = getradius(i);
+      if(is_sphere()) k=0, kmax=PREVIEWSEGS, z0 = pivot*.01;
+                 else k=kmax=PREVIEWSEGS/2,  z0 = 0;
+      for(;k<=kmax;k++) {
+         if(i==closest) setcol(155,131,94);
+                   else setcol(71,83,157);
+         c=cos(k*pi/PREVIEWSEGS);
+         z=f+r*(z0+c); if(z<0.01) break;
+         w=f/z; x=px[i]*w; y=py[i]*w;
+         if(k==0) moveto(projx0+x*step, projy0+y*step);
+         else if(k==PREVIEWSEGS) lineto(projx0+x*step, projy0+y*step);
+         else {
+            if(k==PREVIEWSEGS/2) {
+               setcol(204,101,89);
+               if(shape==1) {
+                  moveto(projx0+px[i]*step, projy0+py[i]*step);
+                  lineto(projx0+px[i+1]*step, projy0+py[i+1]*step);
+               }
+            }
+            drawsph(projx0+x*step, projy0+y*step, -r*(sqrt(1-c^2))*w*step);
+         }
+      }
+      setcol(71,83,157);
+      if(shape==0) {
+         for(k=r<.5; k<2; k++)
+            drawsph(projx0+x*step, projy0+y*step, -(r-.5+k)*step);
+      } else if(shape==4) {
+         ang=frm+getangle(i); rmin=r*TESTANNULOFF;
+         x+=sin(ang)*rmin; y+=cos(ang)*rmin;
+         drawsph(projx0+x*step, projy0+y*step, -r*TESTANNULMINR*step);
+      }
+   }
+   
+   for(i=0;i<ptn;i++) {
+      if(i==closest) {
+         setcol(255,208,119);
+         if(bstatus==1) {
+            if(i%2) display_radius(px[i],py[i],
+                      sqrt((px[i]-px[i-1])^2+(py[i]-py[i-1])^2));
+               else display_coords(px[i],py[i]);
+         }
+      } else setcol(215,215,215);
+      drawsph(projx0+px[i]*step, projy0+py[i]*step, 1.5+i%2);
+   }
+}
+
+display_info() {
+   moveto(32,16); setfont(8,15);
+   setcol(195,177,218);
+   printf("%.0f fps\n", fps);
+   setcol(231,235,211);
+   printf("Field Of View: %.0f deg.\n", atan(xres/(projfov*2))*360/pi);
+   printf("Sphere Count: %g\n", ptn/2);
+   printf("Shape: ");
+   if(shape==0) { printf("Circles\n"); goto printex; }
+   if(shape==1) printf("Disks\n");
+   if(shape==2) {
+      printf("Const-Z Spheres");
+      if(subsmp>1) printf(" (Step %g px)\n", subsmp); else printf("\n");
+   }
+   if(shape==3) printf("Scanline Spheres\n");
+   if(shape==4) printf("Annuli\n");
+   printf("Shading: ");
+   if(mode==0) printf("None\n");
+   if(mode==1) printf("Depth\n");
+   if(mode==2) printf("Normals\n");
+   if(mode==3) if(lights) printf("Textured & Lit\n"); else printf("Textured\n"); 
+   if(is_sphere() && pivot!=0) printf("Depth Offset: %.0f %%\n", pivot);
+printex:
+   if(alpha<1) {
+      printf("Opacity: %.0f %%", alpha*100);
+      if(culling && is_sphere()) printf(" (1-sided)");
+   } else if(culling && is_sphere()) printf("Inverted hull");
+   if(cutoffstate) {
+      moveto(64,yres-64);
+      setcol(245,198,95);
+      printf("Concurrent Sample Count: %g\n", ceil(cutoffcount));
+      if(cutoffstate==2) printf("Use mouse wheel to adjust");
+   }
+}
+
+
+
+do_anims() {
+   t=klock(); dt=t-lastt; lastt=t;
+   if(t>=fpsdue) { // Update fps counter
+      fps = fpsacc / fpscount;
+      fpsdue = t+0.2;
+      fpsacc=fpscount=0;
+   }
+   fpsacc+=1/dt; fpscount++;
+   if(!pause) frm-=dt*.5, litdir+=dt*.1;
+}
+
+checkhover(mx,my) {
+   closest=-1;
+   if(keystatus[RKEY]) return;
+   if(grid) { // Control points are visible
+      mind=1024/step^2;
+      for(i=1;i<ptn;i+=2) {
+         d = (px[i]-mx)^2 + (py[i]-my)^2;
+         if(d<mind) mind=d, closest=i;
+      }
+      if(closest>=0) return;
+   }
+   if(!is_sphere()) { // Find disk/annulum under cursor
+      for(i=ptn-2; i>=0; i-=2) {
+         x=px[i]; y=py[i];
+         d = (x-mx)^2 + (y-my)^2;
+         r = (x-px[i+1])^2 + (y-py[i+1])^2;
+         if(d<=r) {
+            if(shape==4) {
+               h = sqrt(r)*TESTANNULOFF; ang = frm+getangle(i);
+               d = (x+sin(ang)*h-mx)^2 + (y+cos(ang)*h-my)^2;
+               if(d < r*TESTANNULMINR^2) continue;
+            }
+            closest=i; break;
+         }
+      }
+      return;
+   }
+   // Find sphere under cursor
+   x=mx*zoom; y=my*zoom; z0=projfov/step; mind=1e20;
+   for(i=0;i<ptn;i+=2) {
+      cr = getradius(i);
+      z = z0 + cr*pivot*.01;
+      d = raysph(x,y, px[i],z,py[i],cr, &rx,&ry,&rz);
+      if(d<0) continue;
+      d = z+cr*ry;
+      if(d<mind) mind=d, closest=i;
+   }
+}
+
+mouse_inputs(shift,ctrl,mx,my) {
+   if(!pmb) if(bstatus==2) grid=1-grid;
+   if(dmousz!=0 && cutoffstate!=2) { // Mouse wheel
+      v = sgn(dmousz);
+      if(shift) pivot = max(min(pivot-v*10, 100), 0); else if(closest>=0) {
+         i=floor(closest*.5)*2;
+         if(ctrl) transform_sphere(i, pi*v*.125, 1); // Rotate sphere
+             else transform_sphere(i, 0, 2^(v*.25)); // Resize sphere
+      }
+   }
+   if(bstatus==1 && closest>=0) {
+      dx=mx-pmx; dy=my-pmy;
+      if(ctrl) { // Snap to grid
+         dx+=px[closest]; dy+=py[closest];
+         dx-=(dx+.25)%.5-.25;
+         dy-=(dy+.25)%.5-.25;
+         dx-=px[closest]; dy-=py[closest];
+         pmx+=dx, pmy+=dy;
+      } else pmx=mx, pmy=my;
+      px[closest]+=dx, py[closest]+=dy;
+      if(closest%2==0) px[closest+1]+=dx, py[closest+1]+=dy;
+   } else pmx=mx, pmy=my;
+   pmb=bstatus;
+}
+
+chgzoom(factor) {
+   f=step*factor;
+      if(f>64) factor=64/step;
+   else if(f<1) factor=1/step;
+   step*=factor; fr=1/factor;
+   for(i=0;i<ptn;i++) px[i]*=fr, py[i]*=fr;
+}
+
+keydown(scancode) {
+   if(keystatus[scancode]) { keystatus[scancode]=0; return 1; }
+   return 0;
+}
+
+key_inputs(shift,ctrl,mx,my) {
+   if(keydown(DELKEY)) {
+      if(ctrl) ptn=0; else if(closest>=0) {
+         ptn-=2; i = floor(closest*.5)*2;
+         for(j=0;j<2;j++) px[i+j]=px[ptn+j], py[i+j]=py[ptn+j];
+      }
+   }
+   if(keydown(INSKEY) && ptn<=MAXN-2) {
+      px[ptn] = mx; py[ptn] = my;
+      a=rnd*pi*2; r=64/step;
+      px[ptn+1] = mx + cos(a)*r;
+      py[ptn+1] = my + sin(a)*r;
+      ptn+=2;
+   }
+   if(keystatus[LBRKEY]) projfov=max(100, projfov-400*dt);
+   if(keystatus[RBRKEY]) projfov=min(1600, projfov+400*dt);
+   if(keystatus[COMMAKEY] || keystatus[PERIODKEY])  {
+      ang=dt*5*(keystatus[PERIODKEY]-keystatus[COMMAKEY]);
+      if(!shift) {
+         if(ctrl) frm+=ang; else if(closest>=0)
+            transform_sphere(floor(closest*.5)*2,ang,1);
+      } else litdir+=ang;
+   }
+   if(keystatus[RKEY]) lookaround = (mousx/xres-.5)*pi*2;
+                  else lookaround*= exp(-25*dt);
+   if(keydown(SUBKEY)) { if(texsiz>8)   texsiz*=.5; }
+   if(keydown(ADDKEY)) { if(texsiz<1024) texsiz*=2; }
+   if(keydown(PGUPKEY)) { pivot = max(pivot-10, 0); }
+   if(keydown(PGDNKEY)) { pivot = min(pivot+10, 100); }
+   if(keydown(DIVKEY)) { subsmp = max(subsmp-1, 1); }
+   if(keydown(MULKEY)) { subsmp = min(subsmp+1, 8); }
+   inc = 1-2*shift;
+   if(keydown(DKEY)) mode  = (mode +inc)%4;
+   if(keydown(SKEY)) shape = (shape+inc)%5;
+   for(i=0;i<4+shift;i++) if(keydown(i+2)) { if(shift) shape = i; else mode = i; }
+   if(keydown(TKEY)) {
+      if(shift) { if(alpha>=1)  alpha =.5; else alpha+=.125; }
+           else { if(alpha<=.5) alpha = 1; else alpha-=.125; }
+   }
+   if(keydown(AKEY)) chgzoom(2);
+   if(keydown(ZKEY)) chgzoom(.5);
+   if(keydown(EKEY)) texadj  = 1-texadj;
+   if(keydown(GKEY)) grid    = 1-grid;
+   if(keydown(PKEY)) pause   = 1-pause;
+   if(keydown(LKEY)) lights  = 1-lights;
+   if(keydown(IKEY)) infobox = 1-infobox;
+   if(keydown(BACKEY)) culling = 1-culling;
+   if(keydown(VKEY)) {
+      if(cutoffstate) cutoffstate=0; else cutoffstate=1+(inc!=1);
+   }
+   if(keydown(SLASHKEY)) init=0;
+}
+
+update_metrics() {
+   if(cutoffstate==1) cutoffcount += dt*512/step;
+   if(cutoffstate==2) cutoffcount = max(1,cutoffcount-sgn(dmousz));
+   
+   bfrx1 = ceil(xres/step)+1;    bfry1 = ceil(yres/step)+1;
+   bfrcx = floor(projx0/step)+1; bfrcy = floor(projy0/step)+1;
+   zoom = step/projfov;
+   globy0 = projfov;
+}
+
+input() {
+   do_anims();
+   
+   ctrl  = keystatus[LCTRLKEY]  || keystatus[RCTRLKEY];
+   shift = keystatus[LSHIFTKEY] || keystatus[RSHIFTKEY];
+   projx0=xres/2; projy0=yres/2;
+   mx = (mousx-projx0)/step;
+   my = (mousy-projy0)/step;
+   
+   if(!bstatus) checkhover(mx, my);
+   mouse_inputs(shift, ctrl, mx, my);
+   key_inputs(shift, ctrl, mx, my);
+   update_metrics();
+}

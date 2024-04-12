@@ -1,4 +1,4 @@
-use crate::{camera::Camera, file_readers::yade_dem_reader::YadeDemData, mesh::Mesh, obj_renderer::ObjRenderer, terminal_wrapper::TerminalBuffer, timer::Timer, yade_renderer::YadeRenderer, FileType};
+use crate::{camera::Camera, file_readers::yade_dem_reader::YadeDemData, mesh::Mesh, obj_renderer::ObjRenderer, terminal_wrapper::TerminalBuffer, timer::Timer, yade_renderer::YadeRenderer, FileDataType};
 
 
 pub trait Renderer {
