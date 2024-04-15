@@ -8,19 +8,20 @@ pub struct Timer {
 	pub time_aggr: Duration,
 	pub time_scale: f32,
 
+	pub last_tick: Instant,
+
 	start: Instant,
-	last_tick: Instant,
 }
 
 impl Timer {
 	pub fn new() -> Self {
 		let now = Instant::now();
-		let duration_of_2ms = Duration::from_millis(2);
+		const DURATION_2MS: Duration = Duration::from_millis(2);
 		Self {
 			frame_count:      0,
-			delta_time:       duration_of_2ms,
-			time_since_start: duration_of_2ms,
-			time_aggr:        duration_of_2ms,
+			delta_time:       DURATION_2MS,
+			time_since_start: DURATION_2MS,
+			time_aggr:        DURATION_2MS,
 			time_scale:       1.0,
 			
 			start:            now,

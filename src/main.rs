@@ -14,18 +14,18 @@ mod file_readers;
 mod settings;
 
 
-use std::{env, io::{stdout, Write}};
+use std::{env, time::{Duration, Instant}};
 
-use crossterm::{cursor::*, queue, style::Print, terminal::*};
+use crossterm::{cursor::*, queue, style::{Color, Print, StyledContent, Stylize}, terminal::*};
 
 use file_readers::yade_dem_reader::YadeDemData;
+use file_readers::obj_reader::read_mesh_from_obj;
 use rendering::{renderer::Renderer, yade_renderer::YadeRenderer, *};
 use settings::Settings;
-use terminal_wrapper::CrosstermTerminal;
 use timer::Timer;
 use benchmark::Benchmark;
 
-use crate::{file_readers::obj_reader::read_mesh_from_obj, maths::*, obj_renderer::ObjRenderer, rendering::{camera::Camera, mesh::Mesh}, terminal_wrapper::{configure_terminal, poll_events, queue_draw_to_terminal_and_flush, restore_terminal, TerminalBuffer}};
+use crate::{maths::*, obj_renderer::ObjRenderer, rendering::{camera::Camera, mesh::Mesh}, terminal_wrapper::*};
 
 // TODO: figure out how to do it more functionally if I wanted to
 type RenderMeshFn = fn(&Mesh, &mut TerminalBuffer, &Timer, &Camera);
@@ -35,7 +35,6 @@ enum FileDataType {
 	Mesh(Mesh),
 	YadeData(YadeDemData),
 }
-
 
 fn main() {
 
@@ -66,11 +65,13 @@ fn main() {
 	let mut camera = Camera::new();
 
 	// TODO: why does setting the camera like this here puts it forward? should be ... Z?
-	camera.set_pos(20., 1.0, 0.0);
+	// camera.position = Vec3::new(20., 1.0, 0.0);
 	// camera.set_rot(6.28318530 * 0.1,  0.0, 0.0);
 	// camera.set_rot(0.0, 6.2831 * 0.01, 0.0);
 
-	camera.update_view_matrix();
+	camera.set_initial_pos(0., 0.0, 20.0);
+	// camera.set_initial_rot(0.0, -3.14, 0.0);
+	camera.update_view_matrix(&mut app.buf);
 
 	// #if MESH
 	// let draw_mesh: DrawMeshFunction = if settings.draw_wireframe {
@@ -96,7 +97,7 @@ fn main() {
 		FileDataType::Mesh(mesh) => Box::new(ObjRenderer::new(mesh)),
 	};
 
-	let mesh = Mesh::pillars();
+	// let mesh = Mesh::pillars();
 
 	loop {
 		just_poll_while_paused(&mut app, terminal_mut, &mut timer);
@@ -107,12 +108,9 @@ fn main() {
 		app.buf.update_proj_matrix();
 
 		// camera.position = Vec3::new(camera.position.x + app.pos.x, camera.position.y + app.pos.y, )
-		camera.position = &camera.position + &app.pos;
-		camera.rotation = &camera.rotation + &app.rot;
-		camera.update_view_matrix();
+		update_camera(&mut camera, &mut app);
 
-		// TODO: render other crap
-		render_axes(&mut app.buf, &timer, &camera);
+		render_axes(&mut app.buf, &camera);
 
 		// let rad = 0.01 * YADE_SCALE_TEMP;
 		// render_sphere(&Vec3::new(0.0, 0.0, 12.0), rad, &mut app.buf, &timer);
@@ -129,6 +127,7 @@ fn main() {
 
 		timer.run_frame();
 
+		try_saving_screenshot(&mut app, &timer);
 		queue_draw_to_terminal_and_flush(&app.buf, terminal_mut);
 	}
 
@@ -143,83 +142,37 @@ fn render(renderer: Box<dyn Renderer>, buf: &mut TerminalBuffer, timer: &Timer, 
 	renderer.render(buf, timer, camera);
 }
 
-pub fn just_poll_while_paused(app: &mut App, terminal_mut: &mut CrosstermTerminal, timer: &mut Timer) {
+fn update_camera(camera: &mut Camera, app: &mut App) {
+	if app.called_reset_camera {
+		app.called_reset_camera = false;
+
+		camera.restore_initial_pos_and_rot();
+		camera.update_view_matrix(&mut app.buf);
+		return;
+	}
+
+	camera.position = camera.position + app.pos;
+	camera.rotation = camera.rotation + app.rot;
 	
-	if !app.has_paused_rendering { return; }
-
-	let paused_str = "PAUSED!";
-	render_string(paused_str, &UVec2::new(app.buf.wid - paused_str.len() as u16, app.buf.hei - 1), &mut app.buf);
-	queue_draw_to_terminal_and_flush(&app.buf, terminal_mut);
-
-	while app.has_paused_rendering {
-		poll_events(terminal_mut, app, timer);
-		timer.run();
-	};
+	camera.update_view_matrix(&mut app.buf);
 }
 
-fn test_shit2() {
+fn try_saving_screenshot(app: &mut App, timer: &Timer) {
+	let now = timer.last_tick;
+	let diff_since_last_ss = now - app.last_screenshot_instance;
 
-	let mut buf = [
-		0, 0, 0, 0,
-		0, 0, 0, 0,
-		0, 0, 0, 0,
-		0, 0, 0, 0,
-		
-		0, 0, 0, 0,
-		0, 0, 0, 0,
-		0, 0, 0, 0,
-		0, 0, 0, 0,
-		
-		0, 0, 0, 0,
-		0, 0, 0, 0,
-		0, 0, 0, 0,
-		0, 0, 0, 0,
+	let last_one_was_too_recent = diff_since_last_ss < App::SCREENDUMP_DELAY_DURATION;
+	if last_one_was_too_recent {
+		let diff_secs = diff_since_last_ss.as_millis() as f32 / 1000.0;
+		render_string(&format!("{}", diff_secs), &UVec2::new(0, 0), &mut app.buf);
+		return;
+	}
 
-		0, 0, 0, 0,
-		0, 0, 0, 0,
-		0, 0, 0, 0,
-		0, 0, 0, 0,
-	];
+	if !app.called_take_screenshot { return }
+	app.called_take_screenshot = false;
+	app.last_screenshot_instance = now;
 
-	let mut stdout = stdout();
-	
-	BACKGROUND_FILL_CHAR.encode_utf8(&mut buf[0..16]);
-	BACKGROUND_FILL_CHAR.encode_utf8(&mut buf[4..16]);
-	BACKGROUND_FILL_CHAR.encode_utf8(&mut buf[8..16]);
-	BACKGROUND_FILL_CHAR.encode_utf8(&mut buf[12..16]);
-	
-	// BACKGROUND_FILL_CHAR.encode_utf8(&mut slice[1..4]);
-	BACKGROUND_FILL_CHAR.encode_utf8(&mut buf[16..32]);
-	BACKGROUND_FILL_CHAR.encode_utf8(&mut buf[20..32]);
-	BACKGROUND_FILL_CHAR.encode_utf8(&mut buf[24..32]);
-	BACKGROUND_FILL_CHAR.encode_utf8(&mut buf[28..32]);
-	// BACKGROUND_FILL_CHAR.encode_utf8(&mut slice[5..8]);
-
-	
-	// let buf_str = unsafe { std::str::from_utf8_unchecked(&slice) };
-	let buf_str = std::str::from_utf8(&buf[0..16]).unwrap();
-	queue!(stdout, MoveTo(0, 0)).unwrap();
-	queue!(stdout, Print(buf_str)).unwrap();
-	
-	let buf_str = std::str::from_utf8(&buf[16..32]).unwrap();
-	queue!(stdout, MoveTo(0, 1)).unwrap();
-	queue!(stdout, Print(buf_str)).unwrap();
-
-	stdout.flush().unwrap();
-
-	let _buf = vec![
-		b'a', b'a', b'a', b'a', //  0  1  2  3
-		b'b', 0, 0, 0, //  4  5  6  7
-		b'c', 0, 0, 0, //  8  9 10 11
-		b' ', 0, 0, 0, // 12 13 14 15
-		0,    0, 0, 0, // 16 17 18 19
-		// invalid utf8 example
-		// 0xf0, 0x28, 0x8c, 0xbc,
-		// 128, 223,
-	];
-
-	// '💖'.encode_utf8(&mut buf[16..20]);
-
+	app.buf.try_dump_buffer_content_to_file();
 }
 
 
@@ -229,10 +182,14 @@ pub struct App {
 
 	pub buf: TerminalBuffer,
 
+	// TODO: user polled data
+	// or just take a reference to the camera as Rc<Camera>, simpler
 	pub pos: Vec3,
 	pub rot: Vec3,
+	pub called_reset_camera: bool,
+	pub called_take_screenshot: bool,
+	pub last_screenshot_instance: Instant,
 }
-
 
 impl App {
 	fn init_with_screen() -> App {
@@ -244,14 +201,20 @@ impl App {
 		Self::init(width, height, false)
 	}
 
+	const SCREENDUMP_DELAY_DURATION: Duration = Duration::from_millis(App::SCREENDUMP_DELAY_MS);
+	const SCREENDUMP_DELAY_MS: u64 = 300;
 	fn init(width: u16, height: u16, can_resize: bool) -> App {
 		Self {
 			can_resize,
 			has_paused_rendering: false,
 
 			buf: TerminalBuffer::new(width, height),
+
 			pos: Vec3::zero(),
 			rot: Vec3::zero(),
+			called_reset_camera: false,
+			called_take_screenshot: false,
+			last_screenshot_instance: Instant::now() - Duration::from_millis(App::SCREENDUMP_DELAY_MS),
 		}
 	}
 
@@ -259,9 +222,16 @@ impl App {
 
 		if !self.can_resize { return; }
 
+		// I have NO IDEA why Windows terminals need +1 for buffer size on resize events
+
+		#[cfg(windows)]
 		self.buf.resize_and_render_clear(w + 1, h + 1);
 
-		// not a good idea but when rendering is disabled, we could copy the content of the previous frame
-		// reescale it and draw it into the new one (this would require a mut ref to the terminal)
+		#[cfg(unix)]
+		self.buf.resize_and_render_clear(w, h);
+
+		// (this is not a good idea) but ... when rendering is disabled, we could copy
+		// the content of the previous frame, reescale it and draw it into the new one
+		// (simply not gonna work)
 	}
 }

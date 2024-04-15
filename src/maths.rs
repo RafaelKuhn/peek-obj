@@ -1,5 +1,7 @@
 use core::fmt;
-use std::{fmt::Display, f32::consts::TAU};
+use std::{f32::consts::TAU, fmt::Display};
+
+use crate::terminal_wrapper::TerminalBuffer;
 
 
 pub fn lerp_f32(a: f32, b: f32, t: f32) -> f32 {
@@ -16,7 +18,7 @@ pub fn smoothed_0_to_1(t: f32, sharpness: f32) -> f32 {
 	pow_t / ( pow_t + (1.0 - t).powf(sharpness) )
 }
 
-
+#[derive(Clone, Copy)]
 pub struct Vec3 {
 	pub x: f32,
 	pub y: f32,
@@ -73,6 +75,14 @@ impl Vec3 {
 		}
 	}
 
+	pub fn mul_vec(&self, rhs: f32) -> Self {
+		Vec3 {
+			x: self.x * rhs,
+			y: self.y * rhs,
+			z: self.z * rhs,
+		}
+	}
+
 	pub fn inversed(&self) -> Self {
 		Self {
 			x: -self.x,
@@ -98,9 +108,25 @@ impl std::ops::Add<Vec3> for Vec3 {
 	}
 }
 
-impl fmt::Debug for Vec3 {
+impl std::ops::Mul<f32> for &Vec3 {
+	type Output = Vec3;
+
+	fn mul(self, rhs: f32) -> Self::Output {
+		self.mul_vec(rhs)
+	}
+}
+
+impl std::ops::Mul<f32> for Vec3 {
+	type Output = Vec3;
+
+	fn mul(self, rhs: f32) -> Self::Output {
+		self.mul_vec(rhs)
+	}
+}
+
+impl Display for Vec3 {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(f, "[{:+.2},{:+.2},{:+.2}]", self.x, self.y, self.z)
+		write!(f, "[{:+.2}, {:+.2}, {:+.2}]", self.x, self.y, self.z)
 	}
 }
 
@@ -131,13 +157,12 @@ impl UVec2 {
 }
 
 
-impl Display for UVec2 {
+impl fmt::Display for UVec2 {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		write!(f, "[{}, {}]", self.x, self.y)
 	}
 }
 
-// TODO: check if I need to implement display or debug
 impl fmt::Debug for UVec2 {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		write!(f, "[{}, {}]", self.x, self.y)
@@ -288,81 +313,123 @@ pub fn xy_to_i(x: u16, y: u16, width: u16) -> usize {
 }
 
 // TODO: optimize the shit out of this
-pub fn create_view_matrix(position: &Vec3, rotation: &Vec3) -> Vec<f32> {
-    let center = [
-        position.x + rotation.x.cos() * rotation.y.cos(),
-        position.y + rotation.x.sin(),
-        position.z + rotation.x.cos() * rotation.y.sin(),
-    ];
-    let up = [
-        -rotation.y.sin() * rotation.z.cos(),
-        rotation.y.cos()  * rotation.z.cos(),
-        rotation.z.sin(),
-    ];
+// pub fn create_view_matrix(position: &Vec3, rotation: &Vec3) -> Vec<f32> {
+pub fn create_view_matrix(position: &Vec3, rotation: &Vec3, buf: &mut TerminalBuffer) -> Vec<f32> {
+	// let center = Vec3::new(
+	// 	position.x + rotation.x.cos() * rotation.y.cos(),
+	// 	position.y + rotation.x.sin(),
+	// 	position.z + rotation.x.cos() * rotation.y.sin(),
+	// );
 
-	// TODO: invert like this for XYZ coordinate systems
-	// let up = [
-    //     rotation.z.cos() * rotation.y.sin(),
-    //     rotation.z.sin(),
-    //     rotation.z.cos() * rotation.y.cos(),
-    // ];
+	let up = Vec3::new(
+		-rotation.x.sin() * rotation.y.cos(),
+		rotation.x.cos(),
+		-rotation.x.sin() * rotation.y.sin(),
+	);
+	
+	// let looking_at = Vec3::new(
+	// 	center.x - position.x,
+	// 	center.y - position.y,
+	// 	center.z - position.z,
+	// );
 
-	let looking_at = [
-		center[0] - position.x,
-		center[1] - position.y,
-		center[2] - position.z
-	];
+	let looking_at = Vec3::new(
+		rotation.x.cos() * rotation.y.sin(),
+		rotation.x.sin(),
+		rotation.x.cos() * rotation.y.cos(),
+	);
+	
+	// let looking_at = Vec3::new(
+	// 	0.0,
+	// 	0.0,
+	// 	-1.0,
+	// );
 
-    let cam_forward = normalize(looking_at);
-    let cam_side = normalize(cross_product(cam_forward, up));
-    let cam_up = cross_product(cam_side, cam_forward);
+	
+	let cam_forward = normalize(&looking_at);
+	let cam_side = normalize(&cross_product(&cam_forward, &up));
+	let cam_up = cross_product(&cam_side, &cam_forward);
 
-    let mut view_matrix = build_identity_4x4();
+	buf.clear_debug();
+	buf.write_debug(&format!("pos     {:}\n", position));
+	buf.write_debug(&format!("rot     {:}\n", rotation));
+	buf.write_debug("- - - -\n");
+	
+	// buf.write_debug(&format!("center {:}\n", center));
+	buf.write_debug(&format!("lk at   {:}\n", looking_at));
+	buf.write_debug(&format!("''up?'' {:}\n", up));
+	buf.write_debug(&format!("c side  {:}\n", cam_side));
+	buf.write_debug(&format!("c up    {:}\n", cam_up));
+	buf.write_debug(&format!("c fward {:}\n", cam_forward));
+	
+	let mut view_matrix = build_identity_4x4();
 
 	const SZ: u16 = 4;
 
-    view_matrix[xy_to_i(0, 0, SZ)] = cam_side[0];
-    view_matrix[xy_to_i(1, 0, SZ)] = cam_side[1];
-    view_matrix[xy_to_i(2, 0, SZ)] = cam_side[2];
+	view_matrix[xy_to_i(0, 0, SZ)] = cam_side.x;
+	view_matrix[xy_to_i(1, 0, SZ)] = cam_side.y;
+	view_matrix[xy_to_i(2, 0, SZ)] = cam_side.z;
 
-    view_matrix[xy_to_i(0, 1, SZ)] = cam_up[0];
-    view_matrix[xy_to_i(1, 1, SZ)] = cam_up[1];
-    view_matrix[xy_to_i(2, 1, SZ)] = cam_up[2];
+	view_matrix[xy_to_i(0, 1, SZ)] = cam_up.x;
+	view_matrix[xy_to_i(1, 1, SZ)] = cam_up.y;
+	view_matrix[xy_to_i(2, 1, SZ)] = cam_up.z;
 
-    view_matrix[xy_to_i(0, 2, SZ)] = -cam_forward[0];
-    view_matrix[xy_to_i(1, 2, SZ)] = -cam_forward[1];
-    view_matrix[xy_to_i(2, 2, SZ)] = -cam_forward[2];
+	view_matrix[xy_to_i(0, 2, SZ)] = -cam_forward.x;
+	view_matrix[xy_to_i(1, 2, SZ)] = -cam_forward.y;
+	view_matrix[xy_to_i(2, 2, SZ)] = -cam_forward.z;
 
-    view_matrix[xy_to_i(3, 0, SZ)] = -dot_product(cam_side, &position);
-    view_matrix[xy_to_i(3, 1, SZ)] = -dot_product(cam_up, &position);
-    view_matrix[xy_to_i(3, 2, SZ)] = dot_product(cam_forward, &position);
-    view_matrix[xy_to_i(3, 3, SZ)] = 1.0;
+	view_matrix[xy_to_i(3, 0, SZ)] = -dot_product(&cam_side, &position);
+	view_matrix[xy_to_i(3, 1, SZ)] = -dot_product(&cam_up, &position);
+	view_matrix[xy_to_i(3, 2, SZ)] = dot_product(&cam_forward, &position);
+	view_matrix[xy_to_i(3, 3, SZ)] = 1.0;
 
 	// TODO: try inverting the mat
 
-    view_matrix
+	// let mut transf_try = build_identity_4x4();
+	// transf_try[xy_to_i(0, 2, SZ)] = 0.0;
+	// transf_try[xy_to_i(1, 2, SZ)] = 0.0;
+	// transf_try[xy_to_i(2, 2, SZ)] = -1.0;
+
+	// multiply_4x4_matrices(&mut view_matrix, &transf_try);
+
+	buf.write_debug(&format!(" - - - - \nmat: {}\n", fmt_mat4x4(&view_matrix)));
+
+	view_matrix
 }
 
-// TODO: Vec3
-fn normalize(v: [f32; 3]) -> [f32; 3] {
-    let length = (v[0].powi(2) + v[1].powi(2) + v[2].powi(2)).sqrt();
-    [v[0] / length, v[1] / length, v[2] / length]
+// TODO: format this more decently
+fn fmt_mat4x4(mat: &Vec<f32>) -> String {
+	format!("\n[{} {} {} {}]\n[{} {} {} {}]\n[{} {} {} {}]\n[{} {} {} {}]", 
+		fmt_f(mat[ 0]), fmt_f(mat[ 1]), fmt_f(mat[ 2]), fmt_f(mat[ 3]),
+		fmt_f(mat[ 4]), fmt_f(mat[ 5]), fmt_f(mat[ 6]), fmt_f(mat[ 7]),
+		fmt_f(mat[ 8]), fmt_f(mat[ 9]), fmt_f(mat[10]), fmt_f(mat[11]),
+		fmt_f(mat[12]), fmt_f(mat[13]), fmt_f(mat[14]), fmt_f(mat[15]),
+	)
 }
 
-// TODO: Vec3
-fn cross_product(a: [f32; 3], b: [f32; 3]) -> [f32; 3] {
-    [
-        a[1] * b[2] - a[2] * b[1],
-        a[2] * b[0] - a[0] * b[2],
-        a[0] * b[1] - a[1] * b[0],
-    ]
+fn fmt_f(f: f32) -> String {
+	// ' >6' means pad the string with spaces ' ' until its length is 6
+	// '+.2' means pad the float with two decimals and force + sign on positive
+	format!("{: >6}", format!("{:+.2}", f))
 }
 
-// TODO: Vec3
-fn dot_product(a: [f32; 3], b: &Vec3) -> f32 {
-    a[0] * b.x + a[1] * b.y + a[2] * b.z
+
+fn normalize(v: &Vec3) -> Vec3 {
+	let length = (v.x*v.x + v.y*v.y + v.z*v.z).sqrt();
+	Vec3::new(v.x / length, v.y / length, v.z / length)
 }
 
+fn cross_product(a: &Vec3, b: &Vec3) -> Vec3 {
+	Vec3::new(
+		a.y * b.z - a.z * b.y,
+		a.z * b.x - a.x * b.z,
+		a.x * b.y - a.y * b.x,
+	)
+}
+
+fn dot_product(a: &Vec3, b: &Vec3) -> f32 {
+	a.x*b.x + a.y*b.y + a.z*b.z
+}
 
 
 fn transpose_3x3(vec: &mut [f32]) {

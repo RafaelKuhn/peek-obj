@@ -8,11 +8,8 @@ pub mod renderer;
 pub mod yade_renderer;
 pub mod obj_renderer;
 
-use std::{f32::consts::TAU, io::Write};
+use std::{f32::consts::TAU, fmt, io::Write};
 
-
-
-use num::Float;
 
 use crate::{benchmark::Benchmark, file_readers::yade_dem_reader::YadeDemData, maths::*, terminal_wrapper::{TerminalBuffer}, timer::Timer};
 
@@ -37,7 +34,7 @@ pub static ASCII_BYTES_PER_CHAR: usize = 1;
 
 
 
-#[derive(Debug)]
+#[derive(fmt::Debug)]
 pub struct ScreenTriangle {
 	pub p0: UVec2,
 	pub p1: UVec2,
@@ -167,7 +164,7 @@ pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Ti
 
 	let start_ms = 89_340;
 	let t = (timer.time_aggr.as_millis() + start_ms) as f32 * 0.001;
-	let t = 0.0;
+	// let t = 0.0;
 	let (angle_x, angle_y, angle_z) = (TAU * 0.25, t, 0.0);
 
 	let (scale_x, scale_y, scale_z) = (YADE_SCALE_TEMP, YADE_SCALE_TEMP, YADE_SCALE_TEMP);
@@ -205,6 +202,8 @@ pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Ti
 	// buf.clear_debug();
 	// buf.write_debug(&format!("w {}, h {}\n", buf.wid, buf.hei));
 
+	return;
+
 	for (i, circ) in yade_data.circs.iter().enumerate() {
 
 		let circ_pos = circ.pos.get_transformed_by_mat4x4(&buf.render_mat);
@@ -220,7 +219,7 @@ pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Ti
 		// render_char('R', &screen_circ, buf);
 	}
 
-	buf.clear_debug();
+	// buf.clear_debug();
 	// buf.write_debug(&format!("_ {:} {:}\n", buf.wid, buf.hei));
 	
 	// for circ in yade_data.circs.iter() {
@@ -321,70 +320,21 @@ fn render_uvec_dbg(vec: &UVec2, pos: &UVec2, buf: &mut TerminalBuffer) {
 	render_string(&format!("[{},{}]", vec.x, vec.y), pos, buf);
 }
 
-pub fn render_axes(buf: &mut TerminalBuffer, timer: &Timer, camera: &Camera) {
+pub fn render_axes(buf: &mut TerminalBuffer, camera: &Camera) {
 
 	buf.copy_projection_to_render_matrix();
-
-	// let t = timer.time_aggr.as_millis() as f32 * 0.001;
-	// let (angle_x, angle_y, angle_z) = (0.0, t, 0.0);
-
-	// apply_identity_to_mat_4x4(&mut buf.transf_mat);
-	// apply_rotation_to_mat_4x4(&mut buf.transf_mat, angle_x, angle_y, angle_z);
-	// multiply_4x4_matrices(&mut buf.render_mat, &buf.transf_mat);
-
 	multiply_4x4_matrices(&mut buf.render_mat, &camera.view_matrix);
 
-	let up    = screen_project(&Vec3::new(0.0, 10.0, 0.0), &buf.render_mat, buf.wid, buf.hei);
-	// let down  = screen_project(&Vec3::new(0.0, -10.0, 0.0), &buf.render_mat, buf.wid, buf.hei);
-	let down  = screen_project(&Vec3::new(0.0, 0.0, 0.0), &buf.render_mat, buf.wid, buf.hei);
+	let origin  = screen_project(&Vec3::new(0.0, 0.0, 0.0), &buf.render_mat, buf.wid, buf.hei);
 
+	const LINE_SZ: f32 = 10.0; 
+	let up    = screen_project(&Vec3::new(0.0, LINE_SZ, 0.0), &buf.render_mat, buf.wid, buf.hei);
+	let right = screen_project(&Vec3::new(LINE_SZ, 0.0, 0.0), &buf.render_mat, buf.wid, buf.hei);
+	let front = screen_project(&Vec3::new(0.0, 0.0, LINE_SZ), &buf.render_mat, buf.wid, buf.hei);
 
-	// let left  = &Vec3::new(-10.0, 0.0, 0.0);
-	let left  = &Vec3::new(  0.0, 0.0, 0.0);
-	let right = &Vec3::new( 10.0, 0.0, 0.0);
-	let left_t  = left.get_transformed_by_mat4x4(&buf.render_mat);
-	let right_t = right.get_transformed_by_mat4x4(&buf.render_mat);
-	let left_2d  = clip_space_to_screen_space(&left_t, buf.wid, buf.hei);
-	let right_2d = clip_space_to_screen_space(&right_t, buf.wid, buf.hei);
-
-
-	render_vec3_dbg(&left_t,  &UVec2::new(0, 5), buf);
-	render_vec3_dbg(&right_t, &UVec2::new(0, 6), buf);
-	render_uvec_dbg(&left_2d, &UVec2::new(0, 8), buf);
-	render_uvec_dbg(&right_2d, &UVec2::new(0, 9), buf);
-
-	render_vec3_dbg(&left_t,  &UVec2::new(0, 12), buf);
-	render_vec3_dbg(&right_t, &UVec2::new(0, 13), buf);
-
-
-	let front = &Vec3::new(0.0,   0.0,  10.0);
-	// let back  = &Vec3::new(0.0,   0.0,  10.0);
-	let back  = &Vec3::new(0.0,   0.0,   0.0);
-	let back_t  = back.get_transformed_by_mat4x4(&buf.render_mat);
-	let front_t = front.get_transformed_by_mat4x4(&buf.render_mat);
-	let back_2d  = clip_space_to_screen_space(&back_t, buf.wid, buf.hei);
-	let front_2d = clip_space_to_screen_space(&front_t, buf.wid, buf.hei);
-
-	render_vec3_dbg(&front_t,  &UVec2::new(0, 12), buf);
-	render_vec3_dbg(&back_t, &UVec2::new(0, 13), buf);
-	render_uvec_dbg(&front_2d, &UVec2::new(0, 15), buf);
-	render_uvec_dbg(&back_2d, &UVec2::new(0, 16), buf);
-
-	render_bresenham_line(&up, &down, buf, '|');
-	render_bresenham_line(&left_2d, &right_2d, buf, '-');
-	render_bresenham_line(&front_2d, &back_2d, buf, '\\');
-
-	// let trs_p0 = p0.get_transformed_by_mat4x4(&buf.proj_mat);
-	// let trs_p1 = p1.get_transformed_by_mat4x4(&buf.proj_mat);
-	// let trs_p2 = p2.get_transformed_by_mat4x4(&buf.proj_mat);
-
-	// let screen_p0 = clip_space_to_screen_space(&trs_p0, buf.wid, buf.hei);
-	// let screen_p1 = clip_space_to_screen_space(&trs_p1, buf.wid, buf.hei);
-	// let screen_p2 = clip_space_to_screen_space(&trs_p2, buf.wid, buf.hei);
-
-	// render_bresenham_line(&screen_p0, &screen_p1, buf, FILL_CHAR);
-	// render_bresenham_line(&screen_p1, &screen_p2, buf, FILL_CHAR);
-	// render_bresenham_line(&screen_p2, &screen_p0, buf, FILL_CHAR);
+	render_bresenham_line(&up, &origin, buf, '|');
+	render_bresenham_line(&right, &origin, buf, '-');
+	render_bresenham_line(&front, &origin, buf, '/');
 }
 
 // TODO: implement
