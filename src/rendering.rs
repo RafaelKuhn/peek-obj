@@ -136,23 +136,29 @@ pub fn render_bresenham_line(p0: &UVec2, p1: &UVec2, buf: &mut TerminalBuffer, f
 }
 
 
-pub fn render_benchmark(benchmark: &Benchmark, buffer: &mut TerminalBuffer) {
-	let mut lowest_pos = UVec2::new(0, buffer.hei - 6);
+pub fn render_benchmark(benchmark: &Benchmark, camera: &Camera, buffer: &mut TerminalBuffer) {
+	let mut highest_pos = UVec2::new(0, 0);
+	render_string(&format!("cam pos: {:}", camera.position), &highest_pos, buffer);
+	highest_pos.y += 1;
+	render_string(&format!("cam rot: {:}", camera.rotation), &highest_pos, buffer);
+
+	let mut lowest_pos = UVec2::new(0, buffer.hei - 1);
 
 	let wxh = buffer.wid as u32 * buffer.hei as u32;
 	let aspect = buffer.wid as f32 / buffer.hei as f32;
 
-	render_string(&format!("fps: {:.2}", benchmark.fps), &lowest_pos, buffer);
-	lowest_pos.y += 1;
-	render_string(&format!("dt: {:.4}ms", benchmark.delta_time_millis), &lowest_pos, buffer);
-	lowest_pos.y += 1;
-	render_string(&format!("time scale: {:.1}", benchmark.time_scale), &lowest_pos, buffer);
-	lowest_pos.y += 1;
-	render_string(&format!("scaled time: {:.2}", benchmark.time_aggr.as_millis() as f32 * 0.001), &lowest_pos, buffer);
-	lowest_pos.y += 1;
-	render_string(&format!("frame n: {}", benchmark.total_frame_count), &lowest_pos, buffer);
-	lowest_pos.y += 1;
 	render_string(&format!("w: {}, h: {}, w*h: {}, a: {:.2}", buffer.wid, buffer.hei, wxh, aspect), &lowest_pos, buffer);
+	lowest_pos.y -= 1;
+	render_string(&format!("frame n: {}", benchmark.total_frame_count), &lowest_pos, buffer);
+	lowest_pos.y -= 1;
+	render_string(&format!("scaled time: {:.2}", benchmark.time_aggr.as_millis() as f32 * 0.001), &lowest_pos, buffer);
+	lowest_pos.y -= 1;
+	render_string(&format!("time scale: {:.1}", benchmark.time_scale), &lowest_pos, buffer);
+	lowest_pos.y -= 1;
+	render_string(&format!("dt: {:.4}ms", benchmark.delta_time_millis), &lowest_pos, buffer);
+	lowest_pos.y -= 1;
+	render_string(&format!("fps: {:.2}", benchmark.fps), &lowest_pos, buffer);
+
 }
 
 pub const YADE_SCALE_TEMP: f32 = 15.0;
@@ -302,7 +308,7 @@ pub fn render_mesh(mesh: &Mesh, buf: &mut TerminalBuffer, timer: &Timer, camera:
 	}
 }
 
-fn screen_project(vec: &Vec3, render_mat: &[f32], wid: u16, hei: u16) -> UVec2 {
+pub fn screen_project(vec: &Vec3, render_mat: &[f32], wid: u16, hei: u16) -> UVec2 {
 	let projected_3d = vec.get_transformed_by_mat4x4(render_mat);
 	let projected_2d = clip_space_to_screen_space(&projected_3d, wid, hei);
 	projected_2d
@@ -327,10 +333,10 @@ pub fn render_axes(buf: &mut TerminalBuffer, camera: &Camera) {
 
 	let origin  = screen_project(&Vec3::new(0.0, 0.0, 0.0), &buf.render_mat, buf.wid, buf.hei);
 
-	const LINE_SZ: f32 = 10.0; 
-	let up    = screen_project(&Vec3::new(0.0, LINE_SZ, 0.0), &buf.render_mat, buf.wid, buf.hei);
-	let right = screen_project(&Vec3::new(LINE_SZ, 0.0, 0.0), &buf.render_mat, buf.wid, buf.hei);
-	let front = screen_project(&Vec3::new(0.0, 0.0, LINE_SZ), &buf.render_mat, buf.wid, buf.hei);
+	const AXIS_SZ_WORLD: f32 = 10.0;
+	let up    = screen_project(&Vec3::new(0.0, AXIS_SZ_WORLD, 0.0), &buf.render_mat, buf.wid, buf.hei);
+	let right = screen_project(&Vec3::new(AXIS_SZ_WORLD, 0.0, 0.0), &buf.render_mat, buf.wid, buf.hei);
+	let front = screen_project(&Vec3::new(0.0, 0.0, AXIS_SZ_WORLD), &buf.render_mat, buf.wid, buf.hei);
 
 	render_bresenham_line(&up, &origin, buf, '|');
 	render_bresenham_line(&right, &origin, buf, '-');

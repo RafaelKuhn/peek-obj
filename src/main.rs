@@ -69,7 +69,7 @@ fn main() {
 	// camera.set_rot(6.28318530 * 0.1,  0.0, 0.0);
 	// camera.set_rot(0.0, 6.2831 * 0.01, 0.0);
 
-	camera.set_initial_pos(0., 0.0, 20.0);
+	camera.set_initial_pos(0., 0.0, 30.0);
 	// camera.set_initial_rot(0.0, -3.14, 0.0);
 	camera.update_view_matrix(&mut app.buf);
 
@@ -123,7 +123,7 @@ fn main() {
 		renderer.render(&mut app.buf, &timer, &camera);
 
 		benchmark.profile_frame(&timer);
-		render_benchmark(&benchmark, &mut app.buf);
+		render_benchmark(&benchmark, &camera, &mut app.buf);
 
 		timer.run_frame();
 
@@ -151,8 +151,11 @@ fn update_camera(camera: &mut Camera, app: &mut App) {
 		return;
 	}
 
-	camera.position = camera.position + app.pos;
 	camera.rotation = camera.rotation + app.rot;
+	camera.position = camera.position + app.pos;
+
+	let dir_vec = (camera.side * - app.dir.x) + (camera.up * app.dir.y) + (camera.forward * app.dir.z);
+	camera.position = camera.position + dir_vec;
 	
 	camera.update_view_matrix(&mut app.buf);
 }
@@ -184,6 +187,7 @@ pub struct App {
 
 	// TODO: user polled data
 	// or just take a reference to the camera as Rc<Camera>, simpler
+	pub dir: Vec3,
 	pub pos: Vec3,
 	pub rot: Vec3,
 	pub called_reset_camera: bool,
@@ -211,6 +215,7 @@ impl App {
 			buf: TerminalBuffer::new(width, height),
 
 			pos: Vec3::zero(),
+			dir: Vec3::zero(),
 			rot: Vec3::zero(),
 			called_reset_camera: false,
 			called_take_screenshot: false,

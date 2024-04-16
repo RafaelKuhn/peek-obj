@@ -37,6 +37,7 @@ pub fn poll_events(terminal: &mut CrosstermTerminal, app: &mut App, timer: &mut 
 	// TODO: app.polled_data.reset() or something
 	app.pos = Vec3::zero();
 	app.rot = Vec3::zero();
+	app.dir = Vec3::zero();
 	app.called_reset_camera = false;
 	app.called_take_screenshot = false;
 
@@ -44,30 +45,34 @@ pub fn poll_events(terminal: &mut CrosstermTerminal, app: &mut App, timer: &mut 
 	if !has_event { return }
 
 	const MOVE_SPEED: f32 = 0.2;
-	// const ROT_SPEED: f32 = TAU * 1./32.;
 	const ROT_SPEED: f32 = TAU * 1./128.;
 
 	match event::read().unwrap() {
 		Event::Key(key) => {
 			match key.code {
 				// WASD moves left / right and up / down
-				KeyCode::Char('w') => app.pos.y = MOVE_SPEED,
-				KeyCode::Char('s') => app.pos.y = -MOVE_SPEED,
-				KeyCode::Char('d') => app.pos.x = MOVE_SPEED,
-				KeyCode::Char('a') => app.pos.x = -MOVE_SPEED,
+				KeyCode::Char('w') => app.dir.y = MOVE_SPEED,
+				KeyCode::Char('s') => app.dir.y = -MOVE_SPEED,
+				KeyCode::Char('d') => app.dir.x = MOVE_SPEED,
+				KeyCode::Char('a') => app.dir.x = -MOVE_SPEED,
 
 				// NM moves camera forwards / backwards
-				// TODO: grab the forward of camera and sum position with forward * MOVE_SPEED
-				KeyCode::Char('q') => app.pos.z = MOVE_SPEED,
-				KeyCode::Char('e') => app.pos.z = -MOVE_SPEED,
+				KeyCode::Char('q') => app.dir.z = MOVE_SPEED,
+				KeyCode::Char('e') => app.dir.z = -MOVE_SPEED,
 
-				// could use IK JL UO to move camera straight X, Y and Z
+				// IK LJ UO moves camera along the Y X and Z axes
+				KeyCode::Char('i') => app.pos.y = MOVE_SPEED,
+				KeyCode::Char('k') => app.pos.y = -MOVE_SPEED,
+				KeyCode::Char('l') => app.pos.x = MOVE_SPEED,
+				KeyCode::Char('j') => app.pos.x = -MOVE_SPEED,
+				KeyCode::Char('u') => app.pos.z = MOVE_SPEED,
+				KeyCode::Char('o') => app.pos.z = -MOVE_SPEED,
 
 				// ↑ ← ↓ → rotates camera around Y and X axes
 				KeyCode::Up    => app.rot.x = -ROT_SPEED,
 				KeyCode::Down  => app.rot.x = ROT_SPEED,
-				KeyCode::Right => app.rot.y = -ROT_SPEED,
-				KeyCode::Left  => app.rot.y = ROT_SPEED,
+				KeyCode::Right => app.rot.y = ROT_SPEED,
+				KeyCode::Left  => app.rot.y = -ROT_SPEED,
 
 				KeyCode::Char('r') => app.called_reset_camera = true,
 
@@ -83,7 +88,7 @@ pub fn poll_events(terminal: &mut CrosstermTerminal, app: &mut App, timer: &mut 
 						app.has_paused_rendering = true;
 						timer.time_scale = 0.0;
 					}
-				} 
+				}
 				// KeyCode::Esc | KeyCode::Char('q') => quit(terminal),
 				KeyCode::Esc => quit(terminal),
 				_ => (),
@@ -91,7 +96,7 @@ pub fn poll_events(terminal: &mut CrosstermTerminal, app: &mut App, timer: &mut 
 		}
 		Event::Resize(new_width, new_height) => {
 			app.resize_realloc(new_width, new_height);
-			// I don't remember why we draw it immediately
+			// I don't remember why we draw it immediately after resizing but ok
 			queue_draw_to_terminal_and_flush(&app.buf, terminal);
 		}
 		_ => (),
@@ -245,7 +250,7 @@ impl TerminalBuffer {
 		self.debug_file.as_mut().unwrap().write(string.as_bytes()).expect("shit, couldn't write to file");
 	}
 
-	pub fn write_debu5(&mut self, string: &str) {
+	pub fn write_debug5(&mut self, string: &str) {
 		if self.debug_file.is_some() {
 			self.debug_file.as_mut().unwrap().write(string.as_bytes()).expect("shit, couldn't write to file");
 		}

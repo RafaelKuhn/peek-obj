@@ -1,8 +1,6 @@
 use core::fmt;
 use std::{f32::consts::TAU, fmt::Display};
 
-use crate::terminal_wrapper::TerminalBuffer;
-
 
 pub fn lerp_f32(a: f32, b: f32, t: f32) -> f32 {
 	(1.0 - t) * a + b * t
@@ -32,6 +30,10 @@ impl Vec3 {
 
 	pub fn zero() -> Self {
 		Self { x: 0.0, y: 0.0, z: 0.0 }
+	}
+
+	pub fn invert_y(&self) -> Self {
+		Self { x: self.x, y: -self.y, z: self.z }
 	}
 
 	pub fn get_transformed_by_mat3x3(&self, mat: &[f32]) -> Self {
@@ -144,7 +146,7 @@ impl Vec2 {
 	}
 }
 
-
+#[derive(Clone, Copy)]
 pub struct UVec2 {
 	pub x: u16,
 	pub y: u16,
@@ -153,6 +155,18 @@ pub struct UVec2 {
 impl UVec2 {
 	pub fn new(x: u16, y: u16) -> Self {
 		Self { x, y }
+	}
+
+	pub fn sum(&self, x: u16, y: u16) -> Self {
+		Self { x: self.x + x, y: self.y + y }
+	}
+
+	pub fn sum_t(&self, rhs: (i16, i16)) -> Self {
+		Self { x: (self.x as i16 + rhs.0) as u16, y: (self.y as i16 + rhs.1) as u16 }
+	}
+
+	pub fn sum_v(&self, rhs: UVec2) -> Self {
+		Self { x: self.x + rhs.x, y: self.y + rhs.y }
 	}
 }
 
@@ -307,61 +321,38 @@ pub fn clip_space_to_screen_space(p: &Vec3, screen_width: u16, screen_height: u1
 	UVec2::new(screen_x as u16, screen_y as u16)
 }
 
-// TODO: maybe make generic
+// TODO: maybe make generic (macro?)
 pub fn xy_to_i(x: u16, y: u16, width: u16) -> usize {
 	(y * width + x).into()
 }
 
-// TODO: optimize the shit out of this
-// pub fn create_view_matrix(position: &Vec3, rotation: &Vec3) -> Vec<f32> {
-pub fn create_view_matrix(position: &Vec3, rotation: &Vec3, buf: &mut TerminalBuffer) -> Vec<f32> {
-	// let center = Vec3::new(
-	// 	position.x + rotation.x.cos() * rotation.y.cos(),
-	// 	position.y + rotation.x.sin(),
-	// 	position.z + rotation.x.cos() * rotation.y.sin(),
-	// );
+#[deprecated]
+pub fn create_view_matrix(position: &Vec3, rotation: &Vec3) -> Vec<f32> {
 
-	let up = Vec3::new(
-		-rotation.x.sin() * rotation.y.cos(),
-		rotation.x.cos(),
-		-rotation.x.sin() * rotation.y.sin(),
+	let cos_x = rotation.x.cos();
+	let sin_x = rotation.x.sin();
+
+	let cos_y = rotation.y.cos();
+	let sin_y = rotation.y.sin();
+
+	let cos_z = rotation.z.cos();
+	let sin_z = rotation.z.sin();
+	
+	let cam_up = Vec3::new(
+		cos_x * sin_z + sin_x * sin_y * cos_z,
+		cos_x * cos_z - sin_x * sin_y * sin_z,
+		-sin_x * cos_y
 	);
-	
-	// let looking_at = Vec3::new(
-	// 	center.x - position.x,
-	// 	center.y - position.y,
-	// 	center.z - position.z,
-	// );
 
-	let looking_at = Vec3::new(
-		rotation.x.cos() * rotation.y.sin(),
-		rotation.x.sin(),
-		rotation.x.cos() * rotation.y.cos(),
+	let cam_forward = Vec3::new(
+		sin_x * sin_z - cos_x * sin_y * cos_z,
+		sin_x * cos_z + cos_x * sin_y * sin_z,
+		cos_x * cos_y,
 	);
-	
-	// let looking_at = Vec3::new(
-	// 	0.0,
-	// 	0.0,
-	// 	-1.0,
-	// );
 
-	
-	let cam_forward = normalize(&looking_at);
-	let cam_side = normalize(&cross_product(&cam_forward, &up));
+	let cam_side = normalize(&cross_product(&cam_forward, &cam_up));
 	let cam_up = cross_product(&cam_side, &cam_forward);
 
-	buf.clear_debug();
-	buf.write_debug(&format!("pos     {:}\n", position));
-	buf.write_debug(&format!("rot     {:}\n", rotation));
-	buf.write_debug("- - - -\n");
-	
-	// buf.write_debug(&format!("center {:}\n", center));
-	buf.write_debug(&format!("lk at   {:}\n", looking_at));
-	buf.write_debug(&format!("''up?'' {:}\n", up));
-	buf.write_debug(&format!("c side  {:}\n", cam_side));
-	buf.write_debug(&format!("c up    {:}\n", cam_up));
-	buf.write_debug(&format!("c fward {:}\n", cam_forward));
-	
 	let mut view_matrix = build_identity_4x4();
 
 	const SZ: u16 = 4;
@@ -383,22 +374,11 @@ pub fn create_view_matrix(position: &Vec3, rotation: &Vec3, buf: &mut TerminalBu
 	view_matrix[xy_to_i(3, 2, SZ)] = dot_product(&cam_forward, &position);
 	view_matrix[xy_to_i(3, 3, SZ)] = 1.0;
 
-	// TODO: try inverting the mat
-
-	// let mut transf_try = build_identity_4x4();
-	// transf_try[xy_to_i(0, 2, SZ)] = 0.0;
-	// transf_try[xy_to_i(1, 2, SZ)] = 0.0;
-	// transf_try[xy_to_i(2, 2, SZ)] = -1.0;
-
-	// multiply_4x4_matrices(&mut view_matrix, &transf_try);
-
-	buf.write_debug(&format!(" - - - - \nmat: {}\n", fmt_mat4x4(&view_matrix)));
-
 	view_matrix
 }
 
 // TODO: format this more decently
-fn fmt_mat4x4(mat: &Vec<f32>) -> String {
+pub fn fmt_mat4x4(mat: &Vec<f32>) -> String {
 	format!("\n[{} {} {} {}]\n[{} {} {} {}]\n[{} {} {} {}]\n[{} {} {} {}]", 
 		fmt_f(mat[ 0]), fmt_f(mat[ 1]), fmt_f(mat[ 2]), fmt_f(mat[ 3]),
 		fmt_f(mat[ 4]), fmt_f(mat[ 5]), fmt_f(mat[ 6]), fmt_f(mat[ 7]),
@@ -407,19 +387,19 @@ fn fmt_mat4x4(mat: &Vec<f32>) -> String {
 	)
 }
 
-fn fmt_f(f: f32) -> String {
+pub fn fmt_f(f: f32) -> String {
 	// ' >6' means pad the string with spaces ' ' until its length is 6
 	// '+.2' means pad the float with two decimals and force + sign on positive
 	format!("{: >6}", format!("{:+.2}", f))
 }
 
 
-fn normalize(v: &Vec3) -> Vec3 {
+pub fn normalize(v: &Vec3) -> Vec3 {
 	let length = (v.x*v.x + v.y*v.y + v.z*v.z).sqrt();
 	Vec3::new(v.x / length, v.y / length, v.z / length)
 }
 
-fn cross_product(a: &Vec3, b: &Vec3) -> Vec3 {
+pub fn cross_product(a: &Vec3, b: &Vec3) -> Vec3 {
 	Vec3::new(
 		a.y * b.z - a.z * b.y,
 		a.z * b.x - a.x * b.z,
@@ -427,7 +407,7 @@ fn cross_product(a: &Vec3, b: &Vec3) -> Vec3 {
 	)
 }
 
-fn dot_product(a: &Vec3, b: &Vec3) -> f32 {
+pub fn dot_product(a: &Vec3, b: &Vec3) -> f32 {
 	a.x*b.x + a.y*b.y + a.z*b.z
 }
 
@@ -508,8 +488,7 @@ pub fn apply_projection_to_mat_4x4(mat: &mut [f32], width: u16, height: u16) {
 
 	// height of the characters is double the width of the characters
 	let aspect_ratio = (height as f32 * 2.0) / width as f32;
-	// const FOV: f32 = 0.25 * TAU;
-	const FOV: f32 = 0.3 * TAU;
+	const FOV: f32 = 0.25 * TAU; // 90 degrees
 
 	let inv_tan_half_fov = 1.0 / ((FOV / 2.0).tan());
 	let z_range = ZF - ZN;
