@@ -3,6 +3,16 @@ use std::{num::{ParseFloatError, ParseIntError}, fmt::Display, fs, io::Error};
 use crate::{rendering::mesh::Mesh, maths::Vec3};
 
 
+// TODO: make a macro to read an obj file in compile time and keeps it in the binary
+#[macro_export]
+macro_rules! xy_to_lin {
+	() => {
+		println!("hey")
+	};
+}
+
+
+
 // pub enum ReaderError<'a> {
 #[derive(Debug)]
 pub enum ReaderError {

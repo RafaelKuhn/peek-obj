@@ -8,12 +8,12 @@ pub mod renderer;
 pub mod yade_renderer;
 pub mod obj_renderer;
 
-use std::{f32::consts::TAU, fmt, io::Write};
+use std::fmt;
 
 
-use crate::{benchmark::Benchmark, file_readers::yade_dem_reader::YadeDemData, maths::*, terminal_wrapper::{TerminalBuffer}, timer::Timer};
+use crate::{benchmark::Benchmark, file_readers::yade_dem_reader::YadeDemData, maths::*, terminal_wrapper::TerminalBuffer, timer::Timer};
 
-use self::{camera::Camera, mesh::Mesh, utils::xy_to_it};
+use self::{camera::Camera, mesh::Mesh, utils::{fmt_mat4_line, xy_to_it}};
 
 
 // ascii luminance:
@@ -74,24 +74,25 @@ pub fn encode_char_in(ch: char, index: usize, vec: &mut [u8]) {
 	ch.encode_utf8(&mut vec[index .. index+ASCII_BYTES_PER_CHAR]);
 }
 
-pub fn render_string(string: &str, pos: &UVec2, buffer: &mut TerminalBuffer) {
+pub fn render_string(string: &str, pos: &UVec2, buf: &mut TerminalBuffer) {
 	// string can't overflow the line
-	debug_assert!(pos.x as usize + string.len() - 1 < buffer.wid.into());
+	debug_assert!(pos.x as usize + string.len() - 1 < buf.wid.into(), "trying to render string after line end");
+	debug_assert!(!string.contains('\n'), "can't render a string that has a line end!");
 
-	let mut index = xy_to_it(pos.x, pos.y, buffer.wid);
+	let mut index = xy_to_it(pos.x, pos.y, buf.wid);
 	for byte in string.bytes() {
-		buffer.vec[index] = byte;
+		buf.vec[index] = byte;
 		index += ASCII_BYTES_PER_CHAR
 	}
 }
 
-pub fn render_bresenham_line(p0: &UVec2, p1: &UVec2, buf: &mut TerminalBuffer, fill_char: char) {
-	let last_x = buf.wid - 1;
-	let last_y = buf.hei - 1;
+pub fn render_bresenham_line(p0: &IVec2, p1: &IVec2, buf: &mut TerminalBuffer, fill_char: char) {
+	// let last_x = buf.wid - 1;
+	// let last_y = buf.hei - 1;
 
-	// cull lines completely out of the canvas
-	if p0.x > last_x && p1.x > last_x { return }
-	if p0.y > last_y && p1.y > last_y { return }
+	// // cull lines completely out of the canvas
+	// if p0.x > last_x && p1.x > last_x { return }
+	// if p0.y > last_y && p1.y > last_y { return }
 
 	let x0 = p0.x as i32;
 	let y0 = p0.y as i32;
@@ -107,21 +108,22 @@ pub fn render_bresenham_line(p0: &UVec2, p1: &UVec2, buf: &mut TerminalBuffer, f
 	let mut x = x0;
 	let mut y = y0;
 
-	debug_assert!(x >= 0 && y >= 0, "p0 and p1 are unsigned so it does not make sense for them to be negative");
+	// buf.write_debug(&format!("w {} h {} \np0 {:} p1 {:} dx {} dy {}  sx {} sy {}\n ", buf.wid, buf.hei, p0, p1, dx, dy, sy, sy));
 
 	loop {
 
 		// handle out of bounds
-		if x < buf.wid.into() && y < buf.hei.into() {
+		if x >= 0 && x < buf.wid.into() && y >= 0 && y < buf.hei.into() {
 			let index = xy_to_it(x as u16, y as u16, buf.wid);
 
 			// TODO: figure out how would this work with UTF8
 			fill_char.encode_utf8(&mut buf.vec[index..index + ASCII_BYTES_PER_CHAR]);
 		}
 
-		if x == x1 && y == y1 {
-			break;
-		}
+		// if (x < 0 && sx == -1) || (x > wid && sx == 1) { return }
+		// if (y < 0 && sy == -1) || (y > hei && sy == 1) { return }
+
+		if x == x1 && y == y1 { return }
 
 		let double_deriv_diff = deriv_diff * 2;
 		if double_deriv_diff > -dy {
@@ -141,6 +143,12 @@ pub fn render_benchmark(benchmark: &Benchmark, camera: &Camera, buffer: &mut Ter
 	render_string(&format!("cam pos: {:}", camera.position), &highest_pos, buffer);
 	highest_pos.y += 1;
 	render_string(&format!("cam rot: {:}", camera.rotation), &highest_pos, buffer);
+	highest_pos.y += 2;
+	render_string(&format!("cam sid: {:}", camera.side), &highest_pos, buffer);
+	highest_pos.y += 1;
+	render_string(&format!("cam  up: {:}", camera.up), &highest_pos, buffer);
+	highest_pos.y += 1;
+	render_string(&format!("cam fwd: {:}", camera.forward), &highest_pos, buffer);
 
 	let mut lowest_pos = UVec2::new(0, buffer.hei - 1);
 
@@ -166,21 +174,37 @@ pub const YADE_SCALE_TEMP: f32 = 15.0;
 pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Timer, camera: &Camera) {
 
 	// TODO: figure out crappy camera
-	let (pos_x, pos_y, pos_z) = (0.0, 0.5, 0.0);
+	let (pos_x, pos_y, pos_z) = (0.0, 1.0, 0.0);
 
-	let start_ms = 89_340;
-	let t = (timer.time_aggr.as_millis() + start_ms) as f32 * 0.001;
+	let speed = 0.5;
+	let t = timer.time_aggr.as_millis() as f32 * 0.001 * speed;
+	// let t = (89_340) as f32 * 0.001;
+
 	// let t = 0.0;
-	let (angle_x, angle_y, angle_z) = (TAU * 0.25, t, 0.0);
+	let (angle_x, angle_y, angle_z) = (0.0, t, 0.0);
 
 	let (scale_x, scale_y, scale_z) = (YADE_SCALE_TEMP, YADE_SCALE_TEMP, YADE_SCALE_TEMP);
 
 	buf.copy_projection_to_render_matrix();
 
+	let mut y = 8;
+
 	apply_identity_to_mat_4x4(&mut buf.transf_mat);
+
 	apply_scale_to_mat_4x4(&mut buf.transf_mat, scale_x, scale_y, scale_z);
+	// IF VERBOSE
+	render_string("+SCALE", &UVec2::new(2, y-1), buf);
+	render_mat_dbg(&buf.transf_mat.clone(), &UVec2::new(2, y), buf); y += 6;
+
 	apply_rotation_to_mat_4x4(&mut buf.transf_mat, angle_x, angle_y, angle_z);
+	// IF VERBOSE
+	render_string("+ROTATION", &UVec2::new(2, y-1), buf);
+	render_mat_dbg(&buf.transf_mat.clone(), &UVec2::new(2, y), buf); y += 6;
+
 	apply_pos_to_mat_4x4(&mut buf.transf_mat, pos_x, pos_y, pos_z);
+	// IF VERBOSE
+	render_string("+TRANSLATION", &UVec2::new(2, y-1), buf);
+	render_mat_dbg(&buf.transf_mat.clone(), &UVec2::new(2, y), buf); y += 6;
 
 	multiply_4x4_matrices(&mut buf.render_mat, &camera.view_matrix);
 	multiply_4x4_matrices(&mut buf.render_mat, &buf.transf_mat);
@@ -227,7 +251,7 @@ pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Ti
 
 	// buf.clear_debug();
 	// buf.write_debug(&format!("_ {:} {:}\n", buf.wid, buf.hei));
-	
+
 	// for circ in yade_data.circs.iter() {
 	for (i, circ) in yade_data.circs.iter().enumerate() {
 		// if i >= 1 { break; }
@@ -235,7 +259,7 @@ pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Ti
 		let circ_pos = circ.pos.get_transformed_by_mat4x4(&buf.render_mat);
 		let screen_circ = clip_space_to_screen_space(&circ_pos, buf.wid, buf.hei);
 
-		if screen_circ.x >= buf.wid { continue }
+		if screen_circ.x as u16 >= buf.wid { continue }
 		render_circle(&screen_circ, 5., buf);
 		// buf.write_debug(&format!("_ -> {:}\n", circ.rad * YADE_SCALE_TEMP));
 		// render_char('R', &screen_circ, buf);
@@ -308,7 +332,7 @@ pub fn render_mesh(mesh: &Mesh, buf: &mut TerminalBuffer, timer: &Timer, camera:
 	}
 }
 
-pub fn screen_project(vec: &Vec3, render_mat: &[f32], wid: u16, hei: u16) -> UVec2 {
+pub fn screen_project(vec: &Vec3, render_mat: &[f32], wid: u16, hei: u16) -> IVec2 {
 	let projected_3d = vec.get_transformed_by_mat4x4(render_mat);
 	let projected_2d = clip_space_to_screen_space(&projected_3d, wid, hei);
 	projected_2d
@@ -316,6 +340,20 @@ pub fn screen_project(vec: &Vec3, render_mat: &[f32], wid: u16, hei: u16) -> UVe
 
 fn render_vec3_dbg(vec: &Vec3, pos: &UVec2, buf: &mut TerminalBuffer) {
 	render_string(&format!("[{:+.2},{:+.2},{:+.2}]", vec.x, vec.y, vec.z), pos, buf);
+}
+
+fn render_mat_dbg(mat: &[f32], pos: &UVec2, buf: &mut TerminalBuffer) {
+	let r0 = fmt_mat4_line(mat[ 0], mat[ 1], mat[ 2], mat[ 3]);
+	render_string(&r0, pos, buf);
+
+	let r1 = fmt_mat4_line(mat[ 4], mat[ 5], mat[ 6], mat[ 7]);
+	render_string(&r1, &UVec2::new(pos.x, pos.y+1), buf);
+
+	let r2 = fmt_mat4_line(mat[ 8], mat[ 9], mat[10], mat[11]);
+	render_string(&r2, &UVec2::new(pos.x, pos.y+2), buf);
+
+	let r3 = fmt_mat4_line(mat[12], mat[13], mat[14], mat[15]);
+	render_string(&r3, &UVec2::new(pos.x, pos.y+3), buf);
 }
 
 fn render_uvec2_dbg(vec: &UVec2, pos: &UVec2, buf: &mut TerminalBuffer) {
@@ -329,18 +367,90 @@ fn render_uvec_dbg(vec: &UVec2, pos: &UVec2, buf: &mut TerminalBuffer) {
 pub fn render_axes(buf: &mut TerminalBuffer, camera: &Camera) {
 
 	buf.copy_projection_to_render_matrix();
+
 	multiply_4x4_matrices(&mut buf.render_mat, &camera.view_matrix);
 
 	let origin  = screen_project(&Vec3::new(0.0, 0.0, 0.0), &buf.render_mat, buf.wid, buf.hei);
 
-	const AXIS_SZ_WORLD: f32 = 10.0;
+	// TODO: debug why this can get crappily signed values if AXIS_SZ_WORLD is > 500
+	// TODO: this is already bugged at FUCKING 30
+	const AXIS_SZ_WORLD: f32 = 20.0;
 	let up    = screen_project(&Vec3::new(0.0, AXIS_SZ_WORLD, 0.0), &buf.render_mat, buf.wid, buf.hei);
 	let right = screen_project(&Vec3::new(AXIS_SZ_WORLD, 0.0, 0.0), &buf.render_mat, buf.wid, buf.hei);
 	let front = screen_project(&Vec3::new(0.0, 0.0, AXIS_SZ_WORLD), &buf.render_mat, buf.wid, buf.hei);
 
-	render_bresenham_line(&up, &origin, buf, '|');
-	render_bresenham_line(&right, &origin, buf, '-');
-	render_bresenham_line(&front, &origin, buf, '/');
+	// let projected_3d = &Vec3::new(AXIS_SZ_WORLD, 0.0, 0.0).get_transformed_by_mat4x4(&buf.render_mat);
+	// buf.write_debug(&format!("\nv: {:}\n", projected_3d));
+
+	// let projected_orig = &Vec3::new(0.0, 0.0, 0.0).get_transformed_by_mat4x4(&buf.render_mat);
+	// buf.write_debug(&format!("\norig: {:}\n", projected_orig));
+
+	render_bresenham_line(&origin, &up, buf, '|');
+	render_bresenham_line(&origin, &right, buf, '-');
+	render_bresenham_line(&origin, &front, buf, '/');
+}
+
+pub fn render_gizmos(buf: &mut TerminalBuffer, camera: &Camera) {
+
+	buf.copy_projection_to_render_matrix();
+
+	const GIZMO_SIZE_WORLD: f32 = 0.15;
+
+	// in world space, the gizmos is 8 units back (view matrix is irrelevant for these calculations)
+	let base_world_space = Vec3::new(0.0, 0.0, -8.0);
+	let origin = screen_project(&base_world_space, &buf.render_mat, buf.wid, buf.hei);
+	let close_to_base_world = base_world_space.add_vec(&Vec3::new(GIZMO_SIZE_WORLD, 0.0, 0.0));
+	let proj_right_of_origin = screen_project(&close_to_base_world, &buf.render_mat, buf.wid, buf.hei);
+
+	let side_offset = (proj_right_of_origin.x - origin.x) as Int;
+	let screen_offset = (
+			buf.wid as Int / 2 -   side_offset       - 1,
+		- ( buf.hei as Int / 2 - ( side_offset / 2 ) - 1 )
+	);
+
+	let origin_2d = origin.sum_t(screen_offset);
+
+	let dbg_forward = camera.forward.invert_y();
+	let dbg_side = camera.side.inversed().invert_y();
+	let dbg_up = camera.up.invert_y();
+
+	let mut draw_between = |dir: &Vec3, ch: char| {
+		let ptr = screen_project(&(base_world_space + (dir * GIZMO_SIZE_WORLD)), &buf.render_mat, buf.wid, buf.hei).sum_t(screen_offset);
+		render_bresenham_line(&origin_2d, &ptr, buf, ch);
+		render_char('O', &ptr.into(), buf);
+	};
+
+
+	let dot_x = dot_product(&Vec3::side(), &dbg_side);
+	if dot_x > 0.0 {
+		draw_between(&dbg_side, 'x');
+	}
+
+	let dot_y = dot_product(&Vec3::up(), &dbg_up);
+	if dot_y > 0.0 {
+		draw_between(&dbg_up, 'y');
+	}
+
+	let dot_z = dot_product(&Vec3::forward(), &dbg_forward);
+	if dot_z > 0.0 {
+		draw_between(&dbg_forward, 'z');
+	}
+
+
+	if dot_x <= 0.0 {
+		draw_between(&dbg_side, 'X');
+	}
+
+	if dot_y <= 0.0 {
+		draw_between(&dbg_up, 'Y');
+	}
+
+	if dot_z <= 0.0 {
+		draw_between(&dbg_forward, 'Z');
+	}
+
+
+	render_char('O', &origin_2d.into(), buf);
 }
 
 // TODO: implement
@@ -349,13 +459,14 @@ pub fn render_sphere(pos: &Vec3, rad: f32, buf: &mut TerminalBuffer, timer: &Tim
 
 }
 
-pub fn render_circle(pos: &UVec2, rad: f32, buf: &mut TerminalBuffer) {
-	let mut x = 0 as i32;
-	let mut y = rad as i32;
+pub fn render_circle(pos: &IVec2, rad: f32, buf: &mut TerminalBuffer) {
 
-	let (base_x, base_y) = (pos.x as i32, pos.y as i32);
+	let mut x = 0 as Int;
+	let mut y = rad as Int;
 
-	let mut d = 3 - 2 * (rad as i32);
+	let (base_x, base_y) = (pos.x, pos.y);
+
+	let mut d = 3 - 2 * (rad as Int);
 
 	// I will always start rendering from the right side ->
 	// and the first mirrored version will be the leftmost <-
@@ -363,29 +474,29 @@ pub fn render_circle(pos: &UVec2, rad: f32, buf: &mut TerminalBuffer) {
 	// buf.write_debug(&format!("[{:}, {:}]\n", base_x + x, base_y + y));
 	plot_mirrored_octets_safe(x, y, base_x, base_y, buf);
 
-    while y >= x {
-        x += 1;
-        if d > 0 {
-            y -= 1;
-            d = d + 4 * (x - y) + 10;
-        } else {
-            d = d + 4 * x + 6;
-        }
+	while y >= x {
+		x += 1;
+		if d > 0 {
+			y -= 1;
+			d = d + 4 * (x - y) + 10;
+		} else {
+			d = d + 4 * x + 6;
+		}
 
 		// buf.write_debug(&format!("[{:}, {:}]\n", base_x + x, base_y + y));
 
 		plot_mirrored_octets_safe(x, y, base_x, base_y, buf);
-    }
+	}
 }
 
 
 const CIRCLE_CHAR: char = '*';
-fn safe_render_char_signed(x: i32, y: i32, buf: &mut TerminalBuffer) {
-	if x < 0 || x >= buf.wid.into() || y < 0 || y >= buf.hei.into() { return }
+fn safe_render_char_signed(x: Int, y: Int, buf: &mut TerminalBuffer) {
+	if x < 0 || x >= buf.wid as Int || y < 0 || y >= buf.hei as Int { return }
 	render_char(CIRCLE_CHAR, &UVec2::new(x as u16, y as u16), buf);
 }
 
-pub fn plot_mirrored_octets_safe(x: i32, y: i32, base_x: i32, base_y: i32, buf: &mut TerminalBuffer) {
+pub fn plot_mirrored_octets_safe(x: Int, y: Int, base_x: Int, base_y: Int, buf: &mut TerminalBuffer) {
 
 	let scaled_x = x * 2;
 	let scaled_y = y * 2;
@@ -399,52 +510,7 @@ pub fn plot_mirrored_octets_safe(x: i32, y: i32, base_x: i32, base_y: i32, buf: 
 	safe_render_char_signed(base_x + scaled_y, base_y - x, buf);
 	safe_render_char_signed(base_x - scaled_y, base_y + x, buf);
 	safe_render_char_signed(base_x - scaled_y, base_y - x, buf);
-
-	// return;
-
-	// let x0 = (base_x + scaled_x) as u16; let y0 = (base_y + y) as u16;
-	// buf.write_debug(&format!(" MIRRORED [{:}, {:}]\n", x0, y0));
-	// let coord = xy_to_it(x0, y0, buf.wid);
-	// encode_char_in(FILL_CHAR, coord, &mut buf.vec);
-	
-	// let x0 = (base_x - scaled_x) as u16; let y0 = (base_y + y) as u16;
-	// buf.write_debug(&format!(" MIRRORED [{:}, {:}]\n", x0, y0));
-	// let coord = xy_to_it(x0, y0, buf.wid);
-	// encode_char_in(FILL_CHAR, coord, &mut buf.vec);
-	
-	// let x0 = (base_x + scaled_x) as u16; let y0 = (base_y - y) as u16;
-	// buf.write_debug(&format!(" MIRRORED [{:}, {:}]\n", x0, y0));
-	// let coord = xy_to_it(x0, y0, buf.wid);
-	// encode_char_in(FILL_CHAR, coord, &mut buf.vec);
-	
-	// let x0 = (base_x - scaled_x) as u16; let y0 = (base_y - y) as u16;
-	// buf.write_debug(&format!(" MIRRORED [{:}, {:}]\n", x0, y0));
-	// let coord = xy_to_it(x0, y0, buf.wid);
-	// encode_char_in(FILL_CHAR, coord, &mut buf.vec);
-
-	
-	// let x0 = (base_x + scaled_y) as u16; let y0 = (base_y + x) as u16;
-	// buf.write_debug(&format!(" MIRRORED [{:}, {:}]\n", x0, y0));
-	// let coord = xy_to_it(x0, y0, buf.wid);
-	// encode_char_in(FILL_CHAR, coord, &mut buf.vec);
-	
-	// let x0 = (base_x + scaled_y) as u16; let y0 = (base_y - x) as u16;
-	// buf.write_debug(&format!(" MIRRORED [{:}, {:}]\n", x0, y0));
-	// let coord = xy_to_it(x0, y0, buf.wid);
-	// encode_char_in(FILL_CHAR, coord, &mut buf.vec);
-	
-	// let x0 = (base_x - scaled_y) as u16; let y0 = (base_y + x) as u16;
-	// buf.write_debug(&format!(" MIRRORED [{:}, {:}]\n", x0, y0));
-	// let coord = xy_to_it(x0, y0, buf.wid);
-	// encode_char_in(FILL_CHAR, coord, &mut buf.vec);
-	
-	// let x0 = (base_x - scaled_y) as u16; let y0 = (base_y - x) as u16;
-	// buf.write_debug(&format!(" MIRRORED [{:}, {:}]\n", x0, y0));
-	// let coord = xy_to_it(x0, y0, buf.wid);
-	// encode_char_in(FILL_CHAR, coord, &mut buf.vec);
 }
-
-
 
 
 
@@ -469,13 +535,13 @@ pub fn plot_mirrored_octets_safe(x: i32, y: i32, base_x: i32, base_y: i32, buf: 
 // pub fn draw_mat4x4(mat: &[f32], pos: &UVec2, buffer: &mut [char], screen_width: u16) {
 // 	let r0 = format!("{:.2} {:.2} {:.2} {:.2}\n", mat[ 0], mat[ 1], mat[ 2], mat[ 3]);
 // 	draw_string(&r0, pos, buffer, screen_width);
-	
+
 // 	let r1 = format!("{:.2} {:.2} {:.2} {:.2}\n", mat[ 4], mat[ 5], mat[ 6], mat[ 7]);
 // 	draw_string(&r1, &UVec2::new(pos.x, pos.y+1), buffer, screen_width);
-	
+
 // 	let r2 = format!("{:.2} {:.2} {:.2} {:.2}\n", mat[ 8], mat[ 9], mat[10], mat[11]);
 // 	draw_string(&r2, &UVec2::new(pos.x, pos.y+2), buffer, screen_width);
-	
+
 // 	let r3 = format!("{:.2} {:.2} {:.2} {:.2}\n", mat[12], mat[13], mat[14], mat[15]);
 // 	draw_string(&r3, &UVec2::new(pos.x, pos.y+3), buffer, screen_width);
 // }
@@ -483,7 +549,7 @@ pub fn plot_mirrored_octets_safe(x: i32, y: i32, base_x: i32, base_y: i32, buf: 
 // pub fn draw_mesh_wire_and_normals(mesh: &Mesh, buffer: &mut [char], width_height: (u16, u16), timer: &Timer, matrices: (&mut [f32], &mut [f32]), _camera: &Camera) {
 // 	let (screen_width, screen_height) = width_height;
 // 	let (proj_mat, transform_mat) = matrices;
-	
+
 // 	// apply_identity_to_mat_4x4(proj_mat);
 // 	// apply_projection_to_mat_4x4(proj_mat, screen_width, screen_height);
 
@@ -500,7 +566,7 @@ pub fn plot_mirrored_octets_safe(x: i32, y: i32, base_x: i32, base_y: i32, buf: 
 
 
 // 	apply_identity_to_mat_4x4(transform_mat);
-	
+
 // 	apply_scale_to_mat_4x4(transform_mat, scale_x, scale_y, scale_z);
 // 	apply_rotation_to_mat_4x4(transform_mat, angle_x, angle_y, angle_z);
 // 	apply_pos_to_mat_4x4(transform_mat, pos_x, pos_y, pos_z);
@@ -524,7 +590,7 @@ pub fn plot_mirrored_octets_safe(x: i32, y: i32, base_x: i32, base_y: i32, buf: 
 // 		let n2 = mesh.get_normal_at(p2_i);
 // 		let trs_n2 = n2.get_transformed_by_mat4x4(proj_mat);
 
-		
+
 // 		let p0 = mesh.get_vert_at(p0_i);
 // 		let trs_p0 = p0.get_transformed_by_mat4x4(proj_mat);
 
@@ -643,7 +709,7 @@ pub fn plot_mirrored_octets_safe(x: i32, y: i32, base_x: i32, base_y: i32, buf: 
 // 	// apply_rotation_to_mat_4x4(transform_mat, TAU * 3.8, TAU * 1.4, 0.0);
 // 	apply_pos_to_mat_4x4(transform_mat, mesh.pos.x, mesh.pos.y, mesh.pos.z);
 
-// 	// DRAWS 
+// 	// DRAWS
 // 	// let st = &format!("pos {:.2} {:.2} {:.2}", mesh.pos.x, mesh.pos.y, mesh.pos.z);
 // 	// draw_string(st, &UVec2::new(0, 2), buffer, screen_width);
 // 	// draw_string("transform", &UVec2::new(0, 3), buffer, screen_width);
@@ -772,7 +838,7 @@ pub fn plot_mirrored_octets_safe(x: i32, y: i32, base_x: i32, base_y: i32, buf: 
 // 	let y0 = p0.y as i32;
 // 	let x1 = p1.x as i32;
 // 	let y1 = p1.y as i32;
-	
+
 // 	let mut x = x0;
 // 	let mut y = y0;
 // 	let dx = (x1 - x0).abs();
@@ -785,7 +851,7 @@ pub fn plot_mirrored_octets_safe(x: i32, y: i32, base_x: i32, base_y: i32, buf: 
 // 	let mut index: usize;
 // 	loop {
 // 		index = (y * i_screen_width + x) as usize;
-			
+
 // 		// handle out of bounds
 // 		if index < buffer.len() {
 // 			buffer[index] = fill_char;
@@ -823,7 +889,7 @@ pub fn plot_mirrored_octets_safe(x: i32, y: i32, base_x: i32, base_y: i32, buf: 
 // 		draw_string(&format!("p0 {:?}", &tri.p0), &UVec2 { x: &tri.p0.x + 3, y: &tri.p0.y - 2 + i }, buffer, screen_width);
 // 		draw_string(&format!("p1 {:?}", &tri.p1), &UVec2 { x: &tri.p1.x - 3, y: &tri.p1.y + 2 + i }, buffer, screen_width);
 // 		draw_string(&format!("p2 {:?}", &tri.p2), &UVec2 { x: &tri.p2.x + 3, y: &tri.p2.y - 1 + i }, buffer, screen_width);
-		
+
 // 		let (topmost, secmost, trimost) = sort_by_y_prefer_left(&tri.p0, &tri.p1, &tri.p2);
 
 // 		// TODO: learn the vector shit behind this
@@ -839,7 +905,7 @@ pub fn plot_mirrored_octets_safe(x: i32, y: i32, base_x: i32, base_y: i32, buf: 
 // 		// TODO: bounds check
 // 		let index = (tri.p0.y * screen_width + tri.p0.x) as usize;
 // 		buffer[index] = '@';
-		
+
 // 		let index = (tri.p1.y * screen_width + tri.p1.x) as usize;
 // 		buffer[index] = '@';
 
@@ -853,7 +919,7 @@ pub fn plot_mirrored_octets_safe(x: i32, y: i32, base_x: i32, base_y: i32, buf: 
 // 	draw_string(&format!("w:{}, h:{}", screen_width, screen_height), &UVec2::new(0, 0), buffer, screen_width);
 
 // 	let middle = UVec2::new(screen_width / 2, screen_height / 2);
-	
+
 // 	let len = 20.0;
 // 	let modulus = time_seed / 2 % 1000;
 // 	let t = modulus as f32 / 1000.0;
@@ -900,7 +966,7 @@ pub fn plot_mirrored_octets_safe(x: i32, y: i32, base_x: i32, base_y: i32, buf: 
 // 	// let left  = &UVec2::new(middle.x - len, middle.y);
 // 	// let up    = &UVec2::new(middle.x, middle.y - len);
 // 	// let down  = &UVec2::new(middle.x, middle.y + len/4);
-	
+
 // 	// let up_r  = &UVec2::new(right.x, up.y);
 // 	// let up_l  = &UVec2::new(left.x, up.y);
 // 	// ↖ ↑ ↗
@@ -914,41 +980,11 @@ pub fn plot_mirrored_octets_safe(x: i32, y: i32, base_x: i32, base_y: i32, buf: 
 
 // 	// draw_bresenham_line(&middle, up_l,  buffer, screen_width, '↖');
 // 	// draw_bresenham_line(&middle, up_r,  buffer, screen_width, '↗');
-	
+
 // 	// draw_point(&middle, buffer, screen_width, '·');
 // }
 
 
-// fn sort_by_y_prefer_left<'a>(p0: &'a UVec2, p1: &'a UVec2, p2: &'a UVec2) -> (&'a UVec2, &'a UVec2, &'a UVec2) {
-// 	let topmost: &UVec2;
-// 	let secmost: &UVec2;
-// 	let trimost: &UVec2;
-
-// 	if p0.y < p1.y && p0.y < p2.y {
-// 		topmost = p0;
-// 		if p1.y == p2.y {
-// 			(trimost, secmost) = sort_by_x(p1, p2);
-// 		} else {
-// 			(trimost, secmost) = sort_by_y(p1, p2);
-// 		}
-// 	} else if p1.y < p0.y && p1.y < p2.y {
-// 		topmost = p1;
-// 		if p0.y == p2.y {
-// 			(trimost, secmost) = sort_by_x(p0, p2);
-// 		} else {
-// 			(trimost, secmost) = sort_by_y(p0, p2);
-// 		}
-// 	} else {
-// 		topmost = p2;
-// 		if p0.y == p1.y {
-// 			(trimost, secmost) = sort_by_x(p0, p1)
-// 		} else {
-// 			(trimost, secmost) = sort_by_y(p0, p1);
-// 		}
-// 	}
-
-// 	(topmost, secmost, trimost)
-// }
 
 // fn sort_by_x<'a>(first: &'a UVec2, sec: &'a UVec2) -> (&'a UVec2, &'a UVec2) {
 // 	if first.x > sec.x { (first, sec) } else { (sec, first) }

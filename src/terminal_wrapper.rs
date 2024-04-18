@@ -19,7 +19,8 @@ pub fn configure_terminal() -> CrosstermTerminal {
 	let mut stdout = io::stdout();
 
 	// enter alternate screen, hides cursor
-	execute!(stdout, EnterAlternateScreen, EnableMouseCapture, Hide).unwrap();
+	execute!(stdout, EnterAlternateScreen, EnableMouseCapture, Hide)
+		.unwrap();
 
 	CrosstermTerminal { stdout }
 }
@@ -28,7 +29,8 @@ pub fn restore_terminal(terminal: &mut CrosstermTerminal) {
 	disable_raw_mode().unwrap();
 
 	// leaves alternate screen, shows cursor
-	execute!(terminal.stdout, LeaveAlternateScreen, DisableMouseCapture, Show).unwrap();
+	execute!(terminal.stdout, LeaveAlternateScreen, DisableMouseCapture, Show)
+		.unwrap();
 }
 
 
@@ -51,14 +53,17 @@ pub fn poll_events(terminal: &mut CrosstermTerminal, app: &mut App, timer: &mut 
 		Event::Key(key) => {
 			match key.code {
 				// WASD moves left / right and up / down
-				KeyCode::Char('w') => app.dir.y = MOVE_SPEED,
-				KeyCode::Char('s') => app.dir.y = -MOVE_SPEED,
-				KeyCode::Char('d') => app.dir.x = MOVE_SPEED,
-				KeyCode::Char('a') => app.dir.x = -MOVE_SPEED,
+				// TODO: fix camera forward is busted as fuck for some reason
+				KeyCode::Char('w') => app.dir.z = -MOVE_SPEED,
+				KeyCode::Char('s') => app.dir.z = MOVE_SPEED,
+				// TODO: fix camera side is busted as fuck for some reason
+				KeyCode::Char('d') => app.dir.x = -MOVE_SPEED,
+				KeyCode::Char('a') => app.dir.x = MOVE_SPEED,
 
 				// NM moves camera forwards / backwards
-				KeyCode::Char('q') => app.dir.z = MOVE_SPEED,
-				KeyCode::Char('e') => app.dir.z = -MOVE_SPEED,
+				// TODO: this ony works because terminal Y is -Y
+				KeyCode::Char('e') => app.dir.y = MOVE_SPEED,
+				KeyCode::Char('q') => app.dir.y = -MOVE_SPEED,
 
 				// IK LJ UO moves camera along the Y X and Z axes
 				KeyCode::Char('i') => app.pos.y = MOVE_SPEED,
@@ -143,7 +148,7 @@ pub struct TerminalBuffer {
 	pub transf_mat: Vec<f32>,
 	pub render_mat: Vec<f32>,
 
-	pub debug_file: Option<File>,
+	debug_file: Option<File>,
 }
 
 impl TerminalBuffer {
@@ -201,23 +206,26 @@ impl TerminalBuffer {
 
 	const SCREENSHOT_PATH: &str = "screenshot.txt";
 	pub fn try_dump_buffer_content_to_file(&mut self) {
-		if let Ok(mut screenshot_file) = File::create(Self::SCREENSHOT_PATH) {
 
-			// let data = std::str::from_utf8(&self.vec).unwrap();
+		let file_result = File::create(Self::SCREENSHOT_PATH);
 
-			for y in 0..self.hei {
+		if let Err(error) = file_result {
+			panic!("Error saving screenshot: {}!", error);
+			return;
+		}
 
-				let y_start = y       as usize * self.wid as usize * ASCII_BYTES_PER_CHAR;
-				let y_end   = (y + 1) as usize * self.wid as usize * ASCII_BYTES_PER_CHAR;
+		let mut screenshot_file = file_result.unwrap();
 
-				let buf_str = std::str::from_utf8(&self.vec[y_start .. y_end]).unwrap();
+		for y in 0..self.hei {
 
-				let _ = screenshot_file.write(buf_str.as_bytes());
-				let _ = screenshot_file.write(&['\n' as u8]);
-			}
+			let y_start = y       as usize * self.wid as usize * ASCII_BYTES_PER_CHAR;
+			let y_end   = (y + 1) as usize * self.wid as usize * ASCII_BYTES_PER_CHAR;
 
-			// let _ = screenshot_file.write(data.as_bytes());
-		} else { panic!("shit, file") }
+			let buf_str = std::str::from_utf8(&self.vec[y_start .. y_end]).unwrap();
+
+			let _ = screenshot_file.write(buf_str.as_bytes());
+			let _ = screenshot_file.write(&['\n' as u8]);
+		}
 	}
 
 	const DEBUG_FILE_PATH: &str = "bullshit/_debug";

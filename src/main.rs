@@ -16,7 +16,7 @@ mod settings;
 
 use std::{env, time::{Duration, Instant}};
 
-use crossterm::{cursor::*, queue, style::{Color, Print, StyledContent, Stylize}, terminal::*};
+use crossterm::terminal::*;
 
 use file_readers::yade_dem_reader::YadeDemData;
 use file_readers::obj_reader::read_mesh_from_obj;
@@ -35,6 +35,7 @@ enum FileDataType {
 	Mesh(Mesh),
 	YadeData(YadeDemData),
 }
+
 
 fn main() {
 
@@ -63,11 +64,6 @@ fn main() {
 	let mut benchmark = Benchmark::new(BENCHMARK_REFRESH_RATE);
 
 	let mut camera = Camera::new();
-
-	// TODO: why does setting the camera like this here puts it forward? should be ... Z?
-	// camera.position = Vec3::new(20., 1.0, 0.0);
-	// camera.set_rot(6.28318530 * 0.1,  0.0, 0.0);
-	// camera.set_rot(0.0, 6.2831 * 0.01, 0.0);
 
 	camera.set_initial_pos(0., 0.0, 30.0);
 	// camera.set_initial_rot(0.0, -3.14, 0.0);
@@ -110,6 +106,7 @@ fn main() {
 		// camera.position = Vec3::new(camera.position.x + app.pos.x, camera.position.y + app.pos.y, )
 		update_camera(&mut camera, &mut app);
 
+		render_gizmos(&mut app.buf, &camera);
 		render_axes(&mut app.buf, &camera);
 
 		// let rad = 0.01 * YADE_SCALE_TEMP;
@@ -154,7 +151,7 @@ fn update_camera(camera: &mut Camera, app: &mut App) {
 	camera.rotation = camera.rotation + app.rot;
 	camera.position = camera.position + app.pos;
 
-	let dir_vec = (camera.side * - app.dir.x) + (camera.up * app.dir.y) + (camera.forward * app.dir.z);
+	let dir_vec = (camera.side * app.dir.x) + (camera.up * app.dir.y) + (camera.forward * app.dir.z);
 	camera.position = camera.position + dir_vec;
 	
 	camera.update_view_matrix(&mut app.buf);
