@@ -35,28 +35,31 @@ impl Vec3 {
 	}
 
 	pub fn get_transformed_by_mat3x3(&self, mat: &[f32]) -> Self {
-		let x = self.x * mat[0*3 + 0] + self.y * mat[0*3 + 1] + self.z * mat[0*3 + 2];
-		let y = self.x * mat[1*3 + 0] + self.y * mat[1*3 + 1] + self.z * mat[1*3 + 2];
-		let z = self.x * mat[2*3 + 0] + self.y * mat[2*3 + 1] + self.z * mat[2*3 + 2];
+		const SZ: u16 = 3;
+		let x = self.x * mat[xy_to_it(0, 0, SZ)] + self.y * mat[xy_to_it(1, 0, SZ)] + self.z * mat[xy_to_it(2, 0, SZ)];
+		let y = self.x * mat[xy_to_it(0, 1, SZ)] + self.y * mat[xy_to_it(1, 1, SZ)] + self.z * mat[xy_to_it(2, 1, SZ)];
+		let z = self.x * mat[xy_to_it(0, 2, SZ)] + self.y * mat[xy_to_it(1, 2, SZ)] + self.z * mat[xy_to_it(2, 2, SZ)];
 
 		Self { x, y, z }
 	}
 
 	pub fn transform_by_mat3x3(&mut self, mat: &[f32]) {
-		let x = self.x * mat[0*3 + 0] + self.y * mat[0*3 + 1] + self.z * mat[0*3 + 2];
-		let y = self.x * mat[1*3 + 0] + self.y * mat[1*3 + 1] + self.z * mat[1*3 + 2];
-		let z = self.x * mat[2*3 + 0] + self.y * mat[2*3 + 1] + self.z * mat[2*3 + 2];
+		const SZ: u16 = 3;
+		let x = self.x * mat[xy_to_it(0, 0, SZ)] + self.y * mat[xy_to_it(1, 0, SZ)] + self.z * mat[xy_to_it(2, 0, SZ)];
+		let y = self.x * mat[xy_to_it(0, 1, SZ)] + self.y * mat[xy_to_it(1, 1, SZ)] + self.z * mat[xy_to_it(2, 1, SZ)];
+		let z = self.x * mat[xy_to_it(0, 2, SZ)] + self.y * mat[xy_to_it(1, 2, SZ)] + self.z * mat[xy_to_it(2, 2, SZ)];
 
 		self.x = x;
 		self.y = y;
 		self.z = z;
 	}
 
-	pub fn get_transformed_by_mat4x4(&self, mat: &[f32]) -> Self {
-		let mut x = self.x * mat[0*4 + 0] + self.y * mat[0*4 + 1] + self.z * mat[0*4 + 2] + 1.0 * mat[0*4 + 3];
-		let mut y = self.x * mat[1*4 + 0] + self.y * mat[1*4 + 1] + self.z * mat[1*4 + 2] + 1.0 * mat[1*4 + 3];
-		let mut z = self.x * mat[2*4 + 0] + self.y * mat[2*4 + 1] + self.z * mat[2*4 + 2] + 1.0 * mat[2*4 + 3];
-		let w     = self.x * mat[3*4 + 0] + self.y * mat[3*4 + 1] + self.z * mat[3*4 + 2] + 1.0 * mat[3*4 + 3];
+	pub fn get_transformed_by_mat4x4_uniform(&self, mat: &[f32]) -> Self {
+		const SZ: u16 = 4;
+		let mut x = self.x * mat[xy_to_it(0, 0, SZ)] + self.y * mat[xy_to_it(1, 0, SZ)] + self.z * mat[xy_to_it(2, 0, SZ)] + 1.0 * mat[xy_to_it(3, 0, SZ)];
+		let mut y = self.x * mat[xy_to_it(0, 1, SZ)] + self.y * mat[xy_to_it(1, 1, SZ)] + self.z * mat[xy_to_it(2, 1, SZ)] + 1.0 * mat[xy_to_it(3, 1, SZ)];
+		let mut z = self.x * mat[xy_to_it(0, 2, SZ)] + self.y * mat[xy_to_it(1, 2, SZ)] + self.z * mat[xy_to_it(2, 2, SZ)] + 1.0 * mat[xy_to_it(3, 2, SZ)];
+		let w     = self.x * mat[xy_to_it(0, 3, SZ)] + self.y * mat[xy_to_it(1, 3, SZ)] + self.z * mat[xy_to_it(2, 3, SZ)] + 1.0 * mat[xy_to_it(3, 3, SZ)];
 
 		if w != 0.0 {
 			x /= w;
@@ -321,7 +324,7 @@ pub fn apply_scale_to_mat_4x4(mat: &mut [f32], scale_x: f32, scale_y: f32, scale
 	mat[xy_to_it(2, 2, SZ)] = mat[xy_to_it(2, 2, SZ)] * scale_z;
 }
 
-pub fn apply_rotation_to_mat_4x4(mat: &mut [f32], angle_x: f32, angle_y: f32, angle_z: f32) {	
+pub fn apply_rotation_to_mat_4x4(mat: &mut [f32], angle_x: f32, angle_y: f32, angle_z: f32) {
 	let cos_x = angle_x.cos();
 	let sin_x = angle_x.sin();
 
@@ -331,20 +334,75 @@ pub fn apply_rotation_to_mat_4x4(mat: &mut [f32], angle_x: f32, angle_y: f32, an
 	let cos_z = angle_z.cos();
 	let sin_z = angle_z.sin();
 
+	let x0y0 = cos_y * cos_z;
+	let x1y0 = cos_y * -sin_z;
+	let x2y0 = sin_y;
+
+	let x0y1 = -sin_x * -sin_y * cos_z + cos_x * sin_z;
+	let x1y1 = -sin_x * -sin_y * -sin_z + cos_x * cos_z;
+	let x2y1 = -sin_x * cos_y;
+
+	let x0y2 = cos_x * -sin_y * cos_z + sin_x * sin_z;
+	let x1y2 = cos_x * -sin_y * -sin_z + sin_x * cos_z;
+	let x2y2 = cos_x * cos_y;
+
+	
+}
+
+pub fn apply_rotation_to_mat_4x4_simple(mat: &mut [f32], angle_x: f32, angle_y: f32, angle_z: f32) {
+	let cos_x = angle_x.cos();
+	let sin_x = angle_x.sin();
+
+	let cos_y = angle_y.cos();
+	let sin_y = angle_y.sin();
+
+	let cos_z = angle_z.cos();
+	let sin_z = angle_z.sin();
+
+	// clockwise rotation
+	// let rot_mat = [
+	// 	             cos_y*cos_z          ,              cos_y*sin_z         ,    -sin_y   , 0.0,
+	// 	sin_x*sin_y*cos_z +  cos_x*-sin_z , sin_x*sin_y*sin_z +  cos_x*cos_z , sin_x*cos_y , 0.0,
+	// 	cos_x*sin_y*cos_z + -sin_x*-sin_z , cos_x*sin_y*sin_z + -sin_x*cos_z , cos_x*cos_y , 0.0,
+	// 	     0.0,           0.0           ,               0.0                ,               1.0,
+	// ];
+
 	// counterclockwise rotation
 	let rot_mat = [
-		             cos_y*cos_z          ,              cos_y*sin_z         ,    -sin_y   , 0.0,
-		sin_x*sin_y*cos_z +  cos_x*-sin_z , sin_x*sin_y*sin_z +  cos_x*cos_z , sin_x*cos_y , 0.0,
-		cos_x*sin_y*cos_z + -sin_x*-sin_z , cos_x*sin_y*sin_z + -sin_x*cos_z , cos_x*cos_y , 0.0,
-		     0.0,           0.0           ,               0.0                ,               1.0,
+		             cos_y*cos_z           ,              cos_y*-sin_z           ,    sin_y     , 0.0,
+		-sin_x*-sin_y*cos_z +  cos_x*sin_z , -sin_x*-sin_y*-sin_z +  cos_x*cos_z , -sin_x*cos_y , 0.0,
+		cos_x*-sin_y*cos_z + sin_x*sin_z   , cos_x*-sin_y*-sin_z + sin_x*cos_z   , cos_x*cos_y  , 0.0,
+		           0.0                     ,                0.0                  ,    0.0       , 1.0,
 	];
+
+	/*
+
+	{ 		{a00,a10,a20,a30}, 		{a01,a11,a21,a31}, 		{a02,a12,a22,a32}, 		{a03,a13,a23,a33} 	}
+
+
+	{
+	             {cos_y*cos_z               ,              cos_y*-sin_z           ,    sin_y     , 0.0},
+		{-sin_x*-sin_y*cos_z +  cos_x*sin_z , -sin_x*-sin_y*-sin_z +  cos_x*cos_z , -sin_x*cos_y , 0.0},
+		{cos_x*-sin_y*cos_z + sin_x*sin_z   , cos_x*-sin_y*-sin_z + sin_x*cos_z   , cos_x*cos_y  , 0.0},
+		           {0.0                     ,                0.0                  ,    0.0       , 1.0},
+	}
+	
+	 */
+
+	// this is actually fucking wrong because it multiplied Z by XY and not XY by Z
+	// let rot_mat = [
+	// 	  cos_y*cos_z + -sin_x*-sin_y*-sin_z   ,          cos_x*-sin_z       ,    sin_y*cos_z + -sin_y*cos_y*-sin_z   , 0.0,
+	// 	   cos_y*sin_z + -sin_x*-sin_y*cos_z   ,           cos_x*cos_z       ,    sin_y*sin_z + -sin_x*cos_y*cos_z    , 0.0,
+	// 	               cos_x-sin_y             ,              sin_x          ,            cos_x*cos_y                 , 0.0,
+	// 	                 0.0                   ,              0.0            ,               0.0                      , 1.0,
+	// ];
+
 
 	multiply_4x4_matrices(mat, &rot_mat);
 
 	// OR:
 
 	// const SZ: u16 = 4;
-
 	// let x0_y0_rot = cos_y * cos_z;
 	// let x0_y1_rot = -cos_y * sin_z;
 	// let x0_y2_rot = sin_y;
@@ -383,55 +441,56 @@ pub fn apply_rotation_to_mat_4x4(mat: &mut [f32], angle_x: f32, angle_y: f32, an
 }
 
 pub fn apply_pos_to_mat_4x4(mat: &mut [f32], pos_x: f32, pos_y: f32, pos_z: f32) {
-	const SZ: usize = 4;
-	mat[0 * SZ + 3] = pos_x;
-	mat[1 * SZ + 3] = pos_y;
-	mat[2 * SZ + 3] = pos_z;
+	const SZ: u16 = 4;
+	mat[xy_to_it(3, 0, SZ)] = pos_x;
+	mat[xy_to_it(3, 1, SZ)] = pos_y;
+	mat[xy_to_it(3, 2, SZ)] = pos_z;
 }
 
 pub fn multiply_4x4_matrices(dump: &mut [f32], mat: &[f32]) {
-	const SZ: usize = 4;
+	const SZ: u16 = 4;
 
-	let x0_y0 = dump[0 * SZ + 0] * mat[0 * SZ + 0]  +  dump[0 * SZ + 1] * mat[1 * SZ + 0]  +  dump[0 * SZ + 2] * mat[2 * SZ + 0]  +  dump[0 * SZ + 3] * mat[3 * SZ + 0];
-	let x0_y1 = dump[0 * SZ + 0] * mat[0 * SZ + 1]  +  dump[0 * SZ + 1] * mat[1 * SZ + 1]  +  dump[0 * SZ + 2] * mat[2 * SZ + 1]  +  dump[0 * SZ + 3] * mat[3 * SZ + 1];
-	let x0_y2 = dump[0 * SZ + 0] * mat[0 * SZ + 2]  +  dump[0 * SZ + 1] * mat[1 * SZ + 2]  +  dump[0 * SZ + 2] * mat[2 * SZ + 2]  +  dump[0 * SZ + 3] * mat[3 * SZ + 2];
-	let x0_y3 = dump[0 * SZ + 0] * mat[0 * SZ + 3]  +  dump[0 * SZ + 1] * mat[1 * SZ + 3]  +  dump[0 * SZ + 2] * mat[2 * SZ + 3]  +  dump[0 * SZ + 3] * mat[3 * SZ + 3];
+	let x0_y0 = dump[xy_to_it(0, 0, SZ)] * mat[xy_to_it(0, 0, SZ)]  +  dump[xy_to_it(1, 0, SZ)] * mat[xy_to_it(0, 1, SZ)]  +  dump[xy_to_it(2, 0, SZ)] * mat[xy_to_it(0, 2, SZ)]  +  dump[xy_to_it(3, 0, SZ)] * mat[xy_to_it(0, 3, SZ)];
+	let x0_y1 = dump[xy_to_it(0, 0, SZ)] * mat[xy_to_it(1, 0, SZ)]  +  dump[xy_to_it(1, 0, SZ)] * mat[xy_to_it(1, 1, SZ)]  +  dump[xy_to_it(2, 0, SZ)] * mat[xy_to_it(1, 2, SZ)]  +  dump[xy_to_it(3, 0, SZ)] * mat[xy_to_it(1, 3, SZ)];
+	let x0_y2 = dump[xy_to_it(0, 0, SZ)] * mat[xy_to_it(2, 0, SZ)]  +  dump[xy_to_it(1, 0, SZ)] * mat[xy_to_it(2, 1, SZ)]  +  dump[xy_to_it(2, 0, SZ)] * mat[xy_to_it(2, 2, SZ)]  +  dump[xy_to_it(3, 0, SZ)] * mat[xy_to_it(2, 3, SZ)];
+	let x0_y3 = dump[xy_to_it(0, 0, SZ)] * mat[xy_to_it(3, 0, SZ)]  +  dump[xy_to_it(1, 0, SZ)] * mat[xy_to_it(3, 1, SZ)]  +  dump[xy_to_it(2, 0, SZ)] * mat[xy_to_it(3, 2, SZ)]  +  dump[xy_to_it(3, 0, SZ)] * mat[xy_to_it(3, 3, SZ)];
 
-	let x1_y0 = dump[1 * SZ + 0] * mat[0 * SZ + 0]  +  dump[1 * SZ + 1] * mat[1 * SZ + 0]  +  dump[1 * SZ + 2] * mat[2 * SZ + 0]  +  dump[1 * SZ + 3] * mat[3 * SZ + 0];
-	let x1_y1 = dump[1 * SZ + 0] * mat[0 * SZ + 1]  +  dump[1 * SZ + 1] * mat[1 * SZ + 1]  +  dump[1 * SZ + 2] * mat[2 * SZ + 1]  +  dump[1 * SZ + 3] * mat[3 * SZ + 1];
-	let x1_y2 = dump[1 * SZ + 0] * mat[0 * SZ + 2]  +  dump[1 * SZ + 1] * mat[1 * SZ + 2]  +  dump[1 * SZ + 2] * mat[2 * SZ + 2]  +  dump[1 * SZ + 3] * mat[3 * SZ + 2];
-	let x1_y3 = dump[1 * SZ + 0] * mat[0 * SZ + 3]  +  dump[1 * SZ + 1] * mat[1 * SZ + 3]  +  dump[1 * SZ + 2] * mat[2 * SZ + 3]  +  dump[1 * SZ + 3] * mat[3 * SZ + 3];
+	let x1_y0 = dump[xy_to_it(0, 1, SZ)] * mat[xy_to_it(0, 0, SZ)]  +  dump[xy_to_it(1, 1, SZ)] * mat[xy_to_it(0, 1, SZ)]  +  dump[xy_to_it(2, 1, SZ)] * mat[xy_to_it(0, 2, SZ)]  +  dump[xy_to_it(3, 1, SZ)] * mat[xy_to_it(0, 3, SZ)];
+	let x1_y1 = dump[xy_to_it(0, 1, SZ)] * mat[xy_to_it(1, 0, SZ)]  +  dump[xy_to_it(1, 1, SZ)] * mat[xy_to_it(1, 1, SZ)]  +  dump[xy_to_it(2, 1, SZ)] * mat[xy_to_it(1, 2, SZ)]  +  dump[xy_to_it(3, 1, SZ)] * mat[xy_to_it(1, 3, SZ)];
+	let x1_y2 = dump[xy_to_it(0, 1, SZ)] * mat[xy_to_it(2, 0, SZ)]  +  dump[xy_to_it(1, 1, SZ)] * mat[xy_to_it(2, 1, SZ)]  +  dump[xy_to_it(2, 1, SZ)] * mat[xy_to_it(2, 2, SZ)]  +  dump[xy_to_it(3, 1, SZ)] * mat[xy_to_it(2, 3, SZ)];
+	let x1_y3 = dump[xy_to_it(0, 1, SZ)] * mat[xy_to_it(3, 0, SZ)]  +  dump[xy_to_it(1, 1, SZ)] * mat[xy_to_it(3, 1, SZ)]  +  dump[xy_to_it(2, 1, SZ)] * mat[xy_to_it(3, 2, SZ)]  +  dump[xy_to_it(3, 1, SZ)] * mat[xy_to_it(3, 3, SZ)];
 
-	let x2_y0 = dump[2 * SZ + 0] * mat[0 * SZ + 0]  +  dump[2 * SZ + 1] * mat[1 * SZ + 0]  +  dump[2 * SZ + 2] * mat[2 * SZ + 0]  +  dump[2 * SZ + 3] * mat[3 * SZ + 0];
-	let x2_y1 = dump[2 * SZ + 0] * mat[0 * SZ + 1]  +  dump[2 * SZ + 1] * mat[1 * SZ + 1]  +  dump[2 * SZ + 2] * mat[2 * SZ + 1]  +  dump[2 * SZ + 3] * mat[3 * SZ + 1];
-	let x2_y2 = dump[2 * SZ + 0] * mat[0 * SZ + 2]  +  dump[2 * SZ + 1] * mat[1 * SZ + 2]  +  dump[2 * SZ + 2] * mat[2 * SZ + 2]  +  dump[2 * SZ + 3] * mat[3 * SZ + 2];
-	let x2_y3 = dump[2 * SZ + 0] * mat[0 * SZ + 3]  +  dump[2 * SZ + 1] * mat[1 * SZ + 3]  +  dump[2 * SZ + 2] * mat[2 * SZ + 3]  +  dump[2 * SZ + 3] * mat[3 * SZ + 3];
+	let x2_y0 = dump[xy_to_it(0, 2, SZ)] * mat[xy_to_it(0, 0, SZ)]  +  dump[xy_to_it(1, 2, SZ)] * mat[xy_to_it(0, 1, SZ)]  +  dump[xy_to_it(2, 2, SZ)] * mat[xy_to_it(0, 2, SZ)]  +  dump[xy_to_it(3, 2, SZ)] * mat[xy_to_it(0, 3, SZ)];
+	let x2_y1 = dump[xy_to_it(0, 2, SZ)] * mat[xy_to_it(1, 0, SZ)]  +  dump[xy_to_it(1, 2, SZ)] * mat[xy_to_it(1, 1, SZ)]  +  dump[xy_to_it(2, 2, SZ)] * mat[xy_to_it(1, 2, SZ)]  +  dump[xy_to_it(3, 2, SZ)] * mat[xy_to_it(1, 3, SZ)];
+	let x2_y2 = dump[xy_to_it(0, 2, SZ)] * mat[xy_to_it(2, 0, SZ)]  +  dump[xy_to_it(1, 2, SZ)] * mat[xy_to_it(2, 1, SZ)]  +  dump[xy_to_it(2, 2, SZ)] * mat[xy_to_it(2, 2, SZ)]  +  dump[xy_to_it(3, 2, SZ)] * mat[xy_to_it(2, 3, SZ)];
+	let x2_y3 = dump[xy_to_it(0, 2, SZ)] * mat[xy_to_it(3, 0, SZ)]  +  dump[xy_to_it(1, 2, SZ)] * mat[xy_to_it(3, 1, SZ)]  +  dump[xy_to_it(2, 2, SZ)] * mat[xy_to_it(3, 2, SZ)]  +  dump[xy_to_it(3, 2, SZ)] * mat[xy_to_it(3, 3, SZ)];
 
-	let x3_y0 = dump[3 * SZ + 0] * mat[0 * SZ + 0]  +  dump[3 * SZ + 1] * mat[1 * SZ + 0]  +  dump[3 * SZ + 2] * mat[2 * SZ + 0]  +  dump[3 * SZ + 3] * mat[3 * SZ + 0];
-	let x3_y1 = dump[3 * SZ + 0] * mat[0 * SZ + 1]  +  dump[3 * SZ + 1] * mat[1 * SZ + 1]  +  dump[3 * SZ + 2] * mat[2 * SZ + 1]  +  dump[3 * SZ + 3] * mat[3 * SZ + 1];
-	let x3_y2 = dump[3 * SZ + 0] * mat[0 * SZ + 2]  +  dump[3 * SZ + 1] * mat[1 * SZ + 2]  +  dump[3 * SZ + 2] * mat[2 * SZ + 2]  +  dump[3 * SZ + 3] * mat[3 * SZ + 2];
-	let x3_y3 = dump[3 * SZ + 0] * mat[0 * SZ + 3]  +  dump[3 * SZ + 1] * mat[1 * SZ + 3]  +  dump[3 * SZ + 2] * mat[2 * SZ + 3]  +  dump[3 * SZ + 3] * mat[3 * SZ + 3];
+	let x3_y0 = dump[xy_to_it(0, 3, SZ)] * mat[xy_to_it(0, 0, SZ)]  +  dump[xy_to_it(1, 3, SZ)] * mat[xy_to_it(0, 1, SZ)]  +  dump[xy_to_it(2, 3, SZ)] * mat[xy_to_it(0, 2, SZ)]  +  dump[xy_to_it(3, 3, SZ)] * mat[xy_to_it(0, 3, SZ)];
+	let x3_y1 = dump[xy_to_it(0, 3, SZ)] * mat[xy_to_it(1, 0, SZ)]  +  dump[xy_to_it(1, 3, SZ)] * mat[xy_to_it(1, 1, SZ)]  +  dump[xy_to_it(2, 3, SZ)] * mat[xy_to_it(1, 2, SZ)]  +  dump[xy_to_it(3, 3, SZ)] * mat[xy_to_it(1, 3, SZ)];
+	let x3_y2 = dump[xy_to_it(0, 3, SZ)] * mat[xy_to_it(2, 0, SZ)]  +  dump[xy_to_it(1, 3, SZ)] * mat[xy_to_it(2, 1, SZ)]  +  dump[xy_to_it(2, 3, SZ)] * mat[xy_to_it(2, 2, SZ)]  +  dump[xy_to_it(3, 3, SZ)] * mat[xy_to_it(2, 3, SZ)];
+	let x3_y3 = dump[xy_to_it(0, 3, SZ)] * mat[xy_to_it(3, 0, SZ)]  +  dump[xy_to_it(1, 3, SZ)] * mat[xy_to_it(3, 1, SZ)]  +  dump[xy_to_it(2, 3, SZ)] * mat[xy_to_it(3, 2, SZ)]  +  dump[xy_to_it(3, 3, SZ)] * mat[xy_to_it(3, 3, SZ)];
 
-	dump[0 * SZ + 0] = x0_y0;
-	dump[0 * SZ + 1] = x0_y1;
-	dump[0 * SZ + 2] = x0_y2;
-	dump[0 * SZ + 3] = x0_y3;
+	dump[xy_to_it(0, 0, SZ)] = x0_y0;
+	dump[xy_to_it(1, 0, SZ)] = x0_y1;
+	dump[xy_to_it(2, 0, SZ)] = x0_y2;
+	dump[xy_to_it(3, 0, SZ)] = x0_y3;
 
-	dump[1 * SZ + 0] = x1_y0;
-	dump[1 * SZ + 1] = x1_y1;
-	dump[1 * SZ + 2] = x1_y2;
-	dump[1 * SZ + 3] = x1_y3;
+	dump[xy_to_it(0, 1, SZ)] = x1_y0;
+	dump[xy_to_it(1, 1, SZ)] = x1_y1;
+	dump[xy_to_it(2, 1, SZ)] = x1_y2;
+	dump[xy_to_it(3, 1, SZ)] = x1_y3;
 
-	dump[2 * SZ + 0] = x2_y0;
-	dump[2 * SZ + 1] = x2_y1;
-	dump[2 * SZ + 2] = x2_y2;
-	dump[2 * SZ + 3] = x2_y3;
+	dump[xy_to_it(0, 2, SZ)] = x2_y0;
+	dump[xy_to_it(1, 2, SZ)] = x2_y1;
+	dump[xy_to_it(2, 2, SZ)] = x2_y2;
+	dump[xy_to_it(3, 2, SZ)] = x2_y3;
 
-	dump[3 * SZ + 0] = x3_y0;
-	dump[3 * SZ + 1] = x3_y1;
-	dump[3 * SZ + 2] = x3_y2;
-	dump[3 * SZ + 3] = x3_y3;
+	dump[xy_to_it(0, 3, SZ)] = x3_y0;
+	dump[xy_to_it(1, 3, SZ)] = x3_y1;
+	dump[xy_to_it(2, 3, SZ)] = x3_y2;
+	dump[xy_to_it(3, 3, SZ)] = x3_y3;
 }
+
 
 pub fn lerp_f32(a: f32, b: f32, t: f32) -> f32 {
 	(1.0 - t) * a + b * t

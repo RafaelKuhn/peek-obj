@@ -196,7 +196,7 @@ pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Ti
 	render_string("+SCALE", &UVec2::new(2, y-1), buf);
 	render_mat_dbg(&buf.transf_mat.clone(), &UVec2::new(2, y), buf); y += 6;
 
-	apply_rotation_to_mat_4x4(&mut buf.transf_mat, angle_x, angle_y, angle_z);
+	apply_rotation_to_mat_4x4_simple(&mut buf.transf_mat, angle_x, angle_y, angle_z);
 	// IF VERBOSE
 	render_string("+ROTATION", &UVec2::new(2, y-1), buf);
 	render_mat_dbg(&buf.transf_mat.clone(), &UVec2::new(2, y), buf); y += 6;
@@ -216,9 +216,9 @@ pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Ti
 		let p1 = &tri.p1 + &tri.pos;
 		let p2 = &tri.p2 + &tri.pos;
 
-		let trs_p0 = p0.get_transformed_by_mat4x4(&buf.render_mat);
-		let trs_p1 = p1.get_transformed_by_mat4x4(&buf.render_mat);
-		let trs_p2 = p2.get_transformed_by_mat4x4(&buf.render_mat);
+		let trs_p0 = p0.get_transformed_by_mat4x4_uniform(&buf.render_mat);
+		let trs_p1 = p1.get_transformed_by_mat4x4_uniform(&buf.render_mat);
+		let trs_p2 = p2.get_transformed_by_mat4x4_uniform(&buf.render_mat);
 
 		let screen_p0 = clip_space_to_screen_space(&trs_p0, buf.wid, buf.hei);
 		let screen_p1 = clip_space_to_screen_space(&trs_p1, buf.wid, buf.hei);
@@ -236,7 +236,7 @@ pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Ti
 
 	for (i, circ) in yade_data.circs.iter().enumerate() {
 
-		let circ_pos = circ.pos.get_transformed_by_mat4x4(&buf.render_mat);
+		let circ_pos = circ.pos.get_transformed_by_mat4x4_uniform(&buf.render_mat);
 		let screen_circ = clip_space_to_screen_space(&circ_pos, buf.wid, buf.hei);
 
 		// buf.write_debug(&format!("{: <4}", i));
@@ -256,7 +256,7 @@ pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Ti
 	for (i, circ) in yade_data.circs.iter().enumerate() {
 		// if i >= 1 { break; }
 
-		let circ_pos = circ.pos.get_transformed_by_mat4x4(&buf.render_mat);
+		let circ_pos = circ.pos.get_transformed_by_mat4x4_uniform(&buf.render_mat);
 		let screen_circ = clip_space_to_screen_space(&circ_pos, buf.wid, buf.hei);
 
 		if screen_circ.x as u16 >= buf.wid { continue }
@@ -293,7 +293,7 @@ pub fn render_mesh(mesh: &Mesh, buf: &mut TerminalBuffer, timer: &Timer, camera:
 
 	let (pos_x, pos_y, pos_z) = (0.0, 0.0, 0.0);
 	let (angle_x, angle_y, angle_z) = (0.0, 0.0, 0.0);
-	let (scale_x, scale_y, scale_z) = (1.0, 1.0, 1.0);
+	let (scale_x, scale_y, scale_z) = (1.0, -1.0, 1.0);
 
 	buf.copy_projection_to_render_matrix();
 
@@ -318,9 +318,9 @@ pub fn render_mesh(mesh: &Mesh, buf: &mut TerminalBuffer, timer: &Timer, camera:
 		let p1 = mesh.get_vert_at(p1_i);
 		let p2 = mesh.get_vert_at(p2_i);
 
-		let trs_p0 = p0.get_transformed_by_mat4x4(&buf.render_mat);
-		let trs_p1 = p1.get_transformed_by_mat4x4(&buf.render_mat);
-		let trs_p2 = p2.get_transformed_by_mat4x4(&buf.render_mat);
+		let trs_p0 = p0.get_transformed_by_mat4x4_uniform(&buf.render_mat);
+		let trs_p1 = p1.get_transformed_by_mat4x4_uniform(&buf.render_mat);
+		let trs_p2 = p2.get_transformed_by_mat4x4_uniform(&buf.render_mat);
 
 		let screen_p0 = clip_space_to_screen_space(&trs_p0, buf.wid, buf.hei);
 		let screen_p1 = clip_space_to_screen_space(&trs_p1, buf.wid, buf.hei);
@@ -333,7 +333,7 @@ pub fn render_mesh(mesh: &Mesh, buf: &mut TerminalBuffer, timer: &Timer, camera:
 }
 
 pub fn screen_project(vec: &Vec3, render_mat: &[f32], wid: u16, hei: u16) -> IVec2 {
-	let projected_3d = vec.get_transformed_by_mat4x4(render_mat);
+	let projected_3d = vec.get_transformed_by_mat4x4_uniform(render_mat);
 	let projected_2d = clip_space_to_screen_space(&projected_3d, wid, hei);
 	projected_2d
 }

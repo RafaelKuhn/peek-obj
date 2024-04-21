@@ -56,10 +56,10 @@ impl Camera {
 		apply_rotation_to_mat_4x4(&mut mat, self.rotation.x, self.rotation.y, self.rotation.z);
 
 		let cam_up = Vec3::new(0.0, 1.0, 0.0);
-		let cam_up = cam_up.get_transformed_by_mat4x4(&mat);
+		let cam_up = cam_up.get_transformed_by_mat4x4_uniform(&mat);
 
 		let cam_forward = Vec3::new(0.0, 0.0, 1.0);
-		let cam_forward = cam_forward.get_transformed_by_mat4x4(&mat);
+		let cam_forward = cam_forward.get_transformed_by_mat4x4_uniform(&mat);
 
 		(cam_up, cam_forward)
 	}
