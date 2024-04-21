@@ -19,17 +19,22 @@ pub fn configure_terminal() -> CrosstermTerminal {
 	let mut stdout = io::stdout();
 
 	// enter alternate screen, hides cursor
-	execute!(stdout, EnterAlternateScreen, EnableMouseCapture, Hide)
+	// execute!(stdout, EnterAlternateScreen, EnableMouseCapture, Hide)
+	execute!(stdout, EnterAlternateScreen, Hide)
 		.unwrap();
 
 	CrosstermTerminal { stdout }
 }
 
 pub fn restore_terminal(terminal: &mut CrosstermTerminal) {
+	restore_stdout(&mut terminal.stdout)
+}
+
+pub fn restore_stdout(stdout: &mut Stdout) {
 	disable_raw_mode().unwrap();
 
 	// leaves alternate screen, shows cursor
-	execute!(terminal.stdout, LeaveAlternateScreen, DisableMouseCapture, Show)
+	execute!(stdout, LeaveAlternateScreen, Show)
 		.unwrap();
 }
 

@@ -14,7 +14,7 @@ mod file_readers;
 mod settings;
 
 
-use std::{env, time::{Duration, Instant}};
+use std::{env, io, time::{Duration, Instant}};
 
 use crossterm::terminal::*;
 
@@ -54,6 +54,7 @@ fn main() {
 	};
 
 	let terminal_mut = &mut configure_terminal();
+	set_panic_hook();
 
 	let mut app = App::init_with_screen();
 	// let mut app = App::init(32, 32);
@@ -173,6 +174,20 @@ fn try_saving_screenshot(app: &mut App, timer: &Timer) {
 	app.last_screenshot_instance = now;
 
 	app.buf.try_dump_buffer_content_to_file();
+}
+
+fn set_panic_hook() {
+	std::panic::set_hook(Box::new(|info| {
+		restore_stdout(&mut io::stdout());
+
+		if let Some(msg) = info.payload().downcast_ref::<&str>() {
+			eprintln!("Program panicked: '{}'", msg);
+		} else {
+			eprintln!("Program panicked!");
+		}
+
+		std::process::exit(1);
+	}));
 }
 
 

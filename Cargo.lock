@@ -192,7 +192,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "peekfbx"
+name = "peekdem"
 version = "0.0.1"
 dependencies = [
  "crossterm",
