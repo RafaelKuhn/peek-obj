@@ -14,8 +14,6 @@ impl ObjRenderer {
 	}
 }
 
-// impl DataWeCanDraw for ObjRenderer { }
-
 impl Renderer for ObjRenderer {
 	fn render(&self, buf: &mut TerminalBuffer, timer: &Timer, camera: &Camera) {
 		render_mesh(&self.mesh, buf, timer, camera);

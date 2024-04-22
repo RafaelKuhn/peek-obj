@@ -144,11 +144,11 @@ pub fn render_benchmark(benchmark: &Benchmark, camera: &Camera, buffer: &mut Ter
 	highest_pos.y += 1;
 	render_string(&format!("cam rot: {:}", camera.rotation), &highest_pos, buffer);
 	highest_pos.y += 2;
-	render_string(&format!("cam sid: {:}", camera.side), &highest_pos, buffer);
-	highest_pos.y += 1;
-	render_string(&format!("cam  up: {:}", camera.up), &highest_pos, buffer);
-	highest_pos.y += 1;
-	render_string(&format!("cam fwd: {:}", camera.forward), &highest_pos, buffer);
+	// render_string(&format!("cam sid: {:}", camera.side.inversed()), &highest_pos, buffer);
+	// highest_pos.y += 1;
+	// render_string(&format!("cam  up: {:}", camera.up), &highest_pos, buffer);
+	// highest_pos.y += 1;
+	// render_string(&format!("cam fwd: {:}", camera.forward.inversed()), &highest_pos, buffer);
 
 	let mut lowest_pos = UVec2::new(0, buffer.hei - 1);
 
@@ -187,24 +187,25 @@ pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Ti
 
 	buf.copy_projection_to_render_matrix();
 
-	let mut y = 8;
+	// IF VERBOSE
+	// let mut y = 8;
 
 	apply_identity_to_mat_4x4(&mut buf.transf_mat);
 
 	apply_scale_to_mat_4x4(&mut buf.transf_mat, scale_x, scale_y, scale_z);
 	// IF VERBOSE
-	render_string("+SCALE", &UVec2::new(2, y-1), buf);
-	render_mat_dbg(&buf.transf_mat.clone(), &UVec2::new(2, y), buf); y += 6;
+	// render_string("+SCALE", &UVec2::new(2, y-1), buf);
+	// render_mat_dbg(&buf.transf_mat.clone(), &UVec2::new(2, y), buf); y += 6;
 
 	apply_rotation_to_mat_4x4_simple(&mut buf.transf_mat, angle_x, angle_y, angle_z);
 	// IF VERBOSE
-	render_string("+ROTATION", &UVec2::new(2, y-1), buf);
-	render_mat_dbg(&buf.transf_mat.clone(), &UVec2::new(2, y), buf); y += 6;
+	// render_string("+ROTATION", &UVec2::new(2, y-1), buf);
+	// render_mat_dbg(&buf.transf_mat.clone(), &UVec2::new(2, y), buf); y += 6;
 
 	apply_pos_to_mat_4x4(&mut buf.transf_mat, pos_x, pos_y, pos_z);
 	// IF VERBOSE
-	render_string("+TRANSLATION", &UVec2::new(2, y-1), buf);
-	render_mat_dbg(&buf.transf_mat.clone(), &UVec2::new(2, y), buf); y += 6;
+	// render_string("+TRANSLATION", &UVec2::new(2, y-1), buf);
+	// render_mat_dbg(&buf.transf_mat.clone(), &UVec2::new(2, y), buf); y += 6;
 
 	multiply_4x4_matrices(&mut buf.render_mat, &camera.view_matrix);
 	multiply_4x4_matrices(&mut buf.render_mat, &buf.transf_mat);
@@ -399,10 +400,10 @@ pub fn render_gizmos(buf: &mut TerminalBuffer, camera: &Camera) {
 	// in world space, the gizmos is 8 units back (view matrix is irrelevant for these calculations)
 	let base_world_space = Vec3::new(0.0, 0.0, -8.0);
 	let origin = screen_project(&base_world_space, &buf.render_mat, buf.wid, buf.hei);
-	let close_to_base_world = base_world_space.add_vec(&Vec3::new(GIZMO_SIZE_WORLD, 0.0, 0.0));
-	let proj_right_of_origin = screen_project(&close_to_base_world, &buf.render_mat, buf.wid, buf.hei);
+	let gizmos_side_reference_point = base_world_space.add_vec(&Vec3::new(GIZMO_SIZE_WORLD, 0.0, 0.0));
+	let gizmos_side_reference_point_projected = screen_project(&gizmos_side_reference_point, &buf.render_mat, buf.wid, buf.hei);
 
-	let side_offset = (proj_right_of_origin.x - origin.x) as Int;
+	let side_offset = (gizmos_side_reference_point_projected.x - origin.x) as Int;
 	let screen_offset = (
 			buf.wid as Int / 2 -   side_offset       - 1,
 		- ( buf.hei as Int / 2 - ( side_offset / 2 ) - 1 )
@@ -410,7 +411,7 @@ pub fn render_gizmos(buf: &mut TerminalBuffer, camera: &Camera) {
 
 	let origin_2d = origin.sum_t(screen_offset);
 
-	let dbg_forward = camera.forward.invert_y();
+	let dbg_forward = camera.forward.inversed().invert_y();
 	let dbg_side = camera.side.inversed().invert_y();
 	let dbg_up = camera.up.invert_y();
 

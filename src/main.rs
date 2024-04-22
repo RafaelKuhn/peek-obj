@@ -177,16 +177,11 @@ fn try_saving_screenshot(app: &mut App, timer: &Timer) {
 }
 
 fn set_panic_hook() {
-	std::panic::set_hook(Box::new(|info| {
+	let hook = std::panic::take_hook();
+	std::panic::set_hook(Box::new(move |info| {
 		restore_stdout(&mut io::stdout());
 
-		if let Some(msg) = info.payload().downcast_ref::<&str>() {
-			eprintln!("Program panicked: '{}'", msg);
-		} else {
-			eprintln!("Program panicked!");
-		}
-
-		std::process::exit(1);
+		hook(info);
 	}));
 }
 
