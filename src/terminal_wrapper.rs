@@ -3,7 +3,7 @@ use core::panic;
 use std::{f32::consts::TAU, fs::File, io::{self, Stdout, Write}, process, time::Duration};
 
 use crossterm::{
-cursor::{Hide, MoveTo, Show}, event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode}, execute, queue, style::Print, terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen}, QueueableCommand
+cursor::{Hide, MoveTo, Show}, event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind, KeyModifiers}, execute, queue, style::Print, terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen}, QueueableCommand
 };
 
 pub struct CrosstermTerminal {
@@ -55,52 +55,57 @@ pub fn poll_events(terminal: &mut CrosstermTerminal, app: &mut App, timer: &mut 
 	const ROT_SPEED: f32 = TAU * 1./128.;
 
 	match event::read().unwrap() {
-		Event::Key(key) => {
-			match key.code {
-				// WASD moves left / right and up / down
-				// TODO: fix camera forward is busted as fuck for some reason
-				KeyCode::Char('w') => app.dir.z = -MOVE_SPEED,
-				KeyCode::Char('s') => app.dir.z = MOVE_SPEED,
-				// TODO: fix camera side is busted as fuck for some reason
-				KeyCode::Char('d') => app.dir.x = -MOVE_SPEED,
-				KeyCode::Char('a') => app.dir.x = MOVE_SPEED,
+		Event::Key(key_evt) => {
+			if key_evt.kind == KeyEventKind::Release { return }
+			// app.buf.write_debug(&format!("{:?}\n", key_evt));
 
-				// NM moves camera forwards / backwards
-				// TODO: this ony works because terminal Y is -Y
-				KeyCode::Char('e') => app.dir.y = MOVE_SPEED,
-				KeyCode::Char('q') => app.dir.y = -MOVE_SPEED,
-
-				// IK LJ UO moves camera along the Y X and Z axes
-				KeyCode::Char('i') => app.pos.y = MOVE_SPEED,
-				KeyCode::Char('k') => app.pos.y = -MOVE_SPEED,
-				KeyCode::Char('l') => app.pos.x = MOVE_SPEED,
-				KeyCode::Char('j') => app.pos.x = -MOVE_SPEED,
-				KeyCode::Char('u') => app.pos.z = MOVE_SPEED,
-				KeyCode::Char('o') => app.pos.z = -MOVE_SPEED,
+			match key_evt.code {
+				// KeyCode::Backspace => app.buf.clear_debug(),
 
 				// ↑ ← ↓ → rotates camera around Y and X axes
 				KeyCode::Up    => app.rot.x = -ROT_SPEED,
 				KeyCode::Down  => app.rot.x = ROT_SPEED,
-				KeyCode::Right => app.rot.y = ROT_SPEED,
 				KeyCode::Left  => app.rot.y = -ROT_SPEED,
+				KeyCode::Right => app.rot.y = ROT_SPEED,
 
-				KeyCode::Char('r') => app.called_reset_camera = true,
-
-				KeyCode::Char('t') => app.called_take_screenshot = true,
-
-				// KeyCode::Char('e') => app.rot.y = ROT_SPEED,
-				// KeyCode::Char('q') => app.rot.y = -ROT_SPEED,
-				KeyCode::Char('p') => {
-					if app.has_paused_rendering {
-						app.has_paused_rendering = false;
-						timer.time_scale = 1.0;
-					} else {
-						app.has_paused_rendering = true;
-						timer.time_scale = 0.0;
-					}
-				}
-				// KeyCode::Esc | KeyCode::Char('q') => quit(terminal),
 				KeyCode::Esc => quit(terminal),
+
+				KeyCode::Char(ch) => match ch.to_ascii_lowercase() {
+					// 'c' if key.modifiers.contains(KeyModifiers::CONTROL) => quit(terminal),
+					'c' if key_evt.modifiers == KeyModifiers::CONTROL => quit(terminal),
+					'q' if key_evt.modifiers == KeyModifiers::CONTROL => quit(terminal),
+
+					// WASD moves left|right and forwards|backwards
+					'w' => app.dir.z = -MOVE_SPEED,
+					's' => app.dir.z = MOVE_SPEED,
+					'd' => app.dir.x = -MOVE_SPEED,
+					'a' => app.dir.x = MOVE_SPEED,
+					// EQ moves camera up|down
+					'e' => app.dir.y = MOVE_SPEED,
+					'q' => app.dir.y = -MOVE_SPEED,
+
+					// IK LJ UO moves camera along the Y X and Z axes
+					'i' => app.pos.y = MOVE_SPEED,
+					'k' => app.pos.y = -MOVE_SPEED,
+					'l' => app.pos.x = MOVE_SPEED,
+					'j' => app.pos.x = -MOVE_SPEED,
+					'u' => app.pos.z = MOVE_SPEED,
+					'o' => app.pos.z = -MOVE_SPEED,
+
+					// R resets camera position, T takes screenshot, P pauses rendering
+					'r' => app.called_reset_camera = true,
+					't' => app.called_take_screenshot = true,
+					'p' => {
+							if app.has_paused_rendering {
+							app.has_paused_rendering = false;
+							timer.time_scale = 1.0;
+						} else {
+							app.has_paused_rendering = true;
+							timer.time_scale = 0.0;
+						}
+					}
+					_ => (),
+				}
 				_ => (),
 			}
 		}

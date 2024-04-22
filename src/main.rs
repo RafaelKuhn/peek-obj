@@ -67,7 +67,12 @@ fn main() {
 	let mut camera = Camera::new();
 
 	camera.set_initial_pos(0., 0.0, 30.0);
-	// camera.set_initial_rot(0.0, -3.14, 0.0);
+	// TODO: use this to debug (AXIS_SZ_WORLD == 20.0)
+	// camera.set_initial_pos(-4.53, 5.04, 18.23);
+	// camera.set_initial_rot(0.25, 0.15, 0.0);
+	// ... or this
+	// camera.set_initial_pos(2.87, 2.85, 19.44);
+	// camera.set_initial_rot(0.15, -0.15, 0.00);
 	camera.update_view_matrix(&mut app.buf);
 
 	// #if MESH
@@ -78,9 +83,9 @@ fn main() {
 	// };
 	// #endif
 
-	// TODO: try doing it with this:
+	// TODO: try doing renderer with this:
 	// https://refactoring.guru/design-patterns/abstract-factory/rust/example
-	
+
 	// TODO: try this less blurry crap
 	// https://stackoverflow.com/questions/25445761/returning-a-closure-from-a-function
 
@@ -94,7 +99,7 @@ fn main() {
 		FileDataType::Mesh(mesh) => Box::new(ObjRenderer::new(mesh)),
 	};
 
-	// let mesh = Mesh::pillars();
+	let mesh = Mesh::pillars();
 
 	loop {
 		just_poll_while_paused(&mut app, terminal_mut, &mut timer);
@@ -115,7 +120,7 @@ fn main() {
 
 		// render_circle(&UVec2::new(app.buf.wid / 2, app.buf.hei / 2), app.buf.hei as f32 / 4.0, &mut app.buf);
 
-		// render_mesh(&mesh, &mut app.buf, &timer, &camera);
+		render_mesh(&mesh, &mut app.buf, &timer, &camera);
 
 
 		renderer.render(&mut app.buf, &timer, &camera);
