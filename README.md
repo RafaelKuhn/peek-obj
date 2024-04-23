@@ -15,4 +15,4 @@
 
 <br>
 <br>
-Uses <a href="https://github.com/fdehau/tui-rs">Tui-rs</a> to draw into different terminal backends
+Uses <a href="https://github.com/crossterm-rs/crossterm">Crossterm</a> to draw into different terminal backends
