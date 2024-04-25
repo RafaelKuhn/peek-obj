@@ -1,4 +1,4 @@
-use crate::{maths::*, terminal_wrapper::TerminalBuffer, utils::xy_to_it, *};
+use crate::{maths::*, terminal_wrapper::TerminalBuffer};
 
 
 pub struct Camera {
@@ -24,7 +24,7 @@ impl Camera {
 			up:      Vec3::new(0.0, 1.0, 0.0),
 			side:    Vec3::new(1.0, 0.0, 0.0),
 
-			view_matrix: build_identity_4x4(),
+			view_matrix: create_identity_4x4(),
 			initial_position: Vec3::zero(),
 			initial_rotation: Vec3::zero(),
 		}
@@ -52,8 +52,8 @@ impl Camera {
 
 	#[deprecated]
 	fn find_up_and_forward(&self) -> (Vec3, Vec3) {
-		let mut mat = build_identity_4x4();
-		apply_rotation_to_mat_4x4(&mut mat, self.rotation.x, self.rotation.y, self.rotation.z);
+		let mut mat = create_identity_4x4();
+		apply_rotation_to_mat_4x4_simple(&mut mat, self.rotation.x, self.rotation.y, self.rotation.z);
 
 		let cam_up = Vec3::new(0.0, 1.0, 0.0);
 		let cam_up = cam_up.get_transformed_by_mat4x4_uniform(&mat);
@@ -78,22 +78,22 @@ impl Camera {
 		// accounts for Z
 		// let cam_up = Vec3::new(cos_x * sin_z + sin_x * sin_y * cos_z, cos_x * cos_z - sin_x * sin_y * sin_z, -sin_x * cos_y);
 
-		self.up = normalize(&Vec3::new(
+		self.up = Vec3::new(
 			sin_x * sin_y,
 			cos_x,
 			-sin_x * cos_y,
-		));
+		);
 
 		// accounts for Z
 		// let cam_forward = Vec3::new(sin_x * sin_z - cos_x * sin_y * cos_z, sin_x * cos_z + cos_x * sin_y * sin_z, cos_x * cos_y,);
 
-		self.forward = normalize(&Vec3::new(
+		self.forward = Vec3::new(
 			- cos_x * sin_y,
 			sin_x,
 			cos_x * cos_y,
-		));
+		);
 
-		self.side = normalize(&cross_product(&self.forward, &self.up));
+		self.side = Vec3::cross_product(&self.forward, &self.up);
 		// let cam_up = cross_product(&cam_side, &cam_forward);
 
 		// TODO: dump to file logic
@@ -119,9 +119,9 @@ impl Camera {
 		self.view_matrix[xy_to_it(1, 2, SZ)] = -self.forward.y;
 		self.view_matrix[xy_to_it(2, 2, SZ)] = -self.forward.z;
 
-		self.view_matrix[xy_to_it(3, 0, SZ)] = -dot_product(&self.side, &self.position);
-		self.view_matrix[xy_to_it(3, 1, SZ)] = -dot_product(&self.up, &self.position);
-		self.view_matrix[xy_to_it(3, 2, SZ)] = dot_product(&self.forward, &self.position);
+		self.view_matrix[xy_to_it(3, 0, SZ)] = -Vec3::dot_product(&self.side, &self.position);
+		self.view_matrix[xy_to_it(3, 1, SZ)] = -Vec3::dot_product(&self.up, &self.position);
+		self.view_matrix[xy_to_it(3, 2, SZ)] =  Vec3::dot_product(&self.forward, &self.position);
 	}
 
 }

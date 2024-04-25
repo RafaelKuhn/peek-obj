@@ -1,4 +1,31 @@
 
+
+fn random_skip_ball() {
+	let interval = 2.;
+	let time = ((timer.time_aggr.as_millis() as f32 * 0.001 / interval) * 1.000) as u64;
+
+	let seed = Seed::unsafe_new(time);
+	let random = Random::from_seed(seed);
+
+	let random_skip = (random.u32() as usize) % (yade_data.balls.len() - 1);
+}
+
+
+fn order_vec(yade_data: YadeDemData) {
+	let mut copy = yade_data.balls.to_owned();
+
+	buf.write_debug(&format!("  UNSORTED! \n"));
+	copy.iter().enumerate().for_each(|(f,a)| buf.write_debug(&format!(" -> {:}: {:}\n", f, a)));
+
+	copy.sort_by(|circ, other| {
+		circ.pos.x.partial_cmp(&other.pos.x).unwrap()
+	});
+	
+	buf.write_debug(&format!("  SORTED! \n"));
+	copy.iter().enumerate().for_each(|(f,a)| buf.write_debug(&format!(" -> {:}: {:}\n", f, a)));
+}
+
+
 fn test_shit2() {
 
 	let mut buf = [

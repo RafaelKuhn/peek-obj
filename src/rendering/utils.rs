@@ -1,26 +1,38 @@
+use crate::{maths::*, render_string, terminal_wrapper::TerminalBuffer};
 
-#[inline(always)]
-pub fn xy_to_it(x: u16, y: u16, width: u16) -> usize {
-	let y_offset = y as usize * width as usize;
-	y_offset + x as usize
+
+
+pub fn clip_space_to_screen_space(p: &Vec3, screen_width: u16, screen_height: u16) -> IVec2 {
+	let screen_x = (p.x + 1.0) * 0.5 * screen_width  as f32;
+	let screen_y = (p.y + 1.0) * 0.5 * screen_height as f32;
+
+	IVec2::new(screen_x as Int, screen_y as Int)
 }
 
-// TODO: format this more decently
-pub fn fmt_mat4x4(mat: &Vec<f32>) -> String {
-	format!("\n[{} {} {} {}]\n[{} {} {} {}]\n[{} {} {} {}]\n[{} {} {} {}]", 
-		fmt_f(mat[ 0]), fmt_f(mat[ 1]), fmt_f(mat[ 2]), fmt_f(mat[ 3]),
-		fmt_f(mat[ 4]), fmt_f(mat[ 5]), fmt_f(mat[ 6]), fmt_f(mat[ 7]),
-		fmt_f(mat[ 8]), fmt_f(mat[ 9]), fmt_f(mat[10]), fmt_f(mat[11]),
-		fmt_f(mat[12]), fmt_f(mat[13]), fmt_f(mat[14]), fmt_f(mat[15]),
-	)
+pub fn clip_space_to_screen_space_f32(p: &Vec3, screen_width: u16, screen_height: u16) -> (f32, f32) {
+	let screen_x = (p.x + 1.0) * 0.5 * screen_width  as f32;
+	let screen_y = (p.y + 1.0) * 0.5 * screen_height as f32;
+
+	(screen_x, screen_y)
 }
 
-pub fn fmt_mat4_line(x: f32, y: f32, z: f32, w: f32) -> String {
-	format!("[{} {} {} {}]", fmt_f(x), fmt_f(y), fmt_f(z), fmt_f(w))
+pub fn normalize_clip_space(p: &Vec3) -> Vec3 {
+	let screen_x = (p.x + 1.0) * 0.5;
+	let screen_y = (p.y + 1.0) * 0.5;
+
+	Vec3::new(screen_x, screen_y, 0.0)
 }
 
-pub fn fmt_f(f: f32) -> String {
-	// ' >6' means pad the string with spaces ' ' until its length is 6
-	// '+.2' means pad the float with two decimals and force + sign on positive
-	format!("{:>6}", format!("{:+.2}", f))
+pub fn screen_project(vec: &Vec3, render_mat: &[f32], wid: u16, hei: u16) -> IVec2 {
+	let projected_3d = vec.get_transformed_by_mat4x4_uniform(render_mat);
+	let projected_2d = clip_space_to_screen_space(&projected_3d, wid, hei);
+	projected_2d
+}
+
+fn render_uvec2_dbg(vec: &UVec2, pos: &UVec2, buf: &mut TerminalBuffer) {
+	render_string(&format!("[{},{}]", vec.x, vec.y), pos, buf);
+}
+
+fn render_vec3_dbg(vec: &Vec3, pos: &UVec2, buf: &mut TerminalBuffer) {
+	render_string(&format!("[{:+.2},{:+.2},{:+.2}]", vec.x, vec.y, vec.z), pos, buf);
 }

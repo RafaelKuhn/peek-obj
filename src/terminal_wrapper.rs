@@ -3,7 +3,7 @@ use core::panic;
 use std::{f32::consts::TAU, fs::File, io::{self, Stdout, Write}, process, time::Duration};
 
 use crossterm::{
-cursor::{Hide, MoveTo, Show}, event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind, KeyModifiers}, execute, queue, style::Print, terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen}, QueueableCommand
+cursor::{Hide, MoveTo, Show}, event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind, KeyModifiers}, execute, queue, style::Print, terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen}
 };
 
 pub struct CrosstermTerminal {
@@ -71,6 +71,7 @@ pub fn poll_events(terminal: &mut CrosstermTerminal, app: &mut App, timer: &mut 
 				KeyCode::Esc => quit(terminal),
 
 				KeyCode::Char(ch) => match ch.to_ascii_lowercase() {
+					'm' => app.buf.test = !app.buf.test,
 					// 'c' if key.modifiers.contains(KeyModifiers::CONTROL) => quit(terminal),
 					'c' if key_evt.modifiers == KeyModifiers::CONTROL => quit(terminal),
 					'q' if key_evt.modifiers == KeyModifiers::CONTROL => quit(terminal),
@@ -159,6 +160,8 @@ pub struct TerminalBuffer {
 	pub render_mat: Vec<f32>,
 
 	debug_file: Option<File>,
+
+	pub test: bool,
 }
 
 impl TerminalBuffer {
@@ -173,10 +176,11 @@ impl TerminalBuffer {
 			wid: w,
 			hei: h,
 			vec,
-			proj_mat: build_identity_4x4(),
-			transf_mat: build_identity_4x4(),
-			render_mat: build_identity_4x4(),
+			proj_mat: create_identity_4x4(),
+			transf_mat: create_identity_4x4(),
+			render_mat: create_identity_4x4(),
 			debug_file,
+			test: false,
 		};
 
 		render_clear(&mut this);

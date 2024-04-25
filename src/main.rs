@@ -12,6 +12,7 @@ mod timer;
 mod benchmark;
 mod file_readers;
 mod settings;
+mod utils;
 
 
 use std::{env, io, time::{Duration, Instant}};
@@ -19,15 +20,17 @@ use std::{env, io, time::{Duration, Instant}};
 use crossterm::terminal::*;
 
 use file_readers::yade_dem_reader::YadeDemData;
-use file_readers::obj_reader::read_mesh_from_obj;
-use rendering::{renderer::Renderer, yade_renderer::YadeRenderer, *};
+use rendering::{camera::Camera, mesh::Mesh, renderer::Renderer, yade_renderer::YadeRenderer, *};
 use settings::Settings;
 use timer::Timer;
 use benchmark::Benchmark;
+use terminal_wrapper::*;
+use maths::*;
 
-use crate::{maths::*, obj_renderer::ObjRenderer, rendering::{camera::Camera, mesh::Mesh}, terminal_wrapper::*};
+use crate::{file_readers::obj_reader::read_mesh_from_obj, obj_renderer::ObjRenderer};
 
-// TODO: figure out how to do it more functionally if I wanted to
+
+// TODO: figure out how to do it more functional if I wanted to
 type RenderMeshFn = fn(&Mesh, &mut TerminalBuffer, &Timer, &Camera);
 type RenderYadeFn = fn(&YadeDemData, &mut TerminalBuffer, &Timer, &Camera);
 
@@ -73,6 +76,29 @@ fn main() {
 	// ... or this
 	// camera.set_initial_pos(2.87, 2.85, 19.44);
 	// camera.set_initial_rot(0.15, -0.15, 0.00);
+
+	
+	camera.set_initial_pos(0.0, 1.0, 16.0);
+
+	// lil far view
+	camera.set_initial_pos(0.8, 5.15, 5.04);
+	camera.set_initial_rot(0.69, 0.0, 0.0);
+
+	// see the whole thing
+	camera.set_initial_pos(0.89, 9.27, 16.97);
+	camera.set_initial_rot(0.45, -0.05, 0.0);
+
+	camera.set_initial_pos(0.0, 0.0, 5.0);
+	camera.set_initial_rot(0.00, 0.00, 0.00);
+	// camera.set_initial_pos(0.0, 7.7989, 0.1271);
+	// camera.set_initial_rot(1.52, 0.00, 0.00);
+
+	camera.set_initial_pos(0.0, 1.0, 16.0);
+	camera.set_initial_rot(0.0, 0.0, 0.0);
+
+
+
+
 	camera.update_view_matrix(&mut app.buf);
 
 	// #if MESH
@@ -116,11 +142,9 @@ fn main() {
 		render_axes(&mut app.buf, &camera);
 
 		// let rad = 0.01 * YADE_SCALE_TEMP;
-		// render_sphere(&Vec3::new(0.0, 0.0, 12.0), rad, &mut app.buf, &timer);
+		// render_sphere(&Vec3::new(0.0, 0.0, 12.0), rad, &mut app.buf, &timer, &camera);
 
-		// render_circle(&UVec2::new(app.buf.wid / 2, app.buf.hei / 2), app.buf.hei as f32 / 4.0, &mut app.buf);
-
-		render_mesh(&mesh, &mut app.buf, &timer, &camera);
+		// render_mesh(&mesh, &mut app.buf, &timer, &camera);
 
 
 		renderer.render(&mut app.buf, &timer, &camera);
@@ -174,11 +198,12 @@ fn try_saving_screenshot(app: &mut App, timer: &Timer) {
 		return;
 	}
 
-	if !app.called_take_screenshot { return }
-	app.called_take_screenshot = false;
-	app.last_screenshot_instance = now;
+	if app.called_take_screenshot {
+		app.called_take_screenshot = false;
+		app.last_screenshot_instance = now;
 
-	app.buf.try_dump_buffer_content_to_file();
+		app.buf.try_dump_buffer_content_to_file();
+	}
 }
 
 fn set_panic_hook() {

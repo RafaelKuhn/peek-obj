@@ -1,6 +1,6 @@
 use std::{num::{ParseFloatError, ParseIntError}, fmt::Display, fs, io::Error};
 
-use crate::{rendering::mesh::Mesh, maths::Vec3};
+use crate::{rendering::mesh::Mesh, Vec3};
 
 
 // TODO: make a macro to read an obj file in compile time and keeps it in the binary

@@ -1,19 +1,26 @@
-use std::{fs, process};
+use std::{fmt::Display, fs, process};
 
-use crate::{maths::Vec3};
+use crate::maths::*;
 
 
 pub struct YadeDemData {
 	pub tris:  Vec<Tri>,
-	pub circs: Vec<Circ>,
+	pub balls: Vec<Circ>,
 }
 
 type Float = f32;
 
+#[derive(Clone)]
 pub struct Circ {
 	pub pos: Vec3,
 
 	pub rad: Float,
+}
+
+impl Display for Circ {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		write!(f, "({:+.6}) at [{:+.6}, {:+.6}, {:+.6}]", self.rad, self.pos.x, self.pos.y, self.pos.z)
+	}
 }
 
 pub struct Tri {
@@ -57,7 +64,7 @@ impl YadeDemData {
 				let   z = line_split.next().unwrap().parse::<Float>().unwrap();
 				let rad = line_split.next().unwrap().parse::<Float>().unwrap();
 
-				circs.push(Circ { pos: Vec3 { x, y, z }, rad });
+				circs.push(Circ { pos: Vec3 { x: x, y: z, z: y }, rad });
 
 				continue;
 			}
@@ -106,7 +113,7 @@ impl YadeDemData {
 		// #endif
 
 		Self {
-			circs,
+			balls: circs,
 			tris,
 		}
 

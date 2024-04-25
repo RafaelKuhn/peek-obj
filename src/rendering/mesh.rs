@@ -1,4 +1,4 @@
-use crate::{maths::Vec3};
+use crate::maths::Vec3;
 
 
 pub struct Mesh {
@@ -46,21 +46,21 @@ impl Mesh {
 		Self {
 			pos: Vec3::zero(),
 			verts: vec![
-				 0.5,  0.0,  0.5,
-				 0.6,  0.0,  0.5,
-				 0.5, -1.0,  0.5,
+				 0.5, 0.0,  0.5,
+				 0.6, 0.0,  0.5,
+				 0.5, 1.0,  0.5,
 
-				-0.5,  0.0,  0.5,
-				-0.5,  0.0,  0.6,
-				-0.5, -1.0,  0.5,
+				-0.5, 0.0,  0.5,
+				-0.5, 0.0,  0.6,
+				-0.5, 1.0,  0.5,
 
-				-0.5,  0.0, -0.5,
-				-0.6,  0.0, -0.5,
-				-0.5, -1.0, -0.5,
+				-0.5, 0.0, -0.5,
+				-0.6, 0.0, -0.5,
+				-0.5, 1.0, -0.5,
 
-				 0.5,  0.0, -0.5,
-				 0.5,  0.0, -0.6,
-				 0.5, -1.0, -0.5,
+				 0.5, 0.0, -0.5,
+				 0.5, 0.0, -0.6,
+				 0.5, 1.0, -0.5,
 
 				//  0.5,  2.1,  0.5,
 				//  0.6,  2.1,  0.5,
@@ -86,25 +86,6 @@ impl Mesh {
 
 				0, 3, 6,
 				6, 9, 0,
-
-				// quad
-				// 0, 1, 2,
-				// 2, 3, 0,
-
-
-
-				// 1, 2, 3,
-				// 7, 6, 5,
-				// 4, 5, 1,
-				// 5, 6, 2,
-				// 2, 6, 7,
-				// 0, 3, 7,
-				// 0, 1, 3,
-				// 4, 7, 5,
-				// 0, 4, 1,
-				// 1, 5, 2,
-				// 3, 2, 7,
-				// 4, 0, 7,
 			],
 			normals: vec! [],
 			normal_indices: vec! [],
@@ -135,7 +116,7 @@ impl Mesh {
 		const SZ: usize = 3;
 		Vec3::new(
 			 self.verts[tri_index as usize * SZ + 0],
-			-self.verts[tri_index as usize * SZ + 1],
+			 self.verts[tri_index as usize * SZ + 1],
 			 self.verts[tri_index as usize * SZ + 2],
 		)
 	}
@@ -146,7 +127,7 @@ impl Mesh {
 		const SZ: usize = 3;
 		Vec3::new(
 			 self.normals[normal_index as usize * SZ + 0],
-			-self.normals[normal_index as usize * SZ + 1],
+			 self.normals[normal_index as usize * SZ + 1],
 			 self.normals[normal_index as usize * SZ + 2],
 		)
 	}
@@ -171,4 +152,3 @@ impl Mesh {
 		}
 	}
 }
-
