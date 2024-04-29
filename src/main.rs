@@ -60,7 +60,7 @@ fn main() {
 	set_panic_hook();
 
 	let mut app = App::init_with_screen();
-	// let mut app = App::init(32, 32);
+	// let mut app = App::init_wh(100, 30);
 
 	let mut timer = Timer::new();
 
@@ -77,26 +77,36 @@ fn main() {
 	// camera.set_initial_pos(2.87, 2.85, 19.44);
 	// camera.set_initial_rot(0.15, -0.15, 0.00);
 
-	
-	camera.set_initial_pos(0.0, 1.0, 16.0);
-
-	// lil far view
-	camera.set_initial_pos(0.8, 5.15, 5.04);
-	camera.set_initial_rot(0.69, 0.0, 0.0);
-
-	// see the whole thing
-	camera.set_initial_pos(0.89, 9.27, 16.97);
-	camera.set_initial_rot(0.45, -0.05, 0.0);
-
-	camera.set_initial_pos(0.0, 0.0, 5.0);
-	camera.set_initial_rot(0.00, 0.00, 0.00);
-	// camera.set_initial_pos(0.0, 7.7989, 0.1271);
-	// camera.set_initial_rot(1.52, 0.00, 0.00);
-
-	camera.set_initial_pos(0.0, 1.0, 16.0);
+	camera.set_initial_pos(0.0, 0.0, 16.0);
 	camera.set_initial_rot(0.0, 0.0, 0.0);
 
+	// see the whole thing
+	// camera.set_initial_pos(0.89, 9.27, 16.97);
+	// camera.set_initial_rot(0.45, -0.05, 0.0);
 
+	// camera in front
+	// camera.set_initial_pos(0.0, 0.0, 5.0);
+	// camera.set_initial_rot(0.00, 0.00, 0.00);
+
+	// camera from above
+	// camera.set_initial_pos(0.0, 7.7989, 0.1271);
+	// camera.set_initial_rot(1.52, 0.00, 0.00);
+	
+	// // camera from side
+	// camera.set_initial_pos(8.585467,  3.822423, 0.048875);
+	// camera.set_initial_rot(0.392699, -1.570797, 0.000000);
+
+	// // offset in all axis
+	// camera.set_initial_pos(6.560868, 3.081584, 5.002097);
+	// camera.set_initial_rot(0.343612, -0.932661, 0.000000);
+
+	// camera.set_initial_pos(16.997181, 7.730669, 12.742184);
+	// camera.set_initial_rot(0.343612, -0.932661, 0.000000);
+
+	// camera.set_initial_pos(8.073381, 3.755364, 6.123851);
+	// camera.set_initial_rot(0.343612, -0.932661, 0.000000);
+
+	timer.set_default_time_scale(1.0);
 
 
 	camera.update_view_matrix(&mut app.buf);
@@ -120,12 +130,14 @@ fn main() {
 	// mesh.invert_mesh_yz();
 	// translate_mesh(&mut mesh, &Vec3::new(0.0, 0.0, -0.125));
 
+	let print_to_terminal_func = if app.is_full_screen { print_and_flush_terminal_fscreen } else { print_and_flush_terminal_line_by_line };
+
 	let renderer: Box<dyn Renderer> = match data_to_draw {
 		FileDataType::YadeData(yade_data) => Box::new(YadeRenderer::new(yade_data)),
 		FileDataType::Mesh(mesh) => Box::new(ObjRenderer::new(mesh)),
 	};
 
-	let mesh = Mesh::pillars();
+	// let yade_debug = YadeDemData::debug();
 
 	loop {
 		just_poll_while_paused(&mut app, terminal_mut, &mut timer);
@@ -141,11 +153,8 @@ fn main() {
 		render_gizmos(&mut app.buf, &camera);
 		render_axes(&mut app.buf, &camera);
 
-		// let rad = 0.01 * YADE_SCALE_TEMP;
-		// render_sphere(&Vec3::new(0.0, 0.0, 12.0), rad, &mut app.buf, &timer, &camera);
 
-		// render_mesh(&mesh, &mut app.buf, &timer, &camera);
-
+		// render_yade(&yade_debug, &mut app.buf, &timer, &camera);
 
 		renderer.render(&mut app.buf, &timer, &camera);
 
@@ -155,7 +164,7 @@ fn main() {
 		timer.run_frame();
 
 		try_saving_screenshot(&mut app, &timer);
-		queue_draw_to_terminal_and_flush(&app.buf, terminal_mut);
+		print_to_terminal_func(&app.buf, terminal_mut);
 	}
 
 	restore_terminal(terminal_mut);
@@ -212,12 +221,13 @@ fn set_panic_hook() {
 		restore_stdout(&mut io::stdout());
 
 		hook(info);
+		restore_stdout(&mut io::stdout());
 	}));
 }
 
 
 pub struct App {
-	pub can_resize: bool,
+	pub is_full_screen: bool,
 	pub has_paused_rendering: bool,
 
 	pub buf: TerminalBuffer,
@@ -244,9 +254,9 @@ impl App {
 
 	const SCREENDUMP_DELAY_DURATION: Duration = Duration::from_millis(App::SCREENDUMP_DELAY_MS);
 	const SCREENDUMP_DELAY_MS: u64 = 300;
-	fn init(width: u16, height: u16, can_resize: bool) -> App {
+	fn init(width: u16, height: u16, is_full_screen: bool) -> App {
 		Self {
-			can_resize,
+			is_full_screen,
 			has_paused_rendering: false,
 
 			buf: TerminalBuffer::new(width, height),
@@ -262,7 +272,7 @@ impl App {
 
 	fn resize_realloc(&mut self, w: u16, h: u16) {
 
-		if !self.can_resize { return; }
+		if !self.is_full_screen { return; }
 
 		// I have NO IDEA why Windows terminals need +1 for buffer size on resize events
 
@@ -276,4 +286,5 @@ impl App {
 		// the content of the previous frame, reescale it and draw it into the new one
 		// (simply not gonna work)
 	}
+
 }

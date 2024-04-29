@@ -53,7 +53,7 @@ impl Camera {
 	#[deprecated]
 	fn find_up_and_forward(&self) -> (Vec3, Vec3) {
 		let mut mat = create_identity_4x4();
-		apply_rotation_to_mat_4x4_simple(&mut mat, self.rotation.x, self.rotation.y, self.rotation.z);
+		apply_rotation_to_mat_4x4(&mut mat, self.rotation.x, self.rotation.y, self.rotation.z);
 
 		let cam_up = Vec3::new(0.0, 1.0, 0.0);
 		let cam_up = cam_up.get_transformed_by_mat4x4_uniform(&mat);

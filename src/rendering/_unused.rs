@@ -1,4 +1,106 @@
 
+
+pub fn render_sphere(pos: &Vec3, rad: f32, ch: char, buf: &mut TerminalBuffer, timer: &Timer, camera: &Camera) {
+
+	buf.copy_projection_to_render_matrix();
+	apply_identity_to_mat_4x4(&mut buf.transf_mat);
+
+	buf.clear_debug();
+
+	// let mut rot_only_mat = create_identity_4x4();
+
+	let mut proj_only_mat = create_identity_4x4();
+	proj_only_mat.copy_from_slice(&buf.render_mat);
+
+
+	let speed = 0.5;
+	let mut t = timer.time_aggr.as_millis() as f32 * 0.001 * speed;
+	// let mut t = TAU * 1./4.;
+	// if buf.test { t = 0.0; }
+
+	// let rad = 0.009926;
+	// let rad = 0.01;
+	// let pos = Vec3::new(-0.034109, -0.002092, -0.080507);
+	// let pos = Vec3::new(0.02, 0., 0.);
+
+	let pos = pos * YADE_SCALE_TEMP;
+	let rad_sc = rad * YADE_SCALE_TEMP;
+
+	buf.write_debug(&format!("{:?} original\n", pos));
+	buf.write_debug(&format!("{:.6} RAD * SCALE\n", rad_sc));
+
+
+
+	apply_rotation_to_mat_4x4_simple(&mut buf.transf_mat, 0.0, t, 0.0);
+
+	multiply_4x4_matrices(&mut buf.render_mat, &camera.view_matrix);
+	multiply_4x4_matrices(&mut buf.render_mat, &buf.transf_mat);
+
+
+	multiply_4x4_matrices(&mut proj_only_mat, &camera.view_matrix);
+	let rot_pos = pos.rotated_y(t);
+	// buf.write_debug(&format!("{:?} rot only\n", rot_pos));
+	let rot_pos_up = rot_pos.add_vec(&(camera.up * rad_sc));
+	// buf.write_debug(&format!("{:?} rot up\n", rot_pos_up));
+	let rot_pos_up_proj = rot_pos_up.get_transformed_by_mat4x4_uniform(&proj_only_mat);
+	// buf.write_debug(&format!("{:?} rot up projected\n", rot_pos_up_proj));
+	let rot_pos_up_proj_2d_f32 = clip_space_to_screen_space_f32(&rot_pos_up_proj, buf.wid, buf.hei);
+
+	// let rot_pos_up_proj_2d = clip_space_to_screen_space(&rot_pos_up_proj, buf.wid, buf.hei);
+	// buf.write_debug(&format!("{:?} rot_pos_up_proj_2d, BUT: {:?}\n", rot_pos_up_proj_2d, rot_pos_up_proj_2d_f32));
+
+	let rot_pos_up_proj_2d_f = clip_space_to_screen_space_f32(&rot_pos_up_proj, buf.wid, buf.hei);
+	// safe_render_char_signed('X', rot_pos_up_proj_2d.x, rot_pos_up_proj_2d.y, buf);
+
+
+
+	let projected = pos.get_transformed_by_mat4x4_uniform(&buf.render_mat);
+	buf.write_debug(&format!("\n\n{:?} projected\n", projected));
+	// let projected_clip = normalize_clip_space(&projected);
+	// buf.write_debug(&format!("{:?} normalized\n", projected_clip));
+	let projected_2d = clip_space_to_screen_space(&projected, buf.wid, buf.hei);
+	buf.write_debug(&format!("{:?} 2d of wh {:?}\n", projected_2d, IVec2::new(buf.wid.into(), buf.hei.into())));
+
+
+	// let up_proj = rot_pos.add_vec(&(&camera.up * rad * YADE_SCALE_TEMP)).get_transformed_by_mat4x4_uniform(&buf.transf_mat);
+	// // let up_proj = pos.add_vec(&(&camera.up * rad)).get_transformed_by_mat4x4_uniform(&proj_only_mat);
+	// let scr = up_proj.clip_space_to_screen_space(buf.wid, buf.hei);
+	// safe_render_char_signed('P', scr.x, scr.y, buf);
+
+	
+	let rot_pos_side = rot_pos.add_vec(&(&camera.side.inversed() * rad_sc));
+	let rot_pos_side_proj = rot_pos_side.get_transformed_by_mat4x4_uniform(&proj_only_mat);
+	let rot_pos_side_proj_2d = clip_space_to_screen_space(&rot_pos_side_proj, buf.wid, buf.hei);
+
+
+
+
+	// safe_render_char_signed('c', projected_2d.x, projected_2d.y, buf);
+
+	let ball_up = pos.add_vec(&(camera.up * rad * YADE_SCALE_TEMP)). get_transformed_by_mat4x4_uniform(&buf.render_mat);
+	let ball_right = pos.add_vec(&(&camera.side.inversed() * rad * YADE_SCALE_TEMP)).get_transformed_by_mat4x4_uniform(&buf.render_mat);
+	// let ball_up = ball_pos.add_vec(&(&camera.up * ball.rad * YADE_SCALE_TEMP));
+
+	// buf.write_debug(&format!("{:}, r {:.6}, pos {:?} -> {:?} up {:?}\n", i, ball.rad, ball.pos, ball_pos, ball_up));
+
+	let screen_circ = clip_space_to_screen_space(&projected, buf.wid, buf.hei);
+	let screen_circ_f32 = clip_space_to_screen_space_f32(&projected, buf.wid, buf.hei);
+
+	// safe_render_char_signed('U', screen_up.x, screen_up.y, buf);
+	// safe_render_char_signed('S', screen_side.x, screen_side.y, buf);
+
+
+	let dist = (rot_pos_up_proj_2d_f32.1 - screen_circ_f32.1).abs();
+	// render_fill_bres_circle(&screen_circ, dist, '.', buf);
+	render_fill_bres_circle(&screen_circ, dist, ch, buf);
+
+	safe_render_char_signed('C', screen_circ.x, screen_circ.y, buf);
+
+	safe_render_char_signed('U', rot_pos_up_proj_2d.x, rot_pos_up_proj_2d.y, buf);
+	safe_render_char_signed('S', rot_pos_side_proj_2d.x, rot_pos_side_proj_2d.y, buf);
+}
+
+
 // pub fn draw_string(string: &str, pos: &UVec2, buffer: &mut [char], screen_width: u16) {
 // 	let mut index = pos.y as usize * screen_width as usize + pos.x as usize;
 // 	for ch in string.chars() {
@@ -177,71 +279,6 @@
 // 	}
 // }
 
-// // TODO: could pass in a global data object with the timer and the matrices
-// pub fn draw_mesh_filled(mesh: &Mesh, buffer: &mut [char], width_height: (u16, u16), _timer: &Timer, matrices: (&mut [f32], &mut [f32]), camera: &Camera) {
-// 	let (screen_width, screen_height) = width_height;
-// 	let (proj_mat, transform_mat) = matrices;
-
-// 	apply_identity_to_mat_4x4(proj_mat);
-// 	apply_identity_to_mat_4x4(transform_mat);
-
-// 	apply_projection_to_mat_4x4(proj_mat, screen_width, screen_height);
-
-// 	// TODO: apply object scale and rotation here
-// 	// apply_scale_to_mat_4x4(transform_mat, 1.0, 1.0, 1.0);
-// 	// apply_rotation_to_mat_4x4(transform_mat, TAU * 3.8, TAU * 1.4, 0.0);
-// 	apply_pos_to_mat_4x4(transform_mat, mesh.pos.x, mesh.pos.y, mesh.pos.z);
-
-// 	// DRAWS
-// 	// let st = &format!("pos {:.2} {:.2} {:.2}", mesh.pos.x, mesh.pos.y, mesh.pos.z);
-// 	// draw_string(st, &UVec2::new(0, 2), buffer, screen_width);
-// 	// draw_string("transform", &UVec2::new(0, 3), buffer, screen_width);
-// 	// draw_mat4x4(&transform_mat, &UVec2::new(4, 4), buffer, screen_width);
-
-// 	multiply_4x4_matrices(transform_mat, &camera.view_matrix);
-
-// 	// let st = &format!("pos {:.2} {:.2} {:.2}", camera.get_pos().x, camera.get_pos().y, camera.get_pos().z);
-// 	// draw_string(st, &UVec2::new(0, 9), buffer, screen_width);
-// 	// let st = &format!("rot {:.2} {:.2} {:.2}", camera.rotation.x, camera.rotation.y, camera.rotation.z);
-// 	// draw_string(st, &UVec2::new(0, 10), buffer, screen_width);
-// 	// draw_string("view", &UVec2::new(0, 11), buffer, screen_width);
-// 	// draw_mat4x4(&camera.view_matrix, &UVec2::new(4, 12), buffer, screen_width);
-
-// 	multiply_4x4_matrices(proj_mat, transform_mat);
-// 	// draw_string("end proj mat", &UVec2::new(0, 35), buffer, screen_width);
-// 	// draw_mat4x4(&proj_mat, &UVec2::new(4, 36), buffer, screen_width);
-
-// 	let tris_amt = mesh.tris_indices.len() / 3;
-// 	for tri_i in 0..tris_amt {
-// 		let p0_i = tri_i * 3 + 0;
-// 		let p1_i = tri_i * 3 + 1;
-// 		let p2_i = tri_i * 3 + 2;
-
-// 		// // TODO: remove
-// 		// let p0 = mesh.get_vert_at(p0_i); // .get_transformed_by_mat4x4(proj_mat);
-// 		// let p1 = mesh.get_vert_at(p1_i); // .get_transformed_by_mat4x4(proj_mat);
-// 		// let p2 = mesh.get_vert_at(p2_i); // .get_transformed_by_mat4x4(proj_mat);
-// 		// let trs_p0 = p0.get_transformed_by_mat4x4(proj_mat);
-// 		// let trs_p1 = p1.get_transformed_by_mat4x4(proj_mat);
-// 		// let trs_p2 = p2.get_transformed_by_mat4x4(proj_mat);
-
-// 		let trs_p0 = mesh.get_vert_at(p0_i).get_transformed_by_mat4x4(proj_mat);
-// 		let trs_p1 = mesh.get_vert_at(p1_i).get_transformed_by_mat4x4(proj_mat);
-// 		let trs_p2 = mesh.get_vert_at(p2_i).get_transformed_by_mat4x4(proj_mat);
-
-// 		let screen_p0 = clip_space_to_screen_space(&trs_p0, screen_width, screen_height);
-// 		let screen_p1 = clip_space_to_screen_space(&trs_p1, screen_width, screen_height);
-// 		let screen_p2 = clip_space_to_screen_space(&trs_p2, screen_width, screen_height);
-
-// 		draw_bresenham_line(&screen_p0, &screen_p1, buffer, screen_width, FILL_CHAR);
-// 		draw_bresenham_line(&screen_p1, &screen_p2, buffer, screen_width, FILL_CHAR);
-// 		draw_bresenham_line(&screen_p2, &screen_p0, buffer, screen_width, FILL_CHAR);
-// 	}
-// }
-
-// pub fn draw_mesh_filled_and_normals(_screen_space_tris: &mut [ScreenTriangle], _buffer: &mut [char], _screen_width: u16) {
-// 	todo!()
-// }
 
 // pub fn draw_yade(yade_data: &YadeDemData, buffer: &mut [char], width_height: (u16, u16), timer: &Timer, matrices: (&mut [f32], &mut [f32]), _camera: &Camera) {
 // 	let (screen_width, screen_height) = width_height;
@@ -308,13 +345,6 @@
 // 	}
 // }
 
-
-// pub fn draw_point(p: &UVec2, buffer: &mut [char], screen_width: u16, fill_char: char) {
-// 	let index: usize = p.y as usize * screen_width as usize + p.x as usize;
-// 	if index < buffer.len() {
-// 		buffer[index] = fill_char;
-// 	}
-// }
 
 // fn draw_bresenham_line(p0: &UVec2, p1: &UVec2, buffer: &mut [char], screen_width: u16, fill_char: char) {
 // 	let x0 = p0.x as i32;

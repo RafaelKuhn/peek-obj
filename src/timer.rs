@@ -7,9 +7,10 @@ pub struct Timer {
 	pub time_since_start: Duration,
 	pub time_aggr: Duration,
 	pub time_scale: f32,
-
+	
 	pub last_tick: Instant,
 
+	default_time_scale: f32,
 	start: Instant,
 }
 
@@ -26,7 +27,17 @@ impl Timer {
 			
 			start:            now,
 			last_tick:        now,
+    		default_time_scale:   1.0,
 		}
+	}
+
+	pub fn set_default_time_scale(&mut self, time_scale: f32) -> () {
+		self.time_scale = time_scale;
+		self.default_time_scale = time_scale;
+	}
+
+	pub fn reset_time_scale(&mut self) -> () {
+		self.time_scale = self.default_time_scale;
 	}
 
 	pub fn run_frame(&mut self) {

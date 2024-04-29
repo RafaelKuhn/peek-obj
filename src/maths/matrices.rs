@@ -13,6 +13,15 @@ pub fn create_identity_4x4() -> Vec<f32> {
 	]
 }
 
+pub fn create_identity_4x4_arr() -> [f32; 16] {
+	[
+		1.0, 0.0, 0.0, 0.0,
+		0.0, 1.0, 0.0, 0.0,
+		0.0, 0.0, 1.0, 0.0,
+		0.0, 0.0, 0.0, 1.0,
+	]
+}
+
 pub fn copy_mat4x4(vec_src: &[f32], vec_dst: &mut [f32]) {
 	vec_dst.copy_from_slice(vec_src);
 }
@@ -98,30 +107,7 @@ pub fn apply_scale_to_mat_4x4(mat: &mut [f32], scale_x: f32, scale_y: f32, scale
 	mat[xy_to_it(2, 2, SZ)] = mat[xy_to_it(2, 2, SZ)] * scale_z;
 }
 
-fn _apply_rotation_to_mat_4x4(mat: &mut [f32], angle_x: f32, angle_y: f32, angle_z: f32) {
-	let cos_x = angle_x.cos();
-	let sin_x = angle_x.sin();
-
-	let cos_y = angle_y.cos();
-	let sin_y = angle_y.sin();
-
-	let cos_z = angle_z.cos();
-	let sin_z = angle_z.sin();
-
-	let x0y0 = cos_y * cos_z;
-	let x1y0 = cos_y * -sin_z;
-	let x2y0 = sin_y;
-
-	let x0y1 = -sin_x * -sin_y * cos_z + cos_x * sin_z;
-	let x1y1 = -sin_x * -sin_y * -sin_z + cos_x * cos_z;
-	let x2y1 = -sin_x * cos_y;
-
-	let x0y2 = cos_x * -sin_y * cos_z + sin_x * sin_z;
-	let x1y2 = cos_x * -sin_y * -sin_z + sin_x * cos_z;
-	let x2y2 = cos_x * cos_y;
-}
-
-pub fn apply_rotation_to_mat_4x4_simple(mat: &mut [f32], angle_x: f32, angle_y: f32, angle_z: f32) {
+pub fn apply_rotation_to_mat_4x4(mat: &mut [f32], angle_x: f32, angle_y: f32, angle_z: f32) {
 	let cos_x = angle_x.cos();
 	let sin_x = angle_x.sin();
 
@@ -146,15 +132,6 @@ pub fn apply_rotation_to_mat_4x4_simple(mat: &mut [f32], angle_x: f32, angle_y: 
 		cos_x*-sin_y*cos_z + sin_x*sin_z   , cos_x*-sin_y*-sin_z + sin_x*cos_z   , cos_x*cos_y  , 0.0,
 		           0.0                     ,                0.0                  ,    0.0       , 1.0,
 	];
-
-	/*
-	{
-	             {cos_y*cos_z               ,              cos_y*-sin_z           ,    sin_y     , 0.0},
-		{-sin_x*-sin_y*cos_z +  cos_x*sin_z , -sin_x*-sin_y*-sin_z +  cos_x*cos_z , -sin_x*cos_y , 0.0},
-		{cos_x*-sin_y*cos_z + sin_x*sin_z   , cos_x*-sin_y*-sin_z + sin_x*cos_z   , cos_x*cos_y  , 0.0},
-		           {0.0                     ,                0.0                  ,    0.0       , 1.0},
-	}
-	*/
 
 	// this is actually fucking wrong because it multiplied Z by XY and not XY by Z
 	// let rot_mat = [

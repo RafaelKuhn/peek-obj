@@ -1,7 +1,5 @@
 use std::fmt;
 
-use num::integer::Roots;
-
 use crate::{uvec2::UVec2, Int};
 
 
@@ -15,8 +13,12 @@ impl IVec2 {
 		Self { x, y }
 	}
 
+	pub fn sum(&self, rhs: &IVec2) -> Self {
+		Self { x: self.x + rhs.x, y: self.y + rhs.y }
+	}
+
 	pub fn sum_t(&self, rhs: (Int, Int)) -> Self {
-		Self { x: self.x as Int + rhs.0, y: self.y as Int + rhs.1 }
+		Self { x: self.x + rhs.0, y: self.y + rhs.1 }
 	}
 
 	pub fn magnitude(&self) -> f32 {

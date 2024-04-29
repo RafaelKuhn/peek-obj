@@ -9,11 +9,19 @@ pub fn clip_space_to_screen_space(p: &Vec3, screen_width: u16, screen_height: u1
 	IVec2::new(screen_x as Int, screen_y as Int)
 }
 
+// TODO: delete
 pub fn clip_space_to_screen_space_f32(p: &Vec3, screen_width: u16, screen_height: u16) -> (f32, f32) {
 	let screen_x = (p.x + 1.0) * 0.5 * screen_width  as f32;
 	let screen_y = (p.y + 1.0) * 0.5 * screen_height as f32;
 
 	(screen_x, screen_y)
+}
+
+pub fn clip_space_to_screen_space_f(p: &Vec3, screen_width: u16, screen_height: u16) -> FVec2 {
+	let screen_x = (p.x + 1.0) * 0.5 * screen_width  as f32;
+	let screen_y = (p.y + 1.0) * 0.5 * screen_height as f32;
+
+	FVec2::new(screen_x, screen_y)
 }
 
 pub fn normalize_clip_space(p: &Vec3) -> Vec3 {

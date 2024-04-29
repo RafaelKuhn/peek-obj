@@ -3,7 +3,7 @@ use core::panic;
 use std::{f32::consts::TAU, fs::File, io::{self, Stdout, Write}, process, time::Duration};
 
 use crossterm::{
-cursor::{Hide, MoveTo, Show}, event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind, KeyModifiers}, execute, queue, style::Print, terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen}
+cursor::{Hide, MoveTo, Show}, event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind, KeyModifiers}, execute, queue, style::Print, terminal::{disable_raw_mode, enable_raw_mode, Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen}, QueueableCommand
 };
 
 pub struct CrosstermTerminal {
@@ -19,7 +19,6 @@ pub fn configure_terminal() -> CrosstermTerminal {
 	let mut stdout = io::stdout();
 
 	// enter alternate screen, hides cursor
-	// execute!(stdout, EnterAlternateScreen, EnableMouseCapture, Hide)
 	execute!(stdout, EnterAlternateScreen, Hide)
 		.unwrap();
 
@@ -99,7 +98,7 @@ pub fn poll_events(terminal: &mut CrosstermTerminal, app: &mut App, timer: &mut 
 					'p' => {
 							if app.has_paused_rendering {
 							app.has_paused_rendering = false;
-							timer.time_scale = 1.0;
+							timer.reset_time_scale();
 						} else {
 							app.has_paused_rendering = true;
 							timer.time_scale = 0.0;
@@ -113,7 +112,7 @@ pub fn poll_events(terminal: &mut CrosstermTerminal, app: &mut App, timer: &mut 
 		Event::Resize(new_width, new_height) => {
 			app.resize_realloc(new_width, new_height);
 			// I don't remember why we draw it immediately after resizing but ok
-			queue_draw_to_terminal_and_flush(&app.buf, terminal);
+			print_and_flush_terminal_fscreen(&app.buf, terminal);
 		}
 		_ => (),
 	}
@@ -125,7 +124,7 @@ pub fn just_poll_while_paused(app: &mut App, terminal_mut: &mut CrosstermTermina
 
 	let paused_str = "PAUSED!";
 	render_string(paused_str, &UVec2::new(app.buf.wid - paused_str.len() as u16, app.buf.hei - 1), &mut app.buf);
-	queue_draw_to_terminal_and_flush(&app.buf, terminal_mut);
+	print_and_flush_terminal_fscreen(&app.buf, terminal_mut);
 
 	while app.has_paused_rendering {
 		poll_events(terminal_mut, app, timer);
@@ -205,19 +204,18 @@ impl TerminalBuffer {
 		apply_projection_to_mat_4x4(&mut self.proj_mat, self.wid, self.hei);
 	}
 
-	pub fn copy_projection_to_mat4x4(&self, dst: &mut [f32]) {
-		dst.copy_from_slice(&self.proj_mat);
-	}
-
 	pub fn reset_render_matrix(&mut self) {
 		apply_identity_to_mat_4x4(&mut self.render_mat);
 	}
 
-	// pub fn copy_projection_to_render_matrix(&self, dst: &mut [f32]) -> &'a mut [f32] {
 	pub fn copy_projection_to_render_matrix(&mut self) {
 		self.render_mat.copy_from_slice(&self.proj_mat);
 	}
 
+	pub fn copy_projection_to_mat4x4(&self, dst: &mut [f32]) {
+		dst.copy_from_slice(&self.proj_mat);
+	}
+	
 	const SCREENSHOT_PATH: &str = "screenshot.txt";
 	pub fn try_dump_buffer_content_to_file(&mut self) {
 
@@ -286,29 +284,30 @@ impl TerminalBuffer {
 
 }
 
-pub fn queue_draw_to_terminal_and_flush(buf: &TerminalBuffer, terminal: &mut CrosstermTerminal) {
+pub fn print_and_flush_terminal_fscreen(buf: &TerminalBuffer, terminal: &mut CrosstermTerminal) {
+	// print_and_flush_terminal_line_by_line(buf,terminal); return;
 
 	// let buf_str = unsafe { std::str::from_utf8_unchecked(&buf.vec) };
 	let buf_str = std::str::from_utf8(&buf.vec).unwrap();
-
 	queue!(terminal.stdout, MoveTo(0, 0), Hide, Print(buf_str)).unwrap();
+	terminal.stdout.flush().unwrap();
+}
+
+pub fn print_and_flush_terminal_line_by_line(buf: &TerminalBuffer, terminal: &mut CrosstermTerminal) {
+	// line by line, this is required for "init with custom width/height"
+
+	let buf_wid = buf.wid as usize;
+	for y in 0..buf.hei {
+
+		let y_start = y as usize * buf_wid;
+		let y_end   = y_start + buf_wid;
+
+		// let buf_str = unsafe { std::str::from_utf8_unchecked(&buf.vec[y_start..y_end]) };
+		let buf_str = std::str::from_utf8(&buf.vec[y_start .. y_end]).unwrap();
+
+		// terminal.stdout.queue(Hide).unwrap();
+		queue!(terminal.stdout, MoveTo(0, y), Print(buf_str), Hide).unwrap();
+	}
 
 	terminal.stdout.flush().unwrap();
-
-
-	// // line by line sys calls
-	// for y in 0..buf.hei {
-
-	// 	terminal.stdout.queue(MoveTo(0, y)).unwrap();
-	// 	let y_start = y       as usize * buf.wid as usize * UTF32_BYTES_PER_CHAR;
-	// 	let y_end   = (y + 1) as usize * buf.wid as usize * UTF32_BYTES_PER_CHAR;
-
-	// 	let buf_str = unsafe { std::str::from_utf8_unchecked(&buf.vec[y_start..y_end]) };
-	// 	// let buf_str = std::str::from_utf8(&buf.vec[y_start .. y_end]).unwrap();
-
-	// 	terminal.stdout.queue(Hide).unwrap();
-	// 	terminal.stdout.queue(Print(buf_str)).unwrap();
-	// }
-
-	// terminal.stdout.flush().unwrap();
 }
