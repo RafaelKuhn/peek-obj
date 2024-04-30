@@ -17,8 +17,8 @@ impl FVec2 {
 	}
 
 	pub fn magnitude(&self) -> f32 {
-		let xf = self.x as f32;
-		let yf = self.y as f32;
+		let xf = self.x;
+		let yf = self.y;
 		(xf * xf + yf * yf).sqrt()
 	}
 

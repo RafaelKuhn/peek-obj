@@ -12,9 +12,9 @@ pub use utils::*;
 
 use std::fmt;
 
-use seeded_random::{Random, Seed};
 
-use crate::{maths::*, camera::Camera, mesh::Mesh, benchmark::Benchmark, file_readers::yade_dem_reader::{Ball, YadeDemData}, terminal_wrapper::TerminalBuffer, timer::Timer, utils::*};
+
+use crate::{maths::*, camera::Camera, mesh::Mesh, benchmark::Benchmark, file_readers::yade_dem_reader::{YadeDemData}, terminal_wrapper::TerminalBuffer, timer::Timer, utils::*};
 
 
 // ascii luminance:
@@ -146,9 +146,9 @@ pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Ti
 		let p1 = &tri.p1;
 		let p2 = &tri.p2;
 
-		let screen_p0 = screen_project(&p0, &buf.render_mat, buf.wid, buf.hei);
-		let screen_p1 = screen_project(&p1, &buf.render_mat, buf.wid, buf.hei);
-		let screen_p2 = screen_project(&p2, &buf.render_mat, buf.wid, buf.hei);
+		let screen_p0 = screen_project(p0, &buf.render_mat, buf.wid, buf.hei);
+		let screen_p1 = screen_project(p1, &buf.render_mat, buf.wid, buf.hei);
+		let screen_p2 = screen_project(p2, &buf.render_mat, buf.wid, buf.hei);
 
 		render_bresenham_line(&screen_p0, &screen_p1, buf, YADE_WIRE_FILL_CHAR);
 		render_bresenham_line(&screen_p1, &screen_p2, buf, YADE_WIRE_FILL_CHAR);

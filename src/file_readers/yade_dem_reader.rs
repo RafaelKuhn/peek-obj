@@ -100,7 +100,7 @@ impl YadeDemData {
 			// println!(" {}: '{}'", i, line);
 
 			let line = line.trim();
-			let mut line_split = line.split(",").skip(1);
+			let mut line_split = line.split(',').skip(1);
 
 			let is_sphere = line.starts_with('0');
 			if is_sphere {
@@ -221,21 +221,20 @@ impl YadeDemData {
 
 fn get_next_float_in_line_or_quit<'a>(line_iter: &mut impl Iterator<Item = &'a str>, path: &str, line_num: usize) -> Float {
 
-	let next_str = if let Some(slice) = line_iter.next() { slice } else {
-		quit_with(&format!("Not enough coordinates at line {line_num}"), path);
+	let next_str = match line_iter.next() {
+		Some(slice) => slice,
+		None => quit_with(&format!("Not enough coordinates at line {line_num}"), path),
 	};
 
 	let trimmed_str = next_str.trim();
-
-	if trimmed_str.len() == 0 {
+	if trimmed_str.is_empty() {
 		quit_with(&format!("Empty string slice, should have a value, line: {line_num}"), path);
 	}
 
-	let next_float = if let Ok(float) = trimmed_str.parse() { float } else {
-		quit_with(&format!("Could not parse a float from string slice: '{trimmed_str}', line: {line_num}"), path);
-	};
-
-	next_float
+	match trimmed_str.parse() {
+		Ok(float) => float,
+		Err(err) => quit_with(&format!("Could not parse a float from string slice: '{trimmed_str}', line: {line_num}\nerr: {err}"), path),
+	}
 }
 
 // OR with generics:

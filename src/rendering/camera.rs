@@ -1,4 +1,4 @@
-use crate::{maths::*, terminal_wrapper::TerminalBuffer};
+use crate::{maths::*};
 
 
 pub struct Camera {
@@ -59,7 +59,7 @@ impl Camera {
 		// self.set_initial_rot(0.343612, -0.932661, 0.000000);
 
 		// can see the 3 axes a little far
-		self.set_initial_pos(16.997181, 7.730669, 12.742184);
+		self.set_initial_pos(16.997_18, 7.730669, 12.742184);
 		self.set_initial_rot(0.343612, -0.932661, 0.000000);
 		
 		self.update_view_matrix();

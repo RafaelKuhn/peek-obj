@@ -115,9 +115,9 @@ impl Mesh {
 
 		const SZ: u16 = 3;
 		Vec3::new(
-			self.verts[xy_to_it(0, tri_index as u16, SZ)],
-			self.verts[xy_to_it(1, tri_index as u16, SZ)],
-			self.verts[xy_to_it(2, tri_index as u16, SZ)],
+			self.verts[xy_to_it(0, tri_index, SZ)],
+			self.verts[xy_to_it(1, tri_index, SZ)],
+			self.verts[xy_to_it(2, tri_index, SZ)],
 		)
 	}
 
@@ -126,9 +126,9 @@ impl Mesh {
 
 		const SZ: u16 = 3;
 		Vec3::new(
-			self.normals[xy_to_it(0, normal_index as u16, SZ)],
-			self.normals[xy_to_it(1, normal_index as u16, SZ)],
-			self.normals[xy_to_it(2, normal_index as u16, SZ)],
+			self.normals[xy_to_it(0, normal_index, SZ)],
+			self.normals[xy_to_it(1, normal_index, SZ)],
+			self.normals[xy_to_it(2, normal_index, SZ)],
 		)
 	}
 

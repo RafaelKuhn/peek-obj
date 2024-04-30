@@ -1,11 +1,6 @@
-use std::f32::consts::TAU;
-
-use num::traits::Inv;
-
 use crate::{*, camera::Camera, maths::*, timer::Timer, terminal_wrapper::TerminalBuffer, ASCII_BYTES_PER_CHAR};
 
 use super::BALL_FILL_CHAR;
-
 
 
 pub fn encode_char_in(ch: char, index: usize, vec: &mut [u8]) {
@@ -20,8 +15,8 @@ pub fn render_char_i(ch: char, pos: &IVec2, buffer: &mut TerminalBuffer) {
 }
 
 pub fn render_char(ch: char, pos: &UVec2, buffer: &mut TerminalBuffer) {
-	debug_assert!(pos.x < buffer.wid.into());
-	debug_assert!(pos.y < buffer.hei.into());
+	debug_assert!(pos.x < buffer.wid);
+	debug_assert!(pos.y < buffer.hei);
 
 	let index = xy_to_it(pos.x, pos.y, buffer.wid);
 	encode_char_in(ch, index, &mut buffer.vec);
@@ -40,7 +35,7 @@ pub fn render_string(string: &str, pos: &UVec2, buf: &mut TerminalBuffer) {
 }
 
 pub fn safe_render_string_signed(string: &str, x: Int, y: Int, buf: &mut TerminalBuffer) {
-	if x < 0 || x as usize + string.len() - 1 >= buf.wid.into() || y < 0 || y >= buf.hei as Int { return }
+	if x < 0 || x as usize + string.len() > buf.wid.into() || y < 0 || y >= buf.hei as Int { return }
 	render_string(string, &UVec2::new(x as u16, y as u16), buf);
 }
 
@@ -62,10 +57,10 @@ pub fn render_bresenham_line(p0: &IVec2, p1: &IVec2, buf: &mut TerminalBuffer, f
 	// if p0.x > last_x && p1.x > last_x { return }
 	// if p0.y > last_y && p1.y > last_y { return }
 
-	let x0 = p0.x as i32;
-	let y0 = p0.y as i32;
-	let x1 = p1.x as i32;
-	let y1 = p1.y as i32;
+	let x0 = p0.x;
+	let y0 = p0.y;
+	let x1 = p1.x;
+	let y1 = p1.y;
 
 	let dx = (x1 - x0).abs();
 	let dy = (y1 - y0).abs();
@@ -202,12 +197,12 @@ pub fn test_render_spheres(buf: &mut TerminalBuffer, timer: &Timer, camera: &Cam
 	// camera.set_initial_pos(13.593422, 9.671257, 16.239632);
 	// camera.set_initial_rot(0.392699, -0.687223, 0.000000);
 
-	render_sphere(&Vec3::new(0.0, 0.0, 0.0), 0.25, '0', buf, &timer, &camera);
+	render_sphere(&Vec3::new(0.0, 0.0, 0.0), 0.25, '0', buf, timer, camera);
 
 	let its = 20;
 	for i in 0..its {
 		let it = i as f32 / (its as f32 - 1.0);
-		let angle = it * 6.28318530;
+		let angle = it * 6.283_185_5;
 		let (cos, sin) = (angle.cos(), angle.sin());
 
 		let pos = Vec3::new(cos, sin, 0.0);

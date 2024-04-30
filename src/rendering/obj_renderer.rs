@@ -1,4 +1,4 @@
-use crate::{camera::Camera, mesh::{self, Mesh}, render_mesh, renderer::Renderer, terminal_wrapper::TerminalBuffer, timer::Timer};
+use crate::{camera::Camera, mesh::{Mesh}, render_mesh, renderer::Renderer, terminal_wrapper::TerminalBuffer, timer::Timer};
 
 pub struct ObjRenderer {
 	mesh: Mesh,

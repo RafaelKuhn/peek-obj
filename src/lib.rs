@@ -25,7 +25,7 @@ pub fn log_tokenc(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn log_tokens(input: TokenStream) -> TokenStream {
 
-	let input_str = format!("\"{}\"", input.to_string());
+	let input_str = format!("\"{}\"", input);
 	let x = format!(r#"
 		println!("args: {{}}", {args});
 	"#,
@@ -43,9 +43,9 @@ pub fn xy_lin(input: TokenStream) -> TokenStream {
 	iter.next().expect("expecting a separator");
 
 	// let input_str = format!("\"{}\"", input.to_string());
-	let x = format!(r#"
-		println!("args: {{}}", "smth");
-	"#);
+	let x = r#"
+		println!("args: {}", "smth");
+	"#.to_string();
 	x.parse().unwrap()
 }
 

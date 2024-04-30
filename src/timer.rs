@@ -31,12 +31,12 @@ impl Timer {
 		}
 	}
 
-	pub fn set_default_time_scale(&mut self, time_scale: f32) -> () {
+	pub fn set_default_time_scale(&mut self, time_scale: f32) {
 		self.time_scale = time_scale;
 		self.default_time_scale = time_scale;
 	}
 
-	pub fn reset_time_scale(&mut self) -> () {
+	pub fn reset_time_scale(&mut self) {
 		self.time_scale = self.default_time_scale;
 	}
 

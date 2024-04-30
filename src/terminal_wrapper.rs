@@ -1,10 +1,7 @@
-
 use core::panic;
 use std::{f32::consts::TAU, fs::File, io::{self, Stdout, Write}, process, time::Duration};
 
-use crossterm::{
-cursor::{Hide, MoveTo, Show}, event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind, KeyModifiers}, execute, queue, style::Print, terminal::{disable_raw_mode, enable_raw_mode, Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen}, QueueableCommand
-};
+use crossterm::{terminal::*, event::*, cursor::*, style::*, *};
 
 pub struct CrosstermTerminal {
 	pub stdout: Stdout
@@ -129,7 +126,7 @@ pub fn just_poll_while_paused(app: &mut App, terminal_mut: &mut CrosstermTermina
 	while app.has_paused_rendering {
 		poll_events(terminal_mut, app, timer);
 		timer.run();
-		try_saving_screenshot(app, &timer);
+		try_saving_screenshot(app, timer);
 	};
 }
 
@@ -236,7 +233,7 @@ impl TerminalBuffer {
 			let buf_str = std::str::from_utf8(&self.vec[y_start .. y_end]).unwrap();
 
 			let _ = screenshot_file.write(buf_str.as_bytes());
-			let _ = screenshot_file.write(&['\n' as u8]);
+			let _ = screenshot_file.write(&[b'\n']);
 		}
 	}
 
@@ -252,7 +249,7 @@ impl TerminalBuffer {
 	}
 
 	pub fn write_debug2(&mut self, string: &str) {
-		if let None = &mut self.debug_file { return }
+		if self.debug_file.is_none() { return }
 		let file = self.debug_file.as_mut().unwrap();
 		file.write(string.as_bytes()).expect("shit, couldn't write to file");
 	}
