@@ -1,3 +1,5 @@
+use std::f32::consts::TAU;
+
 use crate::{*, camera::Camera, maths::*, timer::Timer, terminal_wrapper::TerminalBuffer, ASCII_BYTES_PER_CHAR};
 
 use super::BALL_FILL_CHAR;
@@ -202,7 +204,7 @@ pub fn test_render_spheres(buf: &mut TerminalBuffer, timer: &Timer, camera: &Cam
 	let its = 20;
 	for i in 0..its {
 		let it = i as f32 / (its as f32 - 1.0);
-		let angle = it * 6.283_185_5;
+		let angle = it * TAU;
 		let (cos, sin) = (angle.cos(), angle.sin());
 
 		let pos = Vec3::new(cos, sin, 0.0);
@@ -213,7 +215,7 @@ pub fn test_render_spheres(buf: &mut TerminalBuffer, timer: &Timer, camera: &Cam
 	let its = its * (mult * 0.8) as i32;
 	for i in 0..its {
 		let it = i as f32 / (its as f32 - 1.0);
-		let angle = it * 6.28318530;
+		let angle = it * TAU;
 		let (cos, sin) = (angle.cos() * mult, angle.sin() * mult);
 
 		let pos = Vec3::new(sin, 0.0, cos);
@@ -224,7 +226,7 @@ pub fn test_render_spheres(buf: &mut TerminalBuffer, timer: &Timer, camera: &Cam
 	let its = its * (mult * 0.8) as i32;
 	for i in 0..its {
 		let it = i as f32 / (its as f32 - 1.0);
-		let angle = it * 6.28318530;
+		let angle = it * TAU;
 		let (cos, sin) = (angle.cos() * mult, angle.sin() * mult);
 
 		let pos = Vec3::new(0.0, cos, sin);

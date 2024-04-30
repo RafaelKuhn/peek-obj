@@ -222,8 +222,8 @@ impl YadeDemData {
 fn get_next_float_in_line_or_quit<'a>(line_iter: &mut impl Iterator<Item = &'a str>, path: &str, line_num: usize) -> Float {
 
 	let next_str = match line_iter.next() {
-		Some(slice) => slice,
 		None => quit_with(&format!("Not enough coordinates at line {line_num}"), path),
+		Some(slice) => slice,
 	};
 
 	let trimmed_str = next_str.trim();
@@ -232,8 +232,8 @@ fn get_next_float_in_line_or_quit<'a>(line_iter: &mut impl Iterator<Item = &'a s
 	}
 
 	match trimmed_str.parse() {
-		Ok(float) => float,
 		Err(err) => quit_with(&format!("Could not parse a float from string slice: '{trimmed_str}', line: {line_num}\nerr: {err}"), path),
+		Ok(float) => float,
 	}
 }
 

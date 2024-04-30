@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::{uvec2::UVec2, Int};
+use crate::{FVec2, Int};
 
 
 pub struct IVec2 {
@@ -33,21 +33,18 @@ impl IVec2 {
 	}
 }
 
-impl Into<UVec2> for IVec2 {
-	fn into(self) -> UVec2 {
-		debug_assert!(self.x >= 0, "ivec {:} x is < 0", self);
-		debug_assert!(self.y >= 0, "ivec {:} y is < 0", self);
-		UVec2::new(self.x as u16, self.y as u16)
+impl From<FVec2> for IVec2 {
+	fn from(vec: FVec2) -> IVec2 {
+		IVec2::new(vec.x as Int, vec.y as Int)
 	}
 }
 
-impl Into<UVec2> for &IVec2 {
-	fn into(self) -> UVec2 {
-		debug_assert!(self.x >= 0, "ivec {:} x is < 0", self);
-		debug_assert!(self.y >= 0, "ivec {:} y is < 0", self);
-		UVec2::new(self.x as u16, self.y as u16)
+impl From<&FVec2> for IVec2 {
+	fn from(vec: &FVec2) -> IVec2 {
+		IVec2::new(vec.x as Int, vec.y as Int)
 	}
 }
+
 
 impl fmt::Display for IVec2 {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

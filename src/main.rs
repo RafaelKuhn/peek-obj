@@ -1,8 +1,10 @@
+// #![allow(unused)]
 #![allow(dead_code)]
-#![allow(unreachable_code)]
+#![allow(unused_variables)]
 
+#![allow(clippy::redundant_field_names)]
 #![allow(clippy::identity_op)]
-#![allow(clippy::erasing_op)]
+// #![allow(clippy::erasing_op)]
 
 
 mod rendering;
@@ -127,8 +129,6 @@ fn main() {
 		try_saving_screenshot(&mut app, &timer);
 		print_to_terminal_func(&app.buf, &mut terminal);
 	}
-
-	restore_terminal(&mut terminal);
 }
 
 // TODO: try doing this with static dispatch (maybe make a RenderLoop function that accepts a generic shit like this)

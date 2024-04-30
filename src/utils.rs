@@ -1,7 +1,7 @@
-
+#![allow(dead_code)]
 
 // TODO: format this more decently
-pub fn fmt_mat4x4(mat: &Vec<f32>) -> String {
+pub fn fmt_mat4x4(mat: &[f32]) -> String {
 	format!("\n[{} {} {} {}]\n[{} {} {} {}]\n[{} {} {} {}]\n[{} {} {} {}]", 
 		fmt_f(mat[ 0]), fmt_f(mat[ 1]), fmt_f(mat[ 2]), fmt_f(mat[ 3]),
 		fmt_f(mat[ 4]), fmt_f(mat[ 5]), fmt_f(mat[ 6]), fmt_f(mat[ 7]),

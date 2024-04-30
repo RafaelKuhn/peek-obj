@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::{Float, IVec2, Int, UVec2};
+use crate::{Float, IVec2, UVec2};
 
 pub struct FVec2 {
 	pub x: Float,
@@ -28,35 +28,22 @@ impl FVec2 {
 	}
 }
 
-impl Into<IVec2> for FVec2 {
-	fn into(self) -> IVec2 {
-		IVec2::new(self.x as Int, self.y as Int)
+impl From<IVec2> for UVec2 {
+	fn from(vec: IVec2) -> UVec2 {
+		debug_assert!(vec.x >= 0, "ivec {:} x is < 0", vec);
+		debug_assert!(vec.y >= 0, "ivec {:} y is < 0", vec);
+		UVec2::new(vec.x as u16, vec.y as u16)
 	}
 }
 
-impl Into<IVec2> for &FVec2 {
-	fn into(self) -> IVec2 {
-		IVec2::new(self.x as Int, self.y as Int)
+impl From<&IVec2> for UVec2 {
+	fn from(vec: &IVec2) -> UVec2 {
+		debug_assert!(vec.x >= 0, "ivec {:} x is < 0", vec);
+		debug_assert!(vec.y >= 0, "ivec {:} y is < 0", vec);
+		UVec2::new(vec.x as u16, vec.y as u16)
 	}
 }
 
-// TODO: delete
-impl Into<UVec2> for FVec2 {
-	fn into(self) -> UVec2 {
-		debug_assert!(self.x >= 0.0, "ivec {:} x is < 0", self);
-		debug_assert!(self.y >= 0.0, "ivec {:} y is < 0", self);
-		UVec2::new(self.x as u16, self.y as u16)
-	}
-}
-
-// TODO: delete
-impl Into<UVec2> for &FVec2 {
-	fn into(self) -> UVec2 {
-		debug_assert!(self.x >= 0.0, "ivec {:} x is < 0", self);
-		debug_assert!(self.y >= 0.0, "ivec {:} y is < 0", self);
-		UVec2::new(self.x as u16, self.y as u16)
-	}
-}
 
 impl fmt::Display for FVec2 {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

@@ -1,5 +1,4 @@
-use core::panic;
-use std::{f32::consts::TAU, fs::File, io::{self, Stdout, Write}, process, time::Duration};
+use std::{f32::consts::TAU, fs::File, io::{self, BufWriter, Stdout, Write}, process, time::Duration};
 
 use crossterm::{terminal::*, event::*, cursor::*, style::*, *};
 
@@ -119,8 +118,8 @@ pub fn just_poll_while_paused(app: &mut App, terminal_mut: &mut CrosstermTermina
 
 	if !app.has_paused_rendering { return; }
 
-	let paused_str = "PAUSED!";
-	render_string(paused_str, &UVec2::new(app.buf.wid - paused_str.len() as u16, app.buf.hei - 1), &mut app.buf);
+	const PAUSED_STR: &str = "PAUSED!";
+	render_string(PAUSED_STR, &UVec2::new(app.buf.wid - PAUSED_STR.len() as u16, app.buf.hei - 1), &mut app.buf);
 	print_and_flush_terminal_fscreen(&app.buf, terminal_mut);
 
 	while app.has_paused_rendering {
@@ -218,12 +217,10 @@ impl TerminalBuffer {
 
 		let file_result = File::create(Self::SCREENSHOT_PATH);
 
-		if let Err(error) = file_result {
-			panic!("Error saving screenshot: {}!", error);
-			return;
-		}
+		if file_result.is_err() { return }
 
-		let mut screenshot_file = file_result.unwrap();
+		// let mut screenshot_file = file_result.unwrap();
+		let mut screenshot_file = BufWriter::new(file_result.unwrap());
 
 		for y in 0..self.hei {
 
@@ -232,8 +229,8 @@ impl TerminalBuffer {
 
 			let buf_str = std::str::from_utf8(&self.vec[y_start .. y_end]).unwrap();
 
-			let _ = screenshot_file.write(buf_str.as_bytes());
-			let _ = screenshot_file.write(&[b'\n']);
+			screenshot_file.write_all(buf_str.as_bytes()).unwrap();
+			screenshot_file.write_all(&[b'\n']).unwrap();
 		}
 	}
 
@@ -244,38 +241,43 @@ impl TerminalBuffer {
 
 	pub fn write_debug(&mut self, string: &str) {
 		if let Some(ref mut file) = &mut self.debug_file {
-			file.write(string.as_bytes()).expect("shit, couldn't write to file");
+			file.write_all(string.as_bytes()).expect("shit, couldn't write to file");
 		}
 	}
 
+	#[allow(clippy::style)]
 	pub fn write_debug2(&mut self, string: &str) {
 		if self.debug_file.is_none() { return }
 		let file = self.debug_file.as_mut().unwrap();
-		file.write(string.as_bytes()).expect("shit, couldn't write to file");
+		file.write_all(string.as_bytes()).expect("shit, couldn't write to file");
 	}
 
+	#[allow(clippy::style)]
 	pub fn write_debug3(&mut self, string: &str) {
 		match self.debug_file.as_mut() {
-			Some(file) => { file.write(string.as_bytes()).expect("shit, couldn't write to file"); },
 			None => (),
+			Some(file) => { file.write_all(string.as_bytes()).expect("shit, couldn't write to file"); },
 		}
 	}
 
+	#[allow(clippy::style)]
 	pub fn write_debug4(&mut self, string: &str) {
 		if self.debug_file.is_none() { return }
 
-		self.debug_file.as_mut().unwrap().write(string.as_bytes()).expect("shit, couldn't write to file");
+		self.debug_file.as_mut().unwrap().write_all(string.as_bytes()).expect("shit, couldn't write to file");
 	}
 
+	#[allow(clippy::style)]
 	pub fn write_debug5(&mut self, string: &str) {
 		if self.debug_file.is_some() {
-			self.debug_file.as_mut().unwrap().write(string.as_bytes()).expect("shit, couldn't write to file");
+			self.debug_file.as_mut().unwrap().write_all(string.as_bytes()).expect("shit, couldn't write to file");
 		}
 	}
 
+	#[allow(clippy::style)]
 	pub fn write_debug6(&mut self, string: &str) -> Option<()> {
 		let file = self.debug_file.as_mut()?;
-		file.write(string.as_bytes()).expect("shit, couldn't write to file");
+		file.write_all(string.as_bytes()).expect("shit, couldn't write to file");
 		Some(())
 	}
 

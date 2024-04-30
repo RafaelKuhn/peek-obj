@@ -1,3 +1,5 @@
+#![allow(clippy::let_and_return)]
+
 use crate::{maths::*, render_string, terminal_wrapper::TerminalBuffer};
 
 
