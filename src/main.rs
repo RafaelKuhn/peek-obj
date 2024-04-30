@@ -56,7 +56,7 @@ fn main() {
 		FileDataType::YadeData(YadeDemData::read_from_file_or_quit(&settings.custom_path))
 	};
 
-	let terminal_mut = &mut configure_terminal();
+	let mut terminal = configure_terminal();
 	set_panic_hook();
 
 	let mut app = App::init_with_screen();
@@ -68,48 +68,9 @@ fn main() {
 	let mut benchmark = Benchmark::new(BENCHMARK_REFRESH_RATE);
 
 	let mut camera = Camera::new();
-
-	camera.set_initial_pos(0., 0.0, 30.0);
-	// TODO: use this to debug (AXIS_SZ_WORLD == 20.0)
-	// camera.set_initial_pos(-4.53, 5.04, 18.23);
-	// camera.set_initial_rot(0.25, 0.15, 0.0);
-	// ... or this
-	// camera.set_initial_pos(2.87, 2.85, 19.44);
-	// camera.set_initial_rot(0.15, -0.15, 0.00);
-
-	camera.set_initial_pos(0.0, 0.0, 16.0);
-	camera.set_initial_rot(0.0, 0.0, 0.0);
-
-	// see the whole thing
-	// camera.set_initial_pos(0.89, 9.27, 16.97);
-	// camera.set_initial_rot(0.45, -0.05, 0.0);
-
-	// camera in front
-	// camera.set_initial_pos(0.0, 0.0, 5.0);
-	// camera.set_initial_rot(0.00, 0.00, 0.00);
-
-	// camera from above
-	// camera.set_initial_pos(0.0, 7.7989, 0.1271);
-	// camera.set_initial_rot(1.52, 0.00, 0.00);
-	
-	// // camera from side
-	// camera.set_initial_pos(8.585467,  3.822423, 0.048875);
-	// camera.set_initial_rot(0.392699, -1.570797, 0.000000);
-
-	// // offset in all axis
-	// camera.set_initial_pos(6.560868, 3.081584, 5.002097);
-	// camera.set_initial_rot(0.343612, -0.932661, 0.000000);
-
-	// camera.set_initial_pos(16.997181, 7.730669, 12.742184);
-	// camera.set_initial_rot(0.343612, -0.932661, 0.000000);
-
-	// camera.set_initial_pos(8.073381, 3.755364, 6.123851);
-	// camera.set_initial_rot(0.343612, -0.932661, 0.000000);
+	camera.configure_defaults();
 
 	timer.set_default_time_scale(1.0);
-
-
-	camera.update_view_matrix(&mut app.buf);
 
 	// #if MESH
 	// let draw_mesh: DrawMeshFunction = if settings.draw_wireframe {
@@ -140,21 +101,21 @@ fn main() {
 	// let yade_debug = YadeDemData::debug();
 
 	loop {
-		just_poll_while_paused(&mut app, terminal_mut, &mut timer);
+		just_poll_while_paused(&mut app, &mut terminal, &mut timer);
 		render_clear(&mut app.buf);
 
-		poll_events(terminal_mut, &mut app, &mut timer);
+		poll_events(&mut terminal, &mut app, &mut timer);
 
+		// TODO: only needs to do this when resizing
 		app.buf.update_proj_matrix();
 
-		// camera.position = Vec3::new(camera.position.x + app.pos.x, camera.position.y + app.pos.y, )
 		update_camera(&mut camera, &mut app);
 
 		render_gizmos(&mut app.buf, &camera);
-		render_axes(&mut app.buf, &camera);
-
+		render_axes(&mut app.buf, &camera, true);
 
 		// render_yade(&yade_debug, &mut app.buf, &timer, &camera);
+
 
 		renderer.render(&mut app.buf, &timer, &camera);
 
@@ -164,10 +125,10 @@ fn main() {
 		timer.run_frame();
 
 		try_saving_screenshot(&mut app, &timer);
-		print_to_terminal_func(&app.buf, terminal_mut);
+		print_to_terminal_func(&app.buf, &mut terminal);
 	}
 
-	restore_terminal(terminal_mut);
+	restore_terminal(&mut terminal);
 }
 
 // TODO: try doing this with static dispatch (maybe make a RenderLoop function that accepts a generic shit like this)
@@ -183,7 +144,7 @@ fn update_camera(camera: &mut Camera, app: &mut App) {
 		app.called_reset_camera = false;
 
 		camera.restore_initial_pos_and_rot();
-		camera.update_view_matrix(&mut app.buf);
+		camera.update_view_matrix();
 		return;
 	}
 
@@ -192,8 +153,9 @@ fn update_camera(camera: &mut Camera, app: &mut App) {
 
 	let dir_vec = (camera.side * app.dir.x) + (camera.up * app.dir.y) + (camera.forward * app.dir.z);
 	camera.position = camera.position + dir_vec;
-	
-	camera.update_view_matrix(&mut app.buf);
+
+	// TODO: only needs to do this when app.dir, app.rot or app.pos changesz	
+	camera.update_view_matrix();
 }
 
 fn try_saving_screenshot(app: &mut App, timer: &Timer) {

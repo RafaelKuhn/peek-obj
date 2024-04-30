@@ -1,8 +1,10 @@
 use std::f32::consts::TAU;
 
-use crate::{*, camera::Camera, maths::*, timer::Timer, terminal_wrapper::TerminalBuffer, ASCII_BYTES_PER_CHAR, YADE_SCALE_TEMP};
+use num::traits::Inv;
 
-use super::CIRCLE_FILL_CHAR;
+use crate::{*, camera::Camera, maths::*, timer::Timer, terminal_wrapper::TerminalBuffer, ASCII_BYTES_PER_CHAR};
+
+use super::BALL_FILL_CHAR;
 
 
 
@@ -184,74 +186,102 @@ pub fn plot_mirrored_octets_safe(x: Int, y: Int, base_x: Int, base_y: Int, buf: 
 	let scaled_y = y * 2;
 
 	// left
-	safe_render_char_at(CIRCLE_FILL_CHAR, base_x - scaled_x, base_y + y, buf);
-	safe_render_char_at(CIRCLE_FILL_CHAR, base_x - scaled_y, base_y + x, buf);
-	safe_render_char_at(CIRCLE_FILL_CHAR, base_x - scaled_y, base_y - x, buf);
-	safe_render_char_at(CIRCLE_FILL_CHAR, base_x - scaled_x, base_y - y, buf);
+	safe_render_char_at(BALL_FILL_CHAR, base_x - scaled_x, base_y + y, buf);
+	safe_render_char_at(BALL_FILL_CHAR, base_x - scaled_y, base_y + x, buf);
+	safe_render_char_at(BALL_FILL_CHAR, base_x - scaled_y, base_y - x, buf);
+	safe_render_char_at(BALL_FILL_CHAR, base_x - scaled_x, base_y - y, buf);
 	// right
-	safe_render_char_at(CIRCLE_FILL_CHAR, base_x + scaled_x, base_y + y, buf);
-	safe_render_char_at(CIRCLE_FILL_CHAR, base_x + scaled_y, base_y + x, buf);
-	safe_render_char_at(CIRCLE_FILL_CHAR, base_x + scaled_y, base_y - x, buf);
-	safe_render_char_at(CIRCLE_FILL_CHAR, base_x + scaled_x, base_y - y, buf);
+	safe_render_char_at(BALL_FILL_CHAR, base_x + scaled_x, base_y + y, buf);
+	safe_render_char_at(BALL_FILL_CHAR, base_x + scaled_y, base_y + x, buf);
+	safe_render_char_at(BALL_FILL_CHAR, base_x + scaled_y, base_y - x, buf);
+	safe_render_char_at(BALL_FILL_CHAR, base_x + scaled_x, base_y - y, buf);
 }
 
-// TODO: fix and make this more general
+pub fn test_render_spheres(buf: &mut TerminalBuffer, timer: &Timer, camera: &Camera) {
+	// do in main:
+	// camera.set_initial_pos(13.593422, 9.671257, 16.239632);
+	// camera.set_initial_rot(0.392699, -0.687223, 0.000000);
+
+	render_sphere(&Vec3::new(0.0, 0.0, 0.0), 0.25, '0', buf, &timer, &camera);
+
+	let its = 20;
+	for i in 0..its {
+		let it = i as f32 / (its as f32 - 1.0);
+		let angle = it * 6.28318530;
+		let (cos, sin) = (angle.cos(), angle.sin());
+
+		let pos = Vec3::new(cos, sin, 0.0);
+		render_sphere(&pos, 0.1, 'Z', buf, timer, camera);	
+	}
+
+	let mult = 3.0;
+	let its = its * (mult * 0.8) as i32;
+	for i in 0..its {
+		let it = i as f32 / (its as f32 - 1.0);
+		let angle = it * 6.28318530;
+		let (cos, sin) = (angle.cos() * mult, angle.sin() * mult);
+
+		let pos = Vec3::new(sin, 0.0, cos);
+		render_sphere(&pos, 0.1, 'Y', buf, timer, camera);
+	}
+
+	let mult = 2.0;
+	let its = its * (mult * 0.8) as i32;
+	for i in 0..its {
+		let it = i as f32 / (its as f32 - 1.0);
+		let angle = it * 6.28318530;
+		let (cos, sin) = (angle.cos() * mult, angle.sin() * mult);
+
+		let pos = Vec3::new(0.0, cos, sin);
+		render_sphere(&pos, 0.1, 'X', buf, timer, camera);
+	}
+}
+
+
+
 pub fn render_sphere(pos: &Vec3, rad: f32, ch: char, buf: &mut TerminalBuffer, timer: &Timer, camera: &Camera) {
 
 	buf.copy_projection_to_render_matrix();
+
 	apply_identity_to_mat_4x4(&mut buf.transf_mat);
 
-	buf.clear_debug();
+	let (scale_x, scale_y, scale_z) = (1.0, 1.0, 1.0);
+	let (angle_x, angle_y, angle_z) = (0.0, 0.0, 0.0);
+	let (pos_x, pos_y, pos_z) = (0.0, 0.0, 0.0);
 
-	// let mut rot_only_mat = create_identity_4x4();
-
-	let mut render_mat_without_transform = create_identity_4x4();
-	buf.copy_projection_to_mat4x4(&mut render_mat_without_transform);
-	multiply_4x4_matrices(&mut render_mat_without_transform, &camera.view_matrix);
-
-
-	let speed = 0.5;
-	let mut t = timer.time_aggr.as_millis() as f32 * 0.001 * speed;
-	// let mut t = TAU * 1./4.;
-	// if buf.test { t = 0.0; }
-
-	// let rad = 0.009926;
-	// let rad = 0.01;
-	// let pos = Vec3::new(-0.034109, -0.002092, -0.080507);
-	// let pos = Vec3::new(0.02, 0., 0.);
-
-	let pos = pos * YADE_SCALE_TEMP;
-	let rad_sc = rad * YADE_SCALE_TEMP;
-
-	buf.write_debug(&format!("{:?} original\n", pos));
-	buf.write_debug(&format!("{:.6} RAD * SCALE\n", rad_sc));
-
-
-	apply_rotation_to_mat_4x4(&mut buf.transf_mat, 0.0, t, 0.0);
+	apply_scale_to_mat_4x4(&mut buf.transf_mat, scale_x, scale_y, scale_z);
+	apply_rotation_to_mat_4x4(&mut buf.transf_mat, angle_x, angle_y, angle_z);
+	apply_pos_to_mat_4x4(&mut buf.transf_mat, pos_x, pos_y, pos_z);
 
 	multiply_4x4_matrices(&mut buf.render_mat, &camera.view_matrix);
 	multiply_4x4_matrices(&mut buf.render_mat, &buf.transf_mat);
 
-	let rot_pos = pos.rotated_y(t);
-	// buf.write_debug(&format!("{:?} rot only\n", rot_pos));
-	let rot_pos_up = rot_pos.added_vec(&(camera.up * rad_sc));
+	// buf.clear_debug();
+
+
+	let mut render_mat_without_transform = create_identity_4x4_arr();
+	buf.copy_projection_to_mat4x4(&mut render_mat_without_transform);
+	multiply_4x4_matrices(&mut render_mat_without_transform, &camera.view_matrix);
+
+
+	let transformed_pos = pos.get_transformed_by_mat4x4_discard_w(&buf.transf_mat);
+	// buf.write_debug(&format!("{:?} rot only\n", transformed_pos));
+	let rot_pos_up = transformed_pos.add_vec(&(camera.up * rad));
 	// buf.write_debug(&format!("{:?} rot up\n", rot_pos_up));
 	let rot_pos_up_proj = rot_pos_up.get_transformed_by_mat4x4_uniform(&render_mat_without_transform);
 	// buf.write_debug(&format!("{:?} rot up projected\n", rot_pos_up_proj));
-	let rot_pos_up_proj_2d_f32 = clip_space_to_screen_space_f32(&rot_pos_up_proj, buf.wid, buf.hei);
 
+	let ball_pos_projected_clip = pos.get_transformed_by_mat4x4_uniform(&buf.render_mat);
 
-	let projected = pos.get_transformed_by_mat4x4_uniform(&buf.render_mat);
-	// buf.write_debug(&format!("\n\n{:?} projected\n", projected));
-	let projected_2d = clip_space_to_screen_space(&projected, buf.wid, buf.hei);
-	// buf.write_debug(&format!("{:?} 2d of wh {:?}\n", projected_2d, IVec2::new(buf.wid.into(), buf.hei.into())));
+	let ball_up_projected_2d_f32 = clip_space_to_screen_space_f(&rot_pos_up_proj, buf.wid, buf.hei);
+	let screen_circ_f32 = clip_space_to_screen_space_f(&ball_pos_projected_clip, buf.wid, buf.hei);
+	let dist = (ball_up_projected_2d_f32.y - screen_circ_f32.y).abs();
 
-
-	let screen_circ_f32 = clip_space_to_screen_space_f32(&projected, buf.wid, buf.hei);
-	let dist = (rot_pos_up_proj_2d_f32.1 - screen_circ_f32.1).abs();
-
-	let screen_circ = clip_space_to_screen_space(&projected, buf.wid, buf.hei);
+	let screen_circ = clip_space_to_screen_space(&ball_pos_projected_clip, buf.wid, buf.hei);
 	render_fill_bres_circle(&screen_circ, dist, ch, buf);
 
-	safe_render_char_at('C', screen_circ.x, screen_circ.y, buf);
+	// safe_render_char_at('O', screen_circ.x, screen_circ.y, buf);
+	// safe_render_char_at('U', ball_up_projected_2d_f32.x as i32, ball_up_projected_2d_f32.y as i32, buf);
+
+	// render_bresenham_line(&screen_circ, &ball_up_projected_2d_f32.into(), buf, '*');
 }

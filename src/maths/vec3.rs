@@ -194,6 +194,7 @@ impl Vec3 {
 		Self { x, y, z }
 	}
 
+	#[must_use]
 	pub fn added(&self, x: f32, y: f32, z: f32) -> Vec3 {
 		Vec3 {
 			x: self.x + x,
@@ -215,6 +216,13 @@ impl Vec3 {
 		self.x += rhs.x;
 		self.y += rhs.y;
 		self.z += rhs.z;
+		self
+	}
+
+	pub fn scale(mut self, scale: f32) -> Vec3 {
+		self.x *= scale;
+		self.y *= scale;
+		self.z *= scale;
 		self
 	}
 
@@ -287,6 +295,6 @@ impl fmt::Display for Vec3 {
 
 impl fmt::Debug for Vec3 {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(f, "({:.6}, {:.6}, {:.6})", self.x, self.y, self.z)
+		write!(f, "{:.6}, {:.6}, {:.6}", self.x, self.y, self.z)
 	}
 }

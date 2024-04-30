@@ -30,6 +30,41 @@ impl Camera {
 		}
 	}
 
+	pub fn configure_defaults(&mut self) {
+
+		self.set_initial_pos(0.0, 0.0, 16.0);
+		self.set_initial_rot(0.0, 0.0, 0.0);
+
+		// TODO: use this to debug (AXIS_SZ_WORLD == 20.0)
+		// self.set_initial_pos(-4.53, 5.04, 18.23);
+		// self.set_initial_rot(0.25, 0.15, 0.0);
+		// ... or this
+		// self.set_initial_pos(2.87, 2.85, 19.44);
+		// self.set_initial_rot(0.15, -0.15, 0.00);
+
+		// self in front
+		// self.set_initial_pos(0.0, 0.0, 5.0);
+		// self.set_initial_rot(0.00, 0.00, 0.00);
+
+		// self from above
+		// self.set_initial_pos(0.0, 7.7989, 0.1271);
+		// self.set_initial_rot(1.52, 0.00, 0.00);
+
+		// self from side
+		// self.set_initial_pos(8.585467,  3.822423, 0.048875);
+		// self.set_initial_rot(0.392699, -1.570797, 0.000000);
+
+		// can see the 3 axes
+		// self.set_initial_pos(6.560868, 3.081584, 5.002097);
+		// self.set_initial_rot(0.343612, -0.932661, 0.000000);
+
+		// can see the 3 axes a little far
+		self.set_initial_pos(16.997181, 7.730669, 12.742184);
+		self.set_initial_rot(0.343612, -0.932661, 0.000000);
+		
+		self.update_view_matrix();
+	}
+
 	pub fn set_initial_pos(&mut self, x: f32, y: f32, z: f32) {
 		self.initial_position = Vec3::new(x, y, z);
 		self.position = self.initial_position;
@@ -64,7 +99,7 @@ impl Camera {
 		(cam_up, cam_forward)
 	}
 
-	pub fn update_view_matrix(&mut self, buf: &mut TerminalBuffer) {
+	pub fn update_view_matrix(&mut self) {
 
 		let cos_x = self.rotation.x.cos();
 		let sin_x = self.rotation.x.sin();

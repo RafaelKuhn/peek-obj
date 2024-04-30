@@ -30,7 +30,7 @@ pub static BACKGROUND_FILL_CHAR: char = ' ';
 
 const FILL_CHAR: char = '@';
 const YADE_WIRE_FILL_CHAR: char = '*';
-const CIRCLE_FILL_CHAR: char = '@';
+const BALL_FILL_CHAR: char = '@';
 
 pub static ASCII_BYTES_PER_CHAR: usize = 1;
 // pub static UTF32_BYTES_PER_CHAR: usize = 4;
@@ -96,13 +96,9 @@ pub fn render_benchmark(benchmark: &Benchmark, camera: &Camera, buffer: &mut Ter
 
 }
 
-pub const YADE_SCALE_TEMP: f32 = 15.0;
-
 pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Timer, camera: &Camera) {
 
-	// TODO: figure out crappy camera
 	let (pos_x, pos_y, pos_z) = (0.0, 0.0, 0.0);
-	// let (pos_x, pos_y, pos_z) = (0.0, 0.5, 0.0);
 
 	let speed = 0.5;
 	let start_ms = 5196;
@@ -118,17 +114,18 @@ pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Ti
 	let (angle_x, angle_y, angle_z) = (t * 0.3, t, t * 2.1);
 
 
-	let scale = YADE_SCALE_TEMP;
+	// let scale = YADE_SCALE_TEMP;
+	let scale = 1.0;
 	let (scale_x, scale_y, scale_z) = (scale, scale, scale);
 
 
-	// let speed = 0.6;
-	// let tmod = ((t * speed % 1.0) - 0.5).abs() * 2.0;
-	// render_string(&format!("{}", tmod), &UVec2::new(0, 7), buf);
-	// let tmod_smooth = smoothed_0_to_1(tmod);
-	// let animation_curve = tmod_smooth * 0.5 + 0.25;
-	// let scale = YADE_SCALE_TEMP * animation_curve;
-	// let (scale_x, scale_y, scale_z) = (scale, scale, scale);
+	// // Funky zoom animation
+	let speed = 0.6;
+	let tmod = ((t * speed % 1.0) - 0.5).abs() * 2.0;
+	// // render_string(&format!("{}", tmod), &UVec2::new(0, 7), buf);
+	let animation_curve = smoothed_0_to_1(tmod) * 0.5 + 0.25;
+	let scale = animation_curve;
+	let (scale_x, scale_y, scale_z) = (animation_curve, animation_curve, animation_curve);
 
 
 	buf.copy_projection_to_render_matrix();
@@ -144,29 +141,19 @@ pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Ti
 
 
 	for tri in yade_data.tris.iter() {
-		// break;
-
-		let p0 = &tri.p0 + &tri.pos;
-		let p1 = &tri.p1 + &tri.pos;
-		let p2 = &tri.p2 + &tri.pos;
+		
+		let p0 = &tri.p0;
+		let p1 = &tri.p1;
+		let p2 = &tri.p2;
 
 		let screen_p0 = screen_project(&p0, &buf.render_mat, buf.wid, buf.hei);
 		let screen_p1 = screen_project(&p1, &buf.render_mat, buf.wid, buf.hei);
 		let screen_p2 = screen_project(&p2, &buf.render_mat, buf.wid, buf.hei);
 
-		let screen_pos = screen_project(&tri.pos, &buf.render_mat, buf.wid, buf.hei);
-
 		render_bresenham_line(&screen_p0, &screen_p1, buf, YADE_WIRE_FILL_CHAR);
 		render_bresenham_line(&screen_p1, &screen_p2, buf, YADE_WIRE_FILL_CHAR);
 		render_bresenham_line(&screen_p2, &screen_p0, buf, YADE_WIRE_FILL_CHAR);
-
-		// TODO: this won't work in debug
-		safe_render_char('*', &screen_pos, buf);
 	}
-
-	buf.clear_debug();
-	buf.write_debug(&format!("w {}, h {}\n", buf.wid, buf.hei));
-
 
 	// interesting vector iter skip() balls
 	// 253 // at the bottom
@@ -176,13 +163,13 @@ pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Ti
 	let mut indices_by_dist = Vec::<(f32, usize, char)>::with_capacity(yade_data.balls.len());
 
 	for (i, ball) in yade_data.balls.iter().enumerate() {
+
 		let ball_pos = ball.pos.get_transformed_by_mat4x4_discard_w(&buf.transf_mat);
 		let dist_circ_to_camera = ball_pos.squared_dist_to(&camera.position);
 
 		let digit = i as u32 % ('Z' as u32 - 'A' as u32) + ('A' as u32);
 		let letter = char::from_u32(digit).unwrap();
 
-		// buf.write_debug(&format!("{:}: {:} proj {:}\n", i, ball.pos, ball_pos));
 		indices_by_dist.push((dist_circ_to_camera, i, letter));
 	}
 
@@ -191,9 +178,9 @@ pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Ti
 
 
 	// TODO: could make a buffer in TerminalBuffer for this
-	let mut render_mat_without_view = create_identity_4x4_arr();
-	buf.copy_projection_to_mat4x4(&mut render_mat_without_view);
-	multiply_4x4_matrices(&mut render_mat_without_view, &camera.view_matrix);
+	let mut render_mat_without_transform = create_identity_4x4_arr();
+	buf.copy_projection_to_mat4x4(&mut render_mat_without_transform);
+	multiply_4x4_matrices(&mut render_mat_without_transform, &camera.view_matrix);
 
 	for (_, ball_ind, letter) in indices_by_dist.iter() {
 		let letter = *letter;
@@ -201,15 +188,11 @@ pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Ti
 
 		let ball = yade_data.balls.get(ball_ind).unwrap();
 
-		// buf.write_debug(&format!("{:?} scaled\n", pos_scaled));
 		let rad_scaled = ball.rad * scale;
 
 		let transformed_pos = ball.pos.get_transformed_by_mat4x4_discard_w(&buf.transf_mat);
-		buf.write_debug(&format!("{:?} rot only\n", transformed_pos));
 		let rot_pos_up = transformed_pos.add_vec(&(camera.up * rad_scaled));
-		buf.write_debug(&format!("{:?} rot up\n", rot_pos_up));
-		let rot_pos_up_proj = rot_pos_up.get_transformed_by_mat4x4_uniform(&render_mat_without_view);
-		buf.write_debug(&format!("{:?} rot up projected\n", rot_pos_up_proj));
+		let rot_pos_up_proj = rot_pos_up.get_transformed_by_mat4x4_uniform(&render_mat_without_transform);
 
 		let ball_pos_projected_clip = ball.pos.get_transformed_by_mat4x4_uniform(&buf.render_mat);
 
@@ -275,7 +258,7 @@ pub fn render_mesh(mesh: &Mesh, buf: &mut TerminalBuffer, timer: &Timer, camera:
 	multiply_4x4_matrices(&mut buf.render_mat, &camera.view_matrix);
 	multiply_4x4_matrices(&mut buf.render_mat, &buf.transf_mat);
 
-
+	// buf.clear_debug();
 	let num_tris = mesh.tris_indices.len() / 3;
 	for tri_i in 0..num_tris {
 
@@ -283,6 +266,7 @@ pub fn render_mesh(mesh: &Mesh, buf: &mut TerminalBuffer, timer: &Timer, camera:
 		let p1_i = tri_i * 3 + 1;
 		let p2_i = tri_i * 3 + 2;
 
+		// buf.write_debug(&format!("gets p0 p1 p2   {} {} {}\n", p0_i, p1_i, p2_i));
 		let p0 = mesh.get_vert_at(p0_i).invert_y();
 		let p1 = mesh.get_vert_at(p1_i).invert_y();
 		let p2 = mesh.get_vert_at(p2_i).invert_y();
@@ -316,7 +300,7 @@ fn render_mat_dbg(mat: &[f32], pos: &UVec2, buf: &mut TerminalBuffer) {
 	render_string(&r3, &UVec2::new(pos.x, pos.y+3), buf);
 }
 
-pub fn render_axes(buf: &mut TerminalBuffer, camera: &Camera) {
+pub fn render_axes(buf: &mut TerminalBuffer, camera: &Camera, render_marks: bool) {
 
 	buf.copy_projection_to_render_matrix();
 
@@ -327,20 +311,48 @@ pub fn render_axes(buf: &mut TerminalBuffer, camera: &Camera) {
 	// TODO: debug why this can get crappily signed values if AXIS_SZ_WORLD is > 500
 	// TODO: this is already bugged at FUCKING 30
 	// const AXIS_SZ_WORLD: f32 = 20.0;
-	const AXIS_SZ_WORLD: f32 = 2.0;
+	const AXIS_SZ_WORLD: f32 = 3.0;
 	let up    = screen_project(&Vec3::new(0.0, AXIS_SZ_WORLD, 0.0), &buf.render_mat, buf.wid, buf.hei);
 	let right = screen_project(&Vec3::new(AXIS_SZ_WORLD, 0.0, 0.0), &buf.render_mat, buf.wid, buf.hei);
 	let front = screen_project(&Vec3::new(0.0, 0.0, AXIS_SZ_WORLD), &buf.render_mat, buf.wid, buf.hei);
 
-	// let projected_3d = &Vec3::new(AXIS_SZ_WORLD, 0.0, 0.0).get_transformed_by_mat4x4(&buf.render_mat);
-	// buf.write_debug(&format!("\nv: {:}\n", projected_3d));
-
-	// let projected_orig = &Vec3::new(0.0, 0.0, 0.0).get_transformed_by_mat4x4(&buf.render_mat);
-	// buf.write_debug(&format!("\norig: {:}\n", projected_orig));
+	let offset = 0.1;
 
 	render_bresenham_line(&origin, &up, buf, '|');
 	render_bresenham_line(&origin, &right, buf, '-');
 	render_bresenham_line(&origin, &front, buf, '/');
+
+	if !render_marks { return }
+
+	for i in 0..3 {
+		let i = (i + 1) as f32;
+		let marker_x = screen_project(&Vec3::new(i, 0.0, 0.0), &buf.render_mat, buf.wid, buf.hei);
+		let marker_x0 = screen_project(&Vec3::new(i, offset, -offset), &buf.render_mat, buf.wid, buf.hei);
+		let marker_x1 = screen_project(&Vec3::new(i, -offset, offset), &buf.render_mat, buf.wid, buf.hei);
+
+		render_bresenham_line(&marker_x0, &marker_x, buf, '/');
+		render_bresenham_line(&marker_x, &marker_x1, buf, '/');
+
+		safe_render_string_signed(&format!("{:.1}", i), marker_x.x - 1, marker_x.y, buf);
+
+		let marker_z = screen_project(&Vec3::new(0.0, 0.0, i), &buf.render_mat, buf.wid, buf.hei);
+		let marker_z0 = screen_project(&Vec3::new(-offset, offset, i), &buf.render_mat, buf.wid, buf.hei);
+		let marker_z1 = screen_project(&Vec3::new(offset, -offset,i), &buf.render_mat, buf.wid, buf.hei);
+
+		render_bresenham_line(&marker_z0, &marker_z, buf, '\\');
+		render_bresenham_line(&marker_z, &marker_z1, buf, '\\');
+
+		safe_render_string_signed(&format!("{:.1}", i), marker_z.x - 1, marker_z.y, buf);
+
+		let marker_y = screen_project(&Vec3::new(0.0, i, 0.0), &buf.render_mat, buf.wid, buf.hei);
+		let marker_y0 = screen_project(&Vec3::new(-offset, i, offset), &buf.render_mat, buf.wid, buf.hei);
+		let marker_y1 = screen_project(&Vec3::new(offset, i, -offset), &buf.render_mat, buf.wid, buf.hei);
+
+		render_bresenham_line(&marker_y0, &marker_y, buf, '\\');
+		render_bresenham_line(&marker_y, &marker_y1, buf, '\\');
+
+		safe_render_string_signed(&format!("{:.1}", i), marker_y.x - 1, marker_y.y, buf);	
+	}	
 }
 
 pub fn render_gizmos(buf: &mut TerminalBuffer, camera: &Camera) {
