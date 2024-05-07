@@ -1,0 +1,5 @@
+#!/bin/sh
+
+# cargo run -- data/yade/mock.txt
+cargo run -- data/yade/dados.txt
+

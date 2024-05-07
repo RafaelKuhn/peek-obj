@@ -6,15 +6,17 @@ pub mod yade_renderer;
 pub mod obj_renderer;
 pub mod primitives;
 pub mod utils;
+pub mod bounding_box;
 
 pub use primitives::*;
+pub use bounding_box::*;
 pub use utils::*;
 
-use std::fmt;
+use std::fmt::{self, format};
 
 
 
-use crate::{maths::*, camera::Camera, mesh::Mesh, benchmark::Benchmark, file_readers::yade_dem_reader::{YadeDemData}, terminal_wrapper::TerminalBuffer, timer::Timer, utils::*};
+use crate::{maths::*, camera::Camera, mesh::Mesh, benchmark::Benchmark, file_readers::yade_dem_reader::YadeDemData, terminal::TerminalBuffer, timer::Timer, utils::*};
 
 
 // ascii luminance:
@@ -101,31 +103,27 @@ pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Ti
 	let (pos_x, pos_y, pos_z) = (0.0, 0.0, 0.0);
 
 	let speed = 0.5;
-	let start_ms = 5196;
 	let start_ms = 0;
-	let mut t = (timer.time_aggr.as_millis() + start_ms) as f32 * 0.001 * speed;
+	let start_ms = 5196;
+	let mut t = (timer.time_aggr.as_millis() * 0 + start_ms) as f32 * 0.001 * speed;
 	if buf.test { t = 0.0; }
 
 	// let t = 0.0;
 	let (angle_x, angle_y, angle_z) = (0.0, 0.0, 0.0);
 	let (angle_x, angle_y, angle_z) = (0.0, t, 0.0);
 	// let (angle_x, angle_y, angle_z) = (t, 0.0, 0.0);
-	// TODO: test sorting like this
-	let (angle_x, angle_y, angle_z) = (t * 0.3, t, t * 2.1);
+	// let (angle_x, angle_y, angle_z) = (t * 0.3, t, t * 2.1);
 
-
-	// let scale = YADE_SCALE_TEMP;
 	let scale = 1.0;
 	let (scale_x, scale_y, scale_z) = (scale, scale, scale);
 
-
-	// // Funky zoom animation
-	let speed = 0.6;
-	let tmod = ((t * speed % 1.0) - 0.5).abs() * 2.0;
-	// // render_string(&format!("{}", tmod), &UVec2::new(0, 7), buf);
-	let animation_curve = smoothed_0_to_1(tmod) * 0.5 + 0.25;
-	let scale = animation_curve;
-	let (scale_x, scale_y, scale_z) = (animation_curve, animation_curve, animation_curve);
+	// // Funky zoom scale animation
+	// let speed = 0.5;
+	// let tmod = ((t * speed % 1.0) - 0.5).abs() * 2.0;
+	// // // render_string(&format!("{}", tmod), &UVec2::new(0, 7), buf);
+	// let animation_curve = smoothed_0_to_1_s(tmod, 4.0) * 0.5 + 0.25;
+	// let scale = animation_curve;
+	// let (scale_x, scale_y, scale_z) = (animation_curve, animation_curve, animation_curve);
 
 
 	buf.copy_projection_to_render_matrix();
@@ -139,94 +137,110 @@ pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Ti
 	multiply_4x4_matrices(&mut buf.render_mat, &camera.view_matrix);
 	multiply_4x4_matrices(&mut buf.render_mat, &buf.transf_mat);
 
-
 	for tri in yade_data.tris.iter() {
-		
-		let p0 = &tri.p0;
-		let p1 = &tri.p1;
-		let p2 = &tri.p2;
 
-		let screen_p0 = screen_project(p0, &buf.render_mat, buf.wid, buf.hei);
-		let screen_p1 = screen_project(p1, &buf.render_mat, buf.wid, buf.hei);
-		let screen_p2 = screen_project(p2, &buf.render_mat, buf.wid, buf.hei);
+		// let screen_p0 = screen_project_f(p0, &buf.render_mat, buf.wid, buf.hei);
+		// let screen_p1 = screen_project_f(p1, &buf.render_mat, buf.wid, buf.hei);
+		// let screen_p2 = screen_project_f(p2, &buf.render_mat, buf.wid, buf.hei);
 
-		render_bresenham_line(&screen_p0, &screen_p1, buf, YADE_WIRE_FILL_CHAR);
-		render_bresenham_line(&screen_p1, &screen_p2, buf, YADE_WIRE_FILL_CHAR);
-		render_bresenham_line(&screen_p2, &screen_p0, buf, YADE_WIRE_FILL_CHAR);
+		let clip_p0 = tri.p0.get_transformed_by_mat4x4_w(&buf.render_mat);
+		let clip_p1 = tri.p1.get_transformed_by_mat4x4_w(&buf.render_mat);
+		let clip_p2 = tri.p2.get_transformed_by_mat4x4_w(&buf.render_mat);
+
+		// buf.write_debug(&format!("p0 {:?} x {} y {}\n", clip_p0, clip_p0.x_in_w_range(), clip_p0.y_in_w_range()));
+		// buf.write_debug(&format!("p1 {:?} x {} y {}\n", clip_p1, clip_p1.x_in_w_range(), clip_p1.y_in_w_range()));
+		// buf.write_debug(&format!("p2 {:?} x {} y {}\n\n", clip_p2, clip_p2.x_in_w_range(), clip_p2.y_in_w_range()));
+
+		let Some(screen_tri) = cull_tri_into_screen_space(clip_p0, clip_p1, clip_p2, buf) else { continue };
+
+		render_bresenham_line(&screen_tri.p0, &screen_tri.p1, buf, YADE_WIRE_FILL_CHAR);
+		render_bresenham_line(&screen_tri.p1, &screen_tri.p2, buf, YADE_WIRE_FILL_CHAR);
+		render_bresenham_line(&screen_tri.p2, &screen_tri.p0, buf, YADE_WIRE_FILL_CHAR);
 	}
-
-	// interesting vector iter skip() balls
-	// 253 // at the bottom
-	// 251 // left
-	// 61  // before the thingy
-
-	let mut indices_by_dist = Vec::<(f32, usize, char)>::with_capacity(yade_data.balls.len());
-
-	for (i, ball) in yade_data.balls.iter().enumerate() {
-
-		let ball_pos = ball.pos.get_transformed_by_mat4x4_discard_w(&buf.transf_mat);
-		let dist_circ_to_camera = ball_pos.squared_dist_to(&camera.position);
-
-		let digit = i as u32 % ('Z' as u32 - 'A' as u32) + ('A' as u32);
-		let letter = char::from_u32(digit).unwrap();
-
-		indices_by_dist.push((dist_circ_to_camera, i, letter));
-	}
-
-	// indices_by_dist.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-	indices_by_dist.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
-
 
 	// TODO: could make a buffer in TerminalBuffer for this
 	let mut render_mat_without_transform = create_identity_4x4_arr();
 	buf.copy_projection_to_mat4x4(&mut render_mat_without_transform);
 	multiply_4x4_matrices(&mut render_mat_without_transform, &camera.view_matrix);
 
-	for (_, ball_ind, letter) in indices_by_dist.iter() {
-		let letter = *letter;
-		let ball_ind = *ball_ind;
 
-		let ball = yade_data.balls.get(ball_ind).unwrap();
+	struct RenderBallData {
+		dist_sq_to_camera: f32,
+		index: usize,
+		screen_pos: IVec2,
+		rad: f32,
+	}
+
+	// TODO: see how much data is copied by sorting this
+	let mut indices_by_dist = Vec::<RenderBallData>::with_capacity(yade_data.balls.len());
+
+	for (index, ball) in yade_data.balls.iter().enumerate() {
 
 		let rad_scaled = ball.rad * scale;
+		let clip_pos = ball.pos.get_transformed_by_mat4x4_homogeneous(&buf.render_mat);
 
 		let transformed_pos = ball.pos.get_transformed_by_mat4x4_discard_w(&buf.transf_mat);
-		let rot_pos_up = transformed_pos.add_vec(&(camera.up * rad_scaled));
-		let rot_pos_up_proj = rot_pos_up.get_transformed_by_mat4x4_uniform(&render_mat_without_transform);
 
-		let ball_pos_projected_clip = ball.pos.get_transformed_by_mat4x4_uniform(&buf.render_mat);
+		// culling balls behind the camera
+		let ball_to_cam = camera.position - transformed_pos;
+		let dot = Vec3::dot_product(&camera.forward, &ball_to_cam);
+		if dot < 0.0 { continue }
 
-		let ball_up_projected_2d_f32 = clip_space_to_screen_space_f(&rot_pos_up_proj, buf.wid, buf.hei);
-		let screen_circ_f32 = clip_space_to_screen_space_f(&ball_pos_projected_clip, buf.wid, buf.hei);
-		let dist = (ball_up_projected_2d_f32.y - screen_circ_f32.y).abs();
+		let trs_pos_up = transformed_pos.add_vec(&(camera.up * rad_scaled));
+		let trs_pos_up_proj = trs_pos_up.get_transformed_by_mat4x4_homogeneous(&render_mat_without_transform);
+		let trs_pos_up_projected_screen_f = clip_space_to_screen_space_f(&trs_pos_up_proj, buf.wid, buf.hei);
 
-		let screen_circ = clip_space_to_screen_space(&ball_pos_projected_clip, buf.wid, buf.hei);
-		render_fill_bres_circle(&screen_circ, dist, letter, buf);
+		let screen_pos_f32 = clip_space_to_screen_space_f(&clip_pos, buf.wid, buf.hei);
+		let rad = (trs_pos_up_projected_screen_f.y - screen_pos_f32.y).abs();
 
-		// safe_render_char_at('O', screen_circ.x, screen_circ.y, buf);
-		// safe_render_char_at('U', ball_up_projected_2d_f32.x as i32, ball_up_projected_2d_f32.y as i32, buf);
+		if cull_circle(&screen_pos_f32, rad, buf) { continue; }
 
-		// render_bresenham_line(&screen_circ, &ball_up_projected_2d_f32.into(), buf, '*');
+		let dist_sq_to_camera = transformed_pos.squared_dist_to(&camera.position);
+
+		let render_data = RenderBallData {
+			dist_sq_to_camera,
+			rad,
+			screen_pos: screen_pos_f32.into(),
+			index,
+		};
+
+		indices_by_dist.push(render_data);
+	}
+
+	indices_by_dist.sort_by(|a, b| b.dist_sq_to_camera.partial_cmp(&a.dist_sq_to_camera).unwrap());
+
+
+	for ball_data in indices_by_dist.iter() {
+
+		let digit = ball_data.index as u32 % ('Z' as u32 - 'A' as u32) + ('A' as u32);
+		let letter = char::from_u32(digit).unwrap();
+
+		render_fill_bres_circle(&ball_data.screen_pos, ball_data.rad, letter, buf);
+		// safe_render_char_at('O', ball_data.screen_pos.x, ball_data.screen_pos.y, buf);
 	}
 
 }
 
-
 pub fn render_mesh(mesh: &Mesh, buf: &mut TerminalBuffer, timer: &Timer, camera: &Camera) {
+
+	let (pos_x, pos_y, pos_z) = (0.0, 0.0, 0.0);
 
 	let start_ms = 89_340;
 	let t = (timer.time_aggr.as_millis() + start_ms) as f32 * 0.001;
+	// teapot weirded out thing
+	let start_ms = 95_374;
+	let t = (start_ms) as f32 * 0.001;
 	let (angle_x, angle_y, angle_z) = (t * 0.1, t * 0.83, t * 1.2);
-	// let (angle_x, angle_y, angle_z) = (0.0, 0.0, 0.0);
+	let (angle_x, angle_y, angle_z) = (0.0, 0.0, 0.0);
 
 	let speed = 0.3;
 	let sharpness = 2.5;
 
 	let tri_wave = triangle_wave(t * speed);
 	let t_smooth_wave = smoothed_0_to_1_s(tri_wave, sharpness);
-	let tmod = lerp_f32(0.2, 0.4, t_smooth_wave);
-	// let tmod = 1.0;
+	let tmod = lerp_f32(0.5, 1.0, t_smooth_wave);
 	let (scale_x, scale_y, scale_z) = (tmod, tmod, tmod);
+	let (scale_x, scale_y, scale_z) = (1.0, 1.0, 1.0);
 
 
 	// this tweens the scale and rotation of the thing
@@ -244,8 +258,6 @@ pub fn render_mesh(mesh: &Mesh, buf: &mut TerminalBuffer, timer: &Timer, camera:
 	// let tmod_smooth = smoothed_0_to_1(tmod);
 	// let animation_curve = tmod_smooth * 0.5 + 0.25;
 	// let (scale_x, scale_y, scale_z) = (animation_curve, animation_curve, animation_curve);
-
-	let (pos_x, pos_y, pos_z) = (0.0, 0.0, 0.0);
 
 
 	buf.copy_projection_to_render_matrix();
@@ -267,13 +279,13 @@ pub fn render_mesh(mesh: &Mesh, buf: &mut TerminalBuffer, timer: &Timer, camera:
 		let p2_i = tri_i * 3 + 2;
 
 		// buf.write_debug(&format!("gets p0 p1 p2   {} {} {}\n", p0_i, p1_i, p2_i));
-		let p0 = mesh.get_vert_at(p0_i).invert_y();
-		let p1 = mesh.get_vert_at(p1_i).invert_y();
-		let p2 = mesh.get_vert_at(p2_i).invert_y();
+		let p0 = mesh.get_vert_at(p0_i);
+		let p1 = mesh.get_vert_at(p1_i);
+		let p2 = mesh.get_vert_at(p2_i);
 
-		let trs_p0 = p0.get_transformed_by_mat4x4_uniform(&buf.render_mat);
-		let trs_p1 = p1.get_transformed_by_mat4x4_uniform(&buf.render_mat);
-		let trs_p2 = p2.get_transformed_by_mat4x4_uniform(&buf.render_mat);
+		let trs_p0 = p0.get_transformed_by_mat4x4_homogeneous(&buf.render_mat);
+		let trs_p1 = p1.get_transformed_by_mat4x4_homogeneous(&buf.render_mat);
+		let trs_p2 = p2.get_transformed_by_mat4x4_homogeneous(&buf.render_mat);
 
 		let screen_p0 = clip_space_to_screen_space(&trs_p0, buf.wid, buf.hei);
 		let screen_p1 = clip_space_to_screen_space(&trs_p1, buf.wid, buf.hei);
@@ -418,3 +430,70 @@ pub fn render_gizmos(buf: &mut TerminalBuffer, camera: &Camera) {
 	render_char('O', &origin_2d.into(), buf);
 }
 
+pub fn render_bounding_box(bbox: &BoundingBox, buf: &mut TerminalBuffer, timer: &Timer, camera: &Camera) {
+
+	let (pos_x, pos_y, pos_z) = (0.0, 0.0, 0.0);
+
+	let start_ms = 0;
+	let t = (timer.time_aggr.as_millis() + start_ms) as f32 * 0.001 * 0.5;
+	// teapot weirded out thing
+	// let start_ms = 95_374;
+	// let t = (start_ms) as f32 * 0.001;
+	let (angle_x, angle_y, angle_z) = (t * 0.1, t * 0.83, t * 1.2);
+	let (angle_x, angle_y, angle_z) = (0.0, t, 0.0);
+	// let (angle_x, angle_y, angle_z) = (0.0, 0.0, 0.0);
+
+	let speed = 0.3;
+	let sharpness = 2.5;
+
+	let tri_wave = triangle_wave(t * speed);
+	let t_smooth_wave = smoothed_0_to_1_s(tri_wave, sharpness);
+	let tmod = lerp_f32(0.5, 1.0, t_smooth_wave);
+	let (scale_x, scale_y, scale_z) = (tmod, tmod, tmod);
+	let (scale_x, scale_y, scale_z) = (1.0, 1.0, 1.0);
+
+	buf.copy_projection_to_render_matrix();
+
+	apply_identity_to_mat_4x4(&mut buf.transf_mat);
+	apply_scale_to_mat_4x4(&mut buf.transf_mat, scale_x, scale_y, scale_z);
+	apply_rotation_to_mat_4x4(&mut buf.transf_mat, angle_x, angle_y, angle_z);
+	apply_pos_to_mat_4x4(&mut buf.transf_mat, pos_x, pos_y, pos_z);
+
+	multiply_4x4_matrices(&mut buf.render_mat, &camera.view_matrix);
+	multiply_4x4_matrices(&mut buf.render_mat, &buf.transf_mat);
+
+	// buf.clear_debug();
+	// buf.write_debug("BOUNDING BOX:\n");
+	// buf.write_debug(&format!("{} top_right_front\n", bbox.top_right_front));
+	// buf.write_debug(&format!("{} top_right_back\n", bbox.top_right_back));
+	// buf.write_debug(&format!("{} top_left_back\n", bbox.top_left_back));
+	// buf.write_debug(&format!("{} top_left_front\n", bbox.top_left_front));
+	// buf.write_debug(&format!("{} bottom_right_front\n", bbox.bottom_right_front));
+	// buf.write_debug(&format!("{} bottom_right_back\n", bbox.bottom_right_back));
+	// buf.write_debug(&format!("{} bottom_left_back\n", bbox.bottom_left_back));
+	// buf.write_debug(&format!("{} bottom_left_front\n", bbox.bottom_left_front));
+
+	let top_right_front_2d = screen_project(&bbox.top_right_front, &buf.render_mat, buf.wid, buf.hei);
+	let top_right_back_2d  = screen_project(&bbox.top_right_back, &buf.render_mat, buf.wid, buf.hei);
+	let top_left_back_2d   = screen_project(&bbox.top_left_back, &buf.render_mat, buf.wid, buf.hei);
+	let top_left_front_2d  = screen_project(&bbox.top_left_front, &buf.render_mat, buf.wid, buf.hei);
+	let bottom_right_front_2d = screen_project(&bbox.bottom_right_front, &buf.render_mat, buf.wid, buf.hei);
+	let bottom_right_back_2d  = screen_project(&bbox.bottom_right_back, &buf.render_mat, buf.wid, buf.hei);
+	let bottom_left_back_2d   = screen_project(&bbox.bottom_left_back, &buf.render_mat, buf.wid, buf.hei);
+	let bottom_left_front_2d  = screen_project(&bbox.bottom_left_front, &buf.render_mat, buf.wid, buf.hei);
+
+	render_bresenham_line(&top_right_front_2d, &top_right_back_2d, buf, '/');
+	render_bresenham_line(&top_right_back_2d, &top_left_back_2d, buf, '-');
+	render_bresenham_line(&top_left_back_2d, &top_left_front_2d, buf, '/');
+	render_bresenham_line(&top_left_front_2d, &top_right_front_2d, buf, '-');
+
+	render_bresenham_line(&bottom_right_front_2d, &bottom_right_back_2d, buf, '/');
+	render_bresenham_line(&bottom_right_back_2d, &bottom_left_back_2d, buf, '-');
+	render_bresenham_line(&bottom_left_back_2d, &bottom_left_front_2d, buf, '/');
+	render_bresenham_line(&bottom_left_front_2d, &bottom_right_front_2d, buf, '-');
+
+	render_bresenham_line(&bottom_right_front_2d, &top_right_front_2d, buf, '|');
+	render_bresenham_line(&bottom_right_back_2d, &top_right_back_2d, buf, '|');
+	render_bresenham_line(&bottom_left_back_2d, &top_left_back_2d, buf, '|');
+	render_bresenham_line(&bottom_left_front_2d, &top_left_front_2d, buf, '|');
+}

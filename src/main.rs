@@ -1,15 +1,17 @@
 // #![allow(unused)]
+// #![allow(unused_variables)]
 #![allow(dead_code)]
-#![allow(unused_variables)]
 
 #![allow(clippy::redundant_field_names)]
 #![allow(clippy::identity_op)]
 // #![allow(clippy::erasing_op)]
 
+#[deny(unused_must_use)]
+
 
 mod rendering;
 mod maths;
-mod terminal_wrapper;
+mod terminal;
 mod timer;
 mod benchmark;
 mod file_readers;
@@ -26,10 +28,10 @@ use rendering::{camera::Camera, mesh::Mesh, renderer::Renderer, yade_renderer::Y
 use settings::Settings;
 use timer::Timer;
 use benchmark::Benchmark;
-use terminal_wrapper::*;
+use terminal::*;
 use maths::*;
 
-use crate::{file_readers::obj_reader::read_mesh_from_obj, obj_renderer::ObjRenderer};
+use crate::{file_readers::obj_reader::read_mesh_from_obj_file, obj_renderer::ObjRenderer};
 
 
 // TODO: figure out how to do it more functional if I wanted to
@@ -53,13 +55,10 @@ fn main() {
 	}
 
 	let data_to_draw = if settings.custom_path.ends_with(".obj") {
-		FileDataType::Mesh(read_mesh_from_obj(&settings.custom_path).unwrap())
+		FileDataType::Mesh(read_mesh_from_obj_file(&settings.custom_path).unwrap())
 	} else {
 		FileDataType::YadeData(YadeDemData::read_from_file_or_quit(&settings.custom_path))
 	};
-
-	let mut terminal = configure_terminal();
-	set_panic_hook();
 
 	let mut app = App::init_with_screen();
 	// let mut app = App::init_wh(100, 30);
@@ -73,6 +72,9 @@ fn main() {
 	camera.configure_defaults();
 
 	timer.set_default_time_scale(1.0);
+
+	let mut terminal = configure_terminal();
+	set_panic_hook();
 
 	// #if MESH
 	// let draw_mesh: DrawMeshFunction = if settings.draw_wireframe {
@@ -100,7 +102,13 @@ fn main() {
 		FileDataType::Mesh(mesh) => Box::new(ObjRenderer::new(mesh)),
 	};
 
-	// let yade_debug = YadeDemData::debug();
+	let yade_debug = YadeDemData::debug();
+
+	// let mesh_debug = Mesh::pillars();
+	// let mesh_debug = read_mesh_from_obj_file("data/obj/teapot.obj").unwrap();
+	// let mesh_debug_box = BoundingBox::from_verts(&mesh_debug.verts);
+
+	app.buf.update_proj_matrix();
 
 	loop {
 		just_poll_while_paused(&mut app, &mut terminal, &mut timer);
@@ -109,17 +117,17 @@ fn main() {
 		poll_events(&mut terminal, &mut app, &mut timer);
 
 		// TODO: only needs to do this when resizing
-		app.buf.update_proj_matrix();
 
 		update_camera(&mut camera, &mut app);
 
 		render_gizmos(&mut app.buf, &camera);
-		render_axes(&mut app.buf, &camera, true);
+		// render_axes(&mut app.buf, &camera, true);
 
-		// render_yade(&yade_debug, &mut app.buf, &timer, &camera);
+		render_yade(&yade_debug, &mut app.buf, &timer, &camera);
+		// render_mesh(&mesh_debug, &mut app.buf, &timer, &camera);
 
 
-		renderer.render(&mut app.buf, &timer, &camera);
+		// renderer.render(&mut app.buf, &timer, &camera);
 
 		benchmark.profile_frame(&timer);
 		render_benchmark(&benchmark, &camera, &mut app.buf);
@@ -148,10 +156,18 @@ fn update_camera(camera: &mut Camera, app: &mut App) {
 		return;
 	}
 
-	camera.rotation = camera.rotation + app.rot;
-	camera.position = camera.position + app.pos;
+	if app.called_set_camera_default_orientation {
+		app.called_set_camera_default_orientation = false;
 
-	let dir_vec = (camera.side * app.dir.x) + (camera.up * app.dir.y) + (camera.forward * app.dir.z);
+		camera.set_initial_pos(camera.position.x, camera.position.y, camera.position.z);
+		camera.set_initial_rot(camera.rotation.x, camera.rotation.y, camera.rotation.z);
+		return;
+	}
+
+	camera.rotation = camera.rotation + app.user_rot;
+	camera.position = camera.position + app.user_pos;
+
+	let dir_vec = (camera.side * app.user_dir.x) + (camera.up * app.user_dir.y) + (camera.forward * app.user_dir.z);
 	camera.position = camera.position + dir_vec;
 
 	// TODO: only needs to do this when app.dir, app.rot or app.pos changesz	
@@ -160,7 +176,7 @@ fn update_camera(camera: &mut Camera, app: &mut App) {
 
 fn try_saving_screenshot(app: &mut App, timer: &Timer) {
 	let now = timer.last_tick;
-	let diff_since_last_ss = now - app.last_screenshot_instance;
+	let diff_since_last_ss = now - app.last_screenshot_instant;
 
 	let last_one_was_too_recent = diff_since_last_ss < App::SCREENDUMP_DELAY_DURATION;
 	if last_one_was_too_recent {
@@ -171,7 +187,7 @@ fn try_saving_screenshot(app: &mut App, timer: &Timer) {
 
 	if app.called_take_screenshot {
 		app.called_take_screenshot = false;
-		app.last_screenshot_instance = now;
+		app.last_screenshot_instant = now;
 
 		app.buf.try_dump_buffer_content_to_file();
 	}
@@ -196,12 +212,14 @@ pub struct App {
 
 	// TODO: user polled data
 	// or just take a reference to the camera as Rc<Camera>, simpler
-	pub dir: Vec3,
-	pub pos: Vec3,
-	pub rot: Vec3,
+	pub user_dir: Vec3,
+	pub user_pos: Vec3,
+	pub user_rot: Vec3,
+
 	pub called_reset_camera: bool,
+	pub called_set_camera_default_orientation: bool,
 	pub called_take_screenshot: bool,
-	pub last_screenshot_instance: Instant,
+	pub last_screenshot_instant: Instant,
 }
 
 impl App {
@@ -223,12 +241,14 @@ impl App {
 
 			buf: TerminalBuffer::new(width, height),
 
-			pos: Vec3::zero(),
-			dir: Vec3::zero(),
-			rot: Vec3::zero(),
+			user_pos: Vec3::zero(),
+			user_dir: Vec3::zero(),
+			user_rot: Vec3::zero(),
+
 			called_reset_camera: false,
+			called_set_camera_default_orientation: false,
 			called_take_screenshot: false,
-			last_screenshot_instance: Instant::now() - Duration::from_millis(App::SCREENDUMP_DELAY_MS),
+			last_screenshot_instant: Instant::now() - Duration::from_millis(App::SCREENDUMP_DELAY_MS),
 		}
 	}
 
@@ -243,10 +263,12 @@ impl App {
 
 		#[cfg(unix)]
 		self.buf.resize_and_render_clear(w, h);
-
+	
 		// (this is not a good idea) but ... when rendering is disabled, we could copy
 		// the content of the previous frame, reescale it and draw it into the new one
 		// (simply not gonna work)
+
+		self.buf.update_proj_matrix();
 	}
 
 }

@@ -1,4 +1,4 @@
-use crate::{maths::*};
+use crate::maths::*;
 
 
 pub struct Camera {
@@ -32,9 +32,6 @@ impl Camera {
 
 	pub fn configure_defaults(&mut self) {
 
-		self.set_initial_pos(0.0, 0.0, 16.0);
-		self.set_initial_rot(0.0, 0.0, 0.0);
-
 		// TODO: use this to debug (AXIS_SZ_WORLD == 20.0)
 		// self.set_initial_pos(-4.53, 5.04, 18.23);
 		// self.set_initial_rot(0.25, 0.15, 0.0);
@@ -59,9 +56,20 @@ impl Camera {
 		// self.set_initial_rot(0.343612, -0.932661, 0.000000);
 
 		// can see the 3 axes a little far
-		self.set_initial_pos(16.997_18, 7.730669, 12.742184);
-		self.set_initial_rot(0.343612, -0.932661, 0.000000);
-		
+		// self.set_initial_pos(16.997_18, 7.730669, 12.742184);
+		// self.set_initial_rot(0.343612, -0.932661, 0.000000);
+
+		// a little bit up and to the right (good for bounding boxes)
+		// self.set_initial_pos(2.398537, 2.217667, 11.542053);
+		// self.set_initial_rot(0.147262, -0.147262, 0.000000);
+
+		// DEFAULT
+		self.set_initial_pos(0.0, 0.0, 16.0);
+		self.set_initial_rot(0.0, 0.0, 0.0);
+
+		self.set_initial_pos(-0.035866, 0.622454, 2.083412);
+		self.set_initial_rot(0.343612, 0.245437, 0.000000);
+
 		self.update_view_matrix();
 	}
 
@@ -87,14 +95,14 @@ impl Camera {
 
 	#[deprecated]
 	fn find_up_and_forward(&self) -> (Vec3, Vec3) {
-		let mut mat = create_identity_4x4();
+		let mut mat = create_identity_4x4_arr();
 		apply_rotation_to_mat_4x4(&mut mat, self.rotation.x, self.rotation.y, self.rotation.z);
 
 		let cam_up = Vec3::new(0.0, 1.0, 0.0);
-		let cam_up = cam_up.get_transformed_by_mat4x4_uniform(&mat);
+		let cam_up = cam_up.get_transformed_by_mat4x4_homogeneous(&mat);
 
 		let cam_forward = Vec3::new(0.0, 0.0, 1.0);
-		let cam_forward = cam_forward.get_transformed_by_mat4x4_uniform(&mat);
+		let cam_forward = cam_forward.get_transformed_by_mat4x4_homogeneous(&mat);
 
 		(cam_up, cam_forward)
 	}
@@ -123,15 +131,13 @@ impl Camera {
 		// let cam_forward = Vec3::new(sin_x * sin_z - cos_x * sin_y * cos_z, sin_x * cos_z + cos_x * sin_y * sin_z, cos_x * cos_y,);
 
 		self.forward = Vec3::new(
-			- cos_x * sin_y,
+			-cos_x * sin_y,
 			sin_x,
 			cos_x * cos_y,
 		);
 
 		self.side = Vec3::cross_product(&self.forward, &self.up);
-		// let cam_up = cross_product(&cam_side, &cam_forward);
 
-		// TODO: dump to file logic
 		// buf.clear_debug();
 		// buf.write_debug(&format!("pos     {:}\n", position));
 		// buf.write_debug(&format!("rot     {:}\n", rotation));

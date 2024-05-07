@@ -1,18 +1,17 @@
 use crate::{maths::Vec3, xy_to_it};
 
-
 pub struct Mesh {
-	pub pos: Vec3,
 	pub verts: Vec<f32>,
+	// indices are 3 by 3, counterclockwise
 	pub tris_indices: Vec<u16>,
 	pub normals: Vec<f32>,
+	// indices are 3 by 3, counterclockwise
 	pub normal_indices: Vec<u16>,
 }
 
 impl Mesh {
 	pub fn cube() -> Self {
 		Self {
-			pos: Vec3::zero(),
 			verts: vec![
 				 1.0, -1.0, -1.0,
 				 1.0, -1.0,  1.0,
@@ -44,7 +43,6 @@ impl Mesh {
 
 	pub fn pillars() -> Self {
 		Self {
-			pos: Vec3::zero(),
 			verts: vec![
 				 0.5, 0.0,  0.5,
 				 0.6, 0.0,  0.5,
@@ -94,7 +92,6 @@ impl Mesh {
 
 	pub fn quad1x1() -> Self {
 		Self {
-			pos: Vec3::zero(),
 			verts: vec![
 				 1.0,  0.0,  1.0,
 				-1.0,  0.0,  1.0,
@@ -151,4 +148,16 @@ impl Mesh {
 			i += 1;
 		}
 	}
+
+	// TODO: figure out if I need this somewhere
+	pub fn invert_verts_y(mut verts: Vec<f32>) -> Vec<f32> {
+
+		let mut iter = verts.iter_mut().skip(1).step_by(3);
+		for y in &mut iter {
+			*y = -(*y);
+		}
+
+		verts
+	}
+	
 }

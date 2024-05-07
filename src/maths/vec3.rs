@@ -1,6 +1,40 @@
 use std::fmt;
 
-use crate::{maths::*, clip_space_to_screen_space, ivec2::IVec2};
+use crate::{clip_space_to_screen_space, in_range, ivec2::IVec2, maths::*};
+
+
+pub struct Vec4 {
+	pub xyz: Vec3,
+	pub w: f32,
+}
+
+impl Vec4 {
+	pub fn homogeneous(mut self) -> Vec3 {
+		self.xyz.x /= self.w;
+		self.xyz.y /= self.w;
+		self.xyz.z /= self.w;
+
+		self.xyz
+	}
+
+	pub fn in_w_range(&self) -> bool {
+		in_range(self.xyz.x, self.w, -self.w) && in_range(self.xyz.y, self.w, -self.w)
+	}
+
+	pub fn x_in_w_range(&self) -> bool {
+		in_range(self.xyz.x, self.w, -self.w)
+	}
+	pub fn y_in_w_range(&self) -> bool {
+		in_range(self.xyz.y, self.w, -self.w)
+	}
+
+}
+
+impl fmt::Debug for Vec4 {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		write!(f, "{:.6}, {:.6}, {:.6}, {:.6}", self.xyz.x, self.xyz.y, self.xyz.z, self.w)
+	}
+}
 
 
 #[derive(Clone, Copy)]
@@ -168,7 +202,7 @@ impl Vec3 {
 	}
 
 	#[must_use]
-	pub fn get_transformed_by_mat4x4_discard_w_discard_translation(&self, mat: &[f32]) -> Vec3 {
+	pub fn get_transformed_by_mat4x4_discard_w_and_translation(&self, mat: &[f32]) -> Vec3 {
 		const SZ: u16 = 4;
 		let x = self.x * mat[xy_to_it(0, 0, SZ)] + self.y * mat[xy_to_it(1, 0, SZ)] + self.z * mat[xy_to_it(2, 0, SZ)];
 		let y = self.x * mat[xy_to_it(0, 1, SZ)] + self.y * mat[xy_to_it(1, 1, SZ)] + self.z * mat[xy_to_it(2, 1, SZ)];
@@ -178,7 +212,7 @@ impl Vec3 {
 	}
 
 	#[must_use]
-	pub fn get_transformed_by_mat4x4_uniform(&self, mat: &[f32]) -> Vec3 {
+	pub fn get_transformed_by_mat4x4_homogeneous(&self, mat: &[f32]) -> Vec3 {
 		const SZ: u16 = 4;
 		let mut x = self.x * mat[xy_to_it(0, 0, SZ)] + self.y * mat[xy_to_it(1, 0, SZ)] + self.z * mat[xy_to_it(2, 0, SZ)] + 1.0 * mat[xy_to_it(3, 0, SZ)];
 		let mut y = self.x * mat[xy_to_it(0, 1, SZ)] + self.y * mat[xy_to_it(1, 1, SZ)] + self.z * mat[xy_to_it(2, 1, SZ)] + 1.0 * mat[xy_to_it(3, 1, SZ)];
@@ -192,6 +226,20 @@ impl Vec3 {
 		}
 
 		Self { x, y, z }
+	}
+
+	// pub fn get_transformed_by_mat4x4_uniform_w(&self, mat: &[f32]) -> (Vec3, f32) {
+	pub fn get_transformed_by_mat4x4_w(&self, mat: &[f32]) -> Vec4 {
+		const SZ: u16 = 4;
+		let x = self.x * mat[xy_to_it(0, 0, SZ)] + self.y * mat[xy_to_it(1, 0, SZ)] + self.z * mat[xy_to_it(2, 0, SZ)] + 1.0 * mat[xy_to_it(3, 0, SZ)];
+		let y = self.x * mat[xy_to_it(0, 1, SZ)] + self.y * mat[xy_to_it(1, 1, SZ)] + self.z * mat[xy_to_it(2, 1, SZ)] + 1.0 * mat[xy_to_it(3, 1, SZ)];
+		let z = self.x * mat[xy_to_it(0, 2, SZ)] + self.y * mat[xy_to_it(1, 2, SZ)] + self.z * mat[xy_to_it(2, 2, SZ)] + 1.0 * mat[xy_to_it(3, 2, SZ)];
+		let w = self.x * mat[xy_to_it(0, 3, SZ)] + self.y * mat[xy_to_it(1, 3, SZ)] + self.z * mat[xy_to_it(2, 3, SZ)] + 1.0 * mat[xy_to_it(3, 3, SZ)];
+
+		Vec4 {
+			xyz: Vec3 { x, y, z },
+			w
+		}
 	}
 
 	#[must_use]
@@ -209,6 +257,15 @@ impl Vec3 {
 			x: self.x + rhs.x,
 			y: self.y + rhs.y,
 			z: self.z + rhs.z,
+		}
+	}
+
+	#[must_use]
+	pub fn sub_vec(&self, rhs: &Vec3) -> Vec3 {
+		Vec3 {
+			x: self.x - rhs.x,
+			y: self.y - rhs.y,
+			z: self.z - rhs.z,
 		}
 	}
 
@@ -270,6 +327,15 @@ impl std::ops::Add<Vec3> for Vec3 {
 		self.added_vec(&rhs)
 	}
 }
+
+impl std::ops::Sub<Vec3> for Vec3 {
+	type Output = Vec3;
+
+	fn sub(self, rhs: Vec3) -> Self::Output {
+		self.sub_vec(&rhs)
+	}
+}
+
 
 impl std::ops::Mul<f32> for &Vec3 {
 	type Output = Vec3;

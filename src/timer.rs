@@ -17,12 +17,12 @@ pub struct Timer {
 impl Timer {
 	pub fn new() -> Self {
 		let now = Instant::now();
-		const DURATION_2MS: Duration = Duration::from_millis(2);
+		const VERY_SHORT_DURATION: Duration = Duration::from_micros(1);
 		Self {
 			frame_count:      0,
-			delta_time:       DURATION_2MS,
-			time_since_start: DURATION_2MS,
-			time_aggr:        DURATION_2MS,
+			delta_time:       VERY_SHORT_DURATION,
+			time_since_start: VERY_SHORT_DURATION,
+			time_aggr:        VERY_SHORT_DURATION,
 			time_scale:       1.0,
 			
 			start:            now,

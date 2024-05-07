@@ -1,6 +1,6 @@
 use std::f32::consts::TAU;
 
-use crate::{*, camera::Camera, maths::*, timer::Timer, terminal_wrapper::TerminalBuffer, ASCII_BYTES_PER_CHAR};
+use crate::{*, camera::Camera, maths::*, timer::Timer, terminal::TerminalBuffer, ASCII_BYTES_PER_CHAR};
 
 use super::BALL_FILL_CHAR;
 
@@ -77,11 +77,9 @@ pub fn render_bresenham_line(p0: &IVec2, p1: &IVec2, buf: &mut TerminalBuffer, f
 
 	loop {
 
-		// handle out of bounds
+		// TODO: debug_assert, handle out of bounds in the caller
 		if x >= 0 && x < buf.wid.into() && y >= 0 && y < buf.hei.into() {
 			let index = xy_to_it(x as u16, y as u16, buf.wid);
-
-			// TODO: figure out how would this work with UTF8
 			fill_char.encode_utf8(&mut buf.vec[index..index + ASCII_BYTES_PER_CHAR]);
 		}
 
@@ -141,6 +139,7 @@ pub fn render_fill_bres_circle(pos: &IVec2, rad: f32, fill: char, buf: &mut Term
 		let right_2 = IVec2::new(base_x + scaled_y, base_y - x);
 		let right_3 = IVec2::new(base_x + scaled_x, base_y - y);
 
+		// TODO: replace for render_straight_x_line
 		render_bresenham_line(&left_0, &right_0, buf, fill);
 		render_bresenham_line(&left_1, &right_1, buf, fill);
 		render_bresenham_line(&left_2, &right_2, buf, fill);
@@ -265,10 +264,10 @@ pub fn render_sphere(pos: &Vec3, rad: f32, ch: char, buf: &mut TerminalBuffer, t
 	// buf.write_debug(&format!("{:?} rot only\n", transformed_pos));
 	let rot_pos_up = transformed_pos.add_vec(&(camera.up * rad));
 	// buf.write_debug(&format!("{:?} rot up\n", rot_pos_up));
-	let rot_pos_up_proj = rot_pos_up.get_transformed_by_mat4x4_uniform(&render_mat_without_transform);
+	let rot_pos_up_proj = rot_pos_up.get_transformed_by_mat4x4_homogeneous(&render_mat_without_transform);
 	// buf.write_debug(&format!("{:?} rot up projected\n", rot_pos_up_proj));
 
-	let ball_pos_projected_clip = pos.get_transformed_by_mat4x4_uniform(&buf.render_mat);
+	let ball_pos_projected_clip = pos.get_transformed_by_mat4x4_homogeneous(&buf.render_mat);
 
 	let ball_up_projected_2d_f32 = clip_space_to_screen_space_f(&rot_pos_up_proj, buf.wid, buf.hei);
 	let screen_circ_f32 = clip_space_to_screen_space_f(&ball_pos_projected_clip, buf.wid, buf.hei);

@@ -64,7 +64,7 @@ impl From<ParseIntError> for ReaderError {
 // TODO: instead of propagating the shit all the way, I can make ReaderError have a string that expands with the error (shows lines that went bad)
 
 // TODO: make it Mesh::read_from_file
-pub fn read_mesh_from_obj(path: &str) -> Result<Mesh, ReaderError> {
+pub fn read_mesh_from_obj_file(path: &str) -> Result<Mesh, ReaderError> {
 
 	let file_content = fs::read_to_string(path).map_err(|err| ReaderError::from_io_error(err, path))?;
 
@@ -174,15 +174,12 @@ pub fn read_mesh_from_obj(path: &str) -> Result<Mesh, ReaderError> {
 	// };
 	// #endif
 
-	let mesh = Mesh {
-		pos: Vec3::zero(),
+	Ok(Mesh {
 		verts,
 		tris_indices: tris,
 		normals,
 		normal_indices,
-	};
-
-	Ok(mesh)
+	})
 }
 
 // TODO: put it in Mesh struct

@@ -1,4 +1,4 @@
-use std::{fmt::Display, fs, process};
+use std::{fmt::Display, fs, io::Write, process};
 
 use crate::maths::*;
 
@@ -14,7 +14,6 @@ pub struct YadeDemData {
 #[derive(Debug, Clone)]
 pub struct Ball {
 	pub pos: Vec3,
-
 	pub rad: Float,
 }
 
@@ -39,40 +38,40 @@ impl Tri {
 
 impl YadeDemData {
 
-	pub fn debug() -> YadeDemData {
+	pub fn debug() -> Self {
 		let mut balls = vec![];
 
 		let mut tris = Vec::<Tri>::with_capacity(12);
 
-		let v0 = Vec3::new( 0.06, -0.06, -0.06);
-		let v1 = Vec3::new( 0.06, -0.06,  0.06);
-		let v2 = Vec3::new(-0.06, -0.06,  0.06);
-		let v3 = Vec3::new(-0.06, -0.06, -0.06);
-		let v4 = Vec3::new( 0.06,  0.06, -0.06);
-		let v5 = Vec3::new( 0.06,  0.06,  0.06);
-		let v6 = Vec3::new(-0.06,  0.06,  0.06);
-		let v7 = Vec3::new(-0.06,  0.06, -0.06);
+		let v0 = Vec3::new( 0.9, -0.9, -0.9);
+		let v1 = Vec3::new( 0.9, -0.9,  0.9);
+		let v2 = Vec3::new(-0.9, -0.9,  0.9);
+		let v3 = Vec3::new(-0.9, -0.9, -0.9);
+		let v4 = Vec3::new( 0.9,  0.9, -0.9);
+		let v5 = Vec3::new( 0.9,  0.9,  0.9);
+		let v6 = Vec3::new(-0.9,  0.9,  0.9);
+		let v7 = Vec3::new(-0.9,  0.9, -0.9);
 
-		tris.push(Tri::with_pos(v1, v2, v3));
-		tris.push(Tri::with_pos(v7, v6, v5));
+		// tris.push(Tri::with_pos(v1, v2, v3));
+		// tris.push(Tri::with_pos(v7, v6, v5));
 		tris.push(Tri::with_pos(v4, v5, v1));
-		tris.push(Tri::with_pos(v5, v6, v2));
-		tris.push(Tri::with_pos(v2, v6, v7));
-		tris.push(Tri::with_pos(v0, v3, v7));
-		tris.push(Tri::with_pos(v0, v1, v3));
-		tris.push(Tri::with_pos(v4, v7, v5));
-		tris.push(Tri::with_pos(v0, v4, v1));
-		tris.push(Tri::with_pos(v1, v5, v2));
-		tris.push(Tri::with_pos(v3, v2, v7));
-		tris.push(Tri::with_pos(v4, v0, v7));
+		// tris.push(Tri::with_pos(v5, v6, v2));
+		// tris.push(Tri::with_pos(v2, v6, v7));
+		// tris.push(Tri::with_pos(v0, v3, v7));
+		// tris.push(Tri::with_pos(v0, v1, v3));
+		// tris.push(Tri::with_pos(v4, v7, v5));
+		// tris.push(Tri::with_pos(v0, v4, v1));
+		// tris.push(Tri::with_pos(v1, v5, v2));
+		// tris.push(Tri::with_pos(v3, v2, v7));
+		// tris.push(Tri::with_pos(v4, v0, v7));
 
-		balls.push(Ball { pos: Vec3 { x:  0.00, y:  0.00, z:  0.00 }, rad: 0.01 });
-		balls.push(Ball { pos: Vec3 { x:  0.05, y:  0.00, z:  0.00 }, rad: 0.01 });
-		balls.push(Ball { pos: Vec3 { x:  0.00, y:  0.05, z:  0.00 }, rad: 0.01 });
-		balls.push(Ball { pos: Vec3 { x:  0.00, y:  0.00, z:  0.05 }, rad: 0.01 });
-		balls.push(Ball { pos: Vec3 { x: -0.05, y:  0.00, z:  0.00 }, rad: 0.01 });
-		balls.push(Ball { pos: Vec3 { x:  0.00, y: -0.05, z:  0.00 }, rad: 0.01 });
-		balls.push(Ball { pos: Vec3 { x:  0.00, y:  0.00, z: -0.05 }, rad: 0.01 });
+		// balls.push(Ball { pos: Vec3 { x:  0.00, y:  0.00, z:  0.00 }, rad: 0.15 });
+		// balls.push(Ball { pos: Vec3 { x:  0.75, y:  0.00, z:  0.00 }, rad: 0.15 });
+		// balls.push(Ball { pos: Vec3 { x:  0.00, y:  0.75, z:  0.00 }, rad: 0.15 });
+		// balls.push(Ball { pos: Vec3 { x:  0.00, y:  0.00, z:  0.75 }, rad: 0.15 });
+		balls.push(Ball { pos: Vec3 { x: -0.75, y:  0.00, z:  0.00 }, rad: 0.15 });
+		// balls.push(Ball { pos: Vec3 { x:  0.00, y: -0.75, z:  0.00 }, rad: 0.15 });
+		// balls.push(Ball { pos: Vec3 { x:  0.00, y:  0.00, z: -0.75 }, rad: 0.15 });
 
 		Self {
 			balls,
@@ -80,7 +79,7 @@ impl YadeDemData {
 		}
 	}
 
-	pub fn read_from_file_or_quit(path: &str) -> YadeDemData {
+	pub fn read_from_file_or_quit(path: &str) -> Self {
 		// println!("Reading file '{}'", path);
 
 		// let file_content = fs::read_to_string(path).map_err(|err| err.to_string())?;
@@ -179,6 +178,12 @@ impl YadeDemData {
 		// }
 		// #endif
 
+		const LOG_FILE_PATH: &str = "bullshit/_log";
+		if let Ok(mut file) = fs::File::create(LOG_FILE_PATH).map(std::io::BufWriter::new) {
+			let fmt = format!("file at '{}':\n{} balls\n{} tris\n", path, balls.len(), tris.len());
+			let _ = file.write_all(fmt.as_bytes());
+		}
+
 		Self {
 			balls,
 			tris,
@@ -217,7 +222,54 @@ impl YadeDemData {
 		println!("0, {:?}, {}", Vec3 { x:  0.00, y:  0.00, z: -0.05 }, 0.01 );
 	}
 
+	pub fn get_verts_iter(&self) -> TrianglesVec3Iterator {
+		TrianglesVec3Iterator::new(&self)
+		// TrianglesVec3Iterator { list: &self, index: 0 }
+	}
 }
+
+
+pub struct TrianglesVec3Iterator<'a> {
+	// list: &'a [Tri],
+	list: &'a YadeDemData,
+	// tri_index: usize,
+	index: usize,
+}
+
+impl<'a> TrianglesVec3Iterator<'a> {
+	pub fn new(data: &'a YadeDemData) -> Self {
+		Self {
+			list: data,
+			index: 0,
+		}
+	}
+}
+
+impl<'a> Iterator for TrianglesVec3Iterator<'a> {
+	type Item = &'a Vec3;
+
+	fn next(&mut self) -> Option<Self::Item> {
+		let tri_index = self.index / 3;
+		let coord_index = self.index % 3;
+		
+		self.index += 1;
+		debug_assert!(coord_index < 3);
+
+		self.list.tris.get(tri_index).map(|tri| {
+	
+			if coord_index == 0 {
+				return &tri.p0
+			}
+
+			if coord_index == 1 {
+				return &tri.p1
+			}
+
+			return &tri.p2			
+		})
+	}
+}
+
 
 fn get_next_float_in_line_or_quit<'a>(line_iter: &mut impl Iterator<Item = &'a str>, path: &str, line_num: usize) -> Float {
 

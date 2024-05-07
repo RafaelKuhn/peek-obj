@@ -1,4 +1,4 @@
-use crate::{camera::Camera, terminal_wrapper::TerminalBuffer, timer::Timer};
+use crate::{camera::Camera, terminal::TerminalBuffer, timer::Timer};
 
 
 pub trait Renderer {
