@@ -13,6 +13,7 @@ mod rendering;
 mod maths;
 mod terminal;
 mod timer;
+mod fps_measure;
 mod benchmark;
 mod file_readers;
 mod settings;
@@ -27,11 +28,11 @@ use file_readers::yade_dem_reader::YadeDemData;
 use rendering::{camera::Camera, mesh::Mesh, renderer::Renderer, yade_renderer::YadeRenderer, *};
 use settings::Settings;
 use timer::Timer;
-use benchmark::Benchmark;
+use fps_measure::FpsMeasure;
 use terminal::*;
 use maths::*;
 
-use crate::{file_readers::obj_reader::read_mesh_from_obj_file, obj_renderer::ObjRenderer};
+use crate::{benchmark::Benchmark, file_readers::obj_reader::read_mesh_from_obj_file, obj_renderer::ObjRenderer};
 
 
 // TODO: figure out how to do it more functional if I wanted to
@@ -65,8 +66,8 @@ fn main() {
 
 	let mut timer = Timer::new();
 
-	const BENCHMARK_REFRESH_RATE: f32 = 0.5;
-	let mut benchmark = Benchmark::new(BENCHMARK_REFRESH_RATE);
+	const FPS_MEAS_REFRESH_RATE: f32 = 0.5;
+	let mut fps_measure = FpsMeasure::new(FPS_MEAS_REFRESH_RATE);
 
 	let mut camera = Camera::new();
 	camera.configure_defaults();
@@ -109,33 +110,46 @@ fn main() {
 	// let mesh_debug_box = BoundingBox::from_verts(&mesh_debug.verts);
 
 	app.buf.update_proj_matrix();
+	let mut benchmark = Benchmark::default();
 
 	loop {
+		app.buf.clear_debug();
 		just_poll_while_paused(&mut app, &mut terminal, &mut timer);
+		benchmark.start();
 		render_clear(&mut app.buf);
+		app.buf.write_debug(&benchmark.end("render clear"));
 
 		poll_events(&mut terminal, &mut app, &mut timer);
+		app.buf.write_debug(&benchmark.end("poll"));
 
 		// TODO: only needs to do this when resizing
 
 		update_camera(&mut camera, &mut app);
 
+		benchmark.start();
 		render_gizmos(&mut app.buf, &camera);
 		// render_axes(&mut app.buf, &camera, true);
+		app.buf.write_debug(&benchmark.end("render gizmos"));
 
-		render_yade(&yade_debug, &mut app.buf, &timer, &camera);
+		// render_yade(&yade_debug, &mut app.buf, &timer, &camera);
+		// app.buf.write_debug(&benchmark.end("render yade"));
 		// render_mesh(&mesh_debug, &mut app.buf, &timer, &camera);
 
 
-		// renderer.render(&mut app.buf, &timer, &camera);
+		renderer.render(&mut app.buf, &timer, &camera);
+		app.buf.write_debug(&benchmark.end("renderer render"));
 
-		benchmark.profile_frame(&timer);
-		render_benchmark(&benchmark, &camera, &mut app.buf);
+		fps_measure.profile_frame(&timer);
+		benchmark.start();
+		render_benchmark(&fps_measure, &camera, &mut app.buf);
+		app.buf.write_debug(&benchmark.end("render benchmark"));
 
 		timer.run_frame();
 
 		try_saving_screenshot(&mut app, &timer);
+		benchmark.start();
 		print_to_terminal_func(&app.buf, &mut terminal);
+		app.buf.write_debug(&benchmark.end("print to terminal"));
 	}
 }
 

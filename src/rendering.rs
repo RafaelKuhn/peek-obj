@@ -16,7 +16,7 @@ use std::fmt::{self, format};
 
 
 
-use crate::{maths::*, camera::Camera, mesh::Mesh, benchmark::Benchmark, file_readers::yade_dem_reader::YadeDemData, terminal::TerminalBuffer, timer::Timer, utils::*};
+use crate::{maths::*, camera::Camera, mesh::Mesh, fps_measure::FpsMeasure, file_readers::yade_dem_reader::YadeDemData, terminal::TerminalBuffer, timer::Timer, utils::*};
 
 
 // ascii luminance:
@@ -67,7 +67,7 @@ pub fn render_clear(buffer: &mut TerminalBuffer) {
 }
 
 
-pub fn render_benchmark(benchmark: &Benchmark, camera: &Camera, buffer: &mut TerminalBuffer) {
+pub fn render_benchmark(benchmark: &FpsMeasure, camera: &Camera, buffer: &mut TerminalBuffer) {
 	let mut highest_pos = UVec2::new(0, 0);
 	render_string(&format!("cam pos: {:?}", camera.position), &highest_pos, buffer);
 	highest_pos.y += 1;
