@@ -150,6 +150,11 @@ pub fn read_mesh_from_obj_file(path: &str) -> Result<Mesh, ReaderError> {
 	}
 
 
+	// BUNNY config
+	// mesh.invert_mesh_yz();
+	// translate_mesh(&mut mesh, &Vec3::new(0.0, 0.0, -0.125));
+
+
 	// #if MESH
 	// TODO: check custom only if file is not found
 	// let mesh_result = if !settings.has_custom_path {

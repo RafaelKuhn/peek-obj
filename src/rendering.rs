@@ -16,7 +16,7 @@ use std::fmt::{self, format};
 
 
 
-use crate::{maths::*, camera::Camera, mesh::Mesh, fps_measure::FpsMeasure, file_readers::yade_dem_reader::YadeDemData, terminal::TerminalBuffer, timer::Timer, utils::*};
+use crate::{benchmark::{self, Benchmark}, camera::Camera, file_readers::yade_dem_reader::YadeDemData, fps_measure::FpsMeasure, maths::*, mesh::Mesh, terminal::TerminalBuffer, timer::Timer, utils::*};
 
 
 // ascii luminance:
@@ -35,7 +35,6 @@ const YADE_WIRE_FILL_CHAR: char = '*';
 const BALL_FILL_CHAR: char = '@';
 
 pub static ASCII_BYTES_PER_CHAR: usize = 1;
-// pub static UTF32_BYTES_PER_CHAR: usize = 4;
 
 
 
@@ -47,23 +46,25 @@ pub struct ScreenTriangle {
 }
 
 pub fn render_clear(buffer: &mut TerminalBuffer) {
+	
+	debug_assert!(BACKGROUND_FILL_CHAR.len_utf8() == 1, "Background fill should be ASCII");
 
-	// TODO: figure out data structure to write braille (UTF32)
-	// let def_pad = UTF32_BYTES_PER_CHAR - char::len_utf8(BACKGROUND_FILL_CHAR);
+	buffer.vec.fill(BACKGROUND_FILL_CHAR as u8);
 
-	for y in 0..buffer.hei {
+	// only needs to care about this for braille rendering
+	// for y in 0..buffer.hei {
 
-		let y_offset = y as usize * buffer.wid as usize * ASCII_BYTES_PER_CHAR;
-		for x in 0..buffer.wid {
-			let it = y_offset + x as usize * ASCII_BYTES_PER_CHAR;
+	// 	let y_offset = y as usize * buffer.wid as usize * ASCII_BYTES_PER_CHAR;
+	// 	for x in 0..buffer.wid {
+	// 		let it = y_offset + x as usize * ASCII_BYTES_PER_CHAR;
 
-			// note: needs to fill [0, 0, 0, 0] because encode_utf8 only fills the required utf-8 leaving trash in there
-			buffer.vec[it .. it+ASCII_BYTES_PER_CHAR].fill(0);
+	// 		// note: needs to fill [0, 0, 0, 0] because encode_utf8 only fills the required utf-8 leaving trash in there
+	// 		buffer.vec[it .. it+ASCII_BYTES_PER_CHAR].fill(0);
 
-			// BACKGROUND_FILL_CHAR.encode_utf8(&mut buffer.vec[it + def_pad .. it+4]);
-			BACKGROUND_FILL_CHAR.encode_utf8(&mut buffer.vec[it .. it+ASCII_BYTES_PER_CHAR]);
-		}
-	}
+	// 		// BACKGROUND_FILL_CHAR.encode_utf8(&mut buffer.vec[it + def_pad .. it+4]);
+	// 		BACKGROUND_FILL_CHAR.encode_utf8(&mut buffer.vec[it .. it+ASCII_BYTES_PER_CHAR]);
+	// 	}
+	// }
 }
 
 
@@ -105,7 +106,7 @@ pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Ti
 	let speed = 0.5;
 	let start_ms = 0;
 	let start_ms = 5196;
-	let mut t = (timer.time_aggr.as_millis() * 0 + start_ms) as f32 * 0.001 * speed;
+	let mut t = (timer.time_aggr.as_millis() + start_ms) as f32 * 0.001 * speed;
 	if buf.test { t = 0.0; }
 
 	// let t = 0.0;
@@ -126,6 +127,8 @@ pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Ti
 	// let (scale_x, scale_y, scale_z) = (animation_curve, animation_curve, animation_curve);
 
 
+	/* */ // let mut bench = Benchmark::named(" RENDER");
+	/* */ // bench.start();
 	buf.copy_projection_to_render_matrix();
 
 	apply_identity_to_mat_4x4(&mut buf.transf_mat);
@@ -136,6 +139,7 @@ pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Ti
 
 	multiply_4x4_matrices(&mut buf.render_mat, &camera.view_matrix);
 	multiply_4x4_matrices(&mut buf.render_mat, &buf.transf_mat);
+	/* */ // bench.end_and_log("setup", buf);
 
 	for tri in yade_data.tris.iter() {
 
@@ -157,6 +161,7 @@ pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Ti
 		render_bresenham_line(&screen_tri.p1, &screen_tri.p2, buf, YADE_WIRE_FILL_CHAR);
 		render_bresenham_line(&screen_tri.p2, &screen_tri.p0, buf, YADE_WIRE_FILL_CHAR);
 	}
+	/* */ // bench.end_and_log("render tris", buf);
 
 	// TODO: could make a buffer in TerminalBuffer for this
 	let mut render_mat_without_transform = create_identity_4x4_arr();
@@ -174,6 +179,7 @@ pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Ti
 	// TODO: see how much data is copied by sorting this
 	let mut indices_by_dist = Vec::<RenderBallData>::with_capacity(yade_data.balls.len());
 
+	/* */ // bench.start();
 	for (index, ball) in yade_data.balls.iter().enumerate() {
 
 		let rad_scaled = ball.rad * scale;
@@ -206,18 +212,21 @@ pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Ti
 
 		indices_by_dist.push(render_data);
 	}
-
+	/* */ // bench.end_and_log("set up render balls", buf);
+	
 	indices_by_dist.sort_by(|a, b| b.dist_sq_to_camera.partial_cmp(&a.dist_sq_to_camera).unwrap());
-
-
+	
+	/* */ // bench.end_and_log("sort render balls", buf);
 	for ball_data in indices_by_dist.iter() {
 
 		let digit = ball_data.index as u32 % ('Z' as u32 - 'A' as u32) + ('A' as u32);
 		let letter = char::from_u32(digit).unwrap();
 
 		render_fill_bres_circle(&ball_data.screen_pos, ball_data.rad, letter, buf);
+		// render_bres_circle(&ball_data.screen_pos, ball_data.rad, letter, buf);
 		// safe_render_char_at('O', ball_data.screen_pos.x, ball_data.screen_pos.y, buf);
 	}
+	/* */ // bench.end_and_log("fill ball circle", buf);
 
 }
 

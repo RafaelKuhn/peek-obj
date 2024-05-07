@@ -51,6 +51,33 @@ pub fn safe_render_char(ch: char, pos: &IVec2, buf: &mut TerminalBuffer) {
 	render_char(ch, &pos.into(), buf);
 }
 
+pub fn render_straight_x_line(p0x: Int, p1x: Int, y: Int, buf: &mut TerminalBuffer, fill_char: char) {
+	debug_assert!(p1x > p0x, "p1 larger, switch them?");
+
+	let p0x = p0x.clamp(0, (buf.wid - 1).into());
+	let p1x = p1x.clamp(0, (buf.wid - 1).into());
+	let y   = y.clamp(0, (buf.hei - 1).into());
+
+	let start = xy_to_it(p0x as u16, y as u16, buf.wid);
+	let end = xy_to_it(p1x as u16, y as u16, buf.wid);
+
+	debug_assert!(fill_char.len_utf8() == 1, "NOT ASCII");
+	let ascii_fill_char = fill_char as u8;
+
+	// buf.vec[start..end].fill(ascii_fill_char);
+	// fill_char.encode_utf8(&mut buf.vec[index..index + ASCII_BYTES_PER_CHAR]);
+
+	unsafe {
+		let vec_start = buf.vec.as_mut_ptr();
+		let write_start = vec_start.add(start);
+
+		let range = end - start;
+
+		write_start.write_bytes(ascii_fill_char, range);
+		// vec_start.write_bytes(ascii_fill_char, );
+	}
+}
+
 pub fn render_bresenham_line(p0: &IVec2, p1: &IVec2, buf: &mut TerminalBuffer, fill_char: char) {
 	// let last_x = buf.wid - 1;
 	// let last_y = buf.hei - 1;
@@ -108,14 +135,14 @@ pub fn render_fill_bres_circle(pos: &IVec2, rad: f32, fill: char, buf: &mut Term
 	// I will always start rendering from the right side ->
 	// and the first mirrored version will be the leftmost <-
 
-	// buf.write_debug(&format!("[{:}, {:}]\n", base_x + x, base_y + y));
-	// plot_mirrored_octets_safe(x, y, base_x, base_y, buf);
-
 	let scaled_y = y * 2;
 
-	let left_st  = IVec2::new(base_x - scaled_y, base_y);
-	let right_st = IVec2::new(base_x + scaled_y, base_y);
-	render_bresenham_line(&left_st, &right_st, buf, fill);
+	// TODO: compute more stuff for the straight lines here
+
+	// let left_st  = IVec2::new(base_x - scaled_y, base_y);
+	// let right_st = IVec2::new(base_x + scaled_y, base_y);
+	// render_bresenham_line(&left_st, &right_st, buf, fill);
+	render_straight_x_line(base_x - scaled_y, base_x + scaled_y, base_y, buf, fill);
 
 	while y >= x {
 		x += 1;
@@ -129,25 +156,29 @@ pub fn render_fill_bres_circle(pos: &IVec2, rad: f32, fill: char, buf: &mut Term
 		let scaled_x = x * 2;
 		let scaled_y = y * 2;
 
-		let left_0 = IVec2::new(base_x - scaled_x, base_y + y);
-		let left_1 = IVec2::new(base_x - scaled_y, base_y + x);
-		let left_2 = IVec2::new(base_x - scaled_y, base_y - x);
-		let left_3 = IVec2::new(base_x - scaled_x, base_y - y);
+		// let left_0 = IVec2::new(base_x - scaled_x, base_y + y);
+		// let left_1 = IVec2::new(base_x - scaled_y, base_y + x);
+		// let left_2 = IVec2::new(base_x - scaled_y, base_y - x);
+		// let left_3 = IVec2::new(base_x - scaled_x, base_y - y);
 
-		let right_0 = IVec2::new(base_x + scaled_x, base_y + y);
-		let right_1 = IVec2::new(base_x + scaled_y, base_y + x);
-		let right_2 = IVec2::new(base_x + scaled_y, base_y - x);
-		let right_3 = IVec2::new(base_x + scaled_x, base_y - y);
+		// let right_0 = IVec2::new(base_x + scaled_x, base_y + y);
+		// let right_1 = IVec2::new(base_x + scaled_y, base_y + x);
+		// let right_2 = IVec2::new(base_x + scaled_y, base_y - x);
+		// let right_3 = IVec2::new(base_x + scaled_x, base_y - y);
 
-		// TODO: replace for render_straight_x_line
-		render_bresenham_line(&left_0, &right_0, buf, fill);
-		render_bresenham_line(&left_1, &right_1, buf, fill);
-		render_bresenham_line(&left_2, &right_2, buf, fill);
-		render_bresenham_line(&left_3, &right_3, buf, fill);
+		// render_bresenham_line(&left_0, &right_0, buf, fill);
+		// render_bresenham_line(&left_1, &right_1, buf, fill);
+		// render_bresenham_line(&left_2, &right_2, buf, fill);
+		// render_bresenham_line(&left_3, &right_3, buf, fill);
+
+		render_straight_x_line(base_x - scaled_x, base_x + scaled_x, base_y + y, buf, fill);
+		render_straight_x_line(base_x - scaled_y, base_x + scaled_y, base_y + x, buf, fill);
+		render_straight_x_line(base_x - scaled_y, base_x + scaled_y, base_y - x, buf, fill);
+		render_straight_x_line(base_x - scaled_x, base_x + scaled_x, base_y - y, buf, fill);
 	}
 }
 
-pub fn render_bres_circle(pos: &IVec2, rad: f32, buf: &mut TerminalBuffer) {
+pub fn render_bres_circle(pos: &IVec2, rad: f32, ch: char, buf: &mut TerminalBuffer) {
 
 	let mut x = 0 as Int;
 	let mut y = rad as Int;
@@ -160,7 +191,7 @@ pub fn render_bres_circle(pos: &IVec2, rad: f32, buf: &mut TerminalBuffer) {
 	// and the first mirrored version will be the leftmost <-
 
 	// buf.write_debug(&format!("[{:}, {:}]\n", base_x + x, base_y + y));
-	plot_mirrored_octets_safe(x, y, base_x, base_y, buf);
+	plot_mirrored_octets_safe(x, y, base_x, base_y, ch, buf);
 
 	while y >= x {
 		x += 1;
@@ -172,25 +203,25 @@ pub fn render_bres_circle(pos: &IVec2, rad: f32, buf: &mut TerminalBuffer) {
 		}
 
 		// buf.write_debug(&format!("[{:}, {:}]\n", base_x + x, base_y + y));
-		plot_mirrored_octets_safe(x, y, base_x, base_y, buf);
+		plot_mirrored_octets_safe(x, y, base_x, base_y, ch, buf);
 	}
 }
 
-pub fn plot_mirrored_octets_safe(x: Int, y: Int, base_x: Int, base_y: Int, buf: &mut TerminalBuffer) {
+pub fn plot_mirrored_octets_safe(x: Int, y: Int, base_x: Int, base_y: Int, ch: char, buf: &mut TerminalBuffer) {
 
 	let scaled_x = x * 2;
 	let scaled_y = y * 2;
 
 	// left
-	safe_render_char_at(BALL_FILL_CHAR, base_x - scaled_x, base_y + y, buf);
-	safe_render_char_at(BALL_FILL_CHAR, base_x - scaled_y, base_y + x, buf);
-	safe_render_char_at(BALL_FILL_CHAR, base_x - scaled_y, base_y - x, buf);
-	safe_render_char_at(BALL_FILL_CHAR, base_x - scaled_x, base_y - y, buf);
+	safe_render_char_at(ch, base_x - scaled_x, base_y + y, buf);
+	safe_render_char_at(ch, base_x - scaled_y, base_y + x, buf);
+	safe_render_char_at(ch, base_x - scaled_y, base_y - x, buf);
+	safe_render_char_at(ch, base_x - scaled_x, base_y - y, buf);
 	// right
-	safe_render_char_at(BALL_FILL_CHAR, base_x + scaled_x, base_y + y, buf);
-	safe_render_char_at(BALL_FILL_CHAR, base_x + scaled_y, base_y + x, buf);
-	safe_render_char_at(BALL_FILL_CHAR, base_x + scaled_y, base_y - x, buf);
-	safe_render_char_at(BALL_FILL_CHAR, base_x + scaled_x, base_y - y, buf);
+	safe_render_char_at(ch, base_x + scaled_x, base_y + y, buf);
+	safe_render_char_at(ch, base_x + scaled_y, base_y + x, buf);
+	safe_render_char_at(ch, base_x + scaled_y, base_y - x, buf);
+	safe_render_char_at(ch, base_x + scaled_x, base_y - y, buf);
 }
 
 pub fn test_render_spheres(buf: &mut TerminalBuffer, timer: &Timer, camera: &Camera) {

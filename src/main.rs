@@ -35,16 +35,6 @@ use maths::*;
 use crate::{benchmark::Benchmark, file_readers::obj_reader::read_mesh_from_obj_file, obj_renderer::ObjRenderer};
 
 
-// TODO: figure out how to do it more functional if I wanted to
-type RenderMeshFn = fn(&Mesh, &mut TerminalBuffer, &Timer, &Camera);
-type RenderYadeFn = fn(&YadeDemData, &mut TerminalBuffer, &Timer, &Camera);
-
-enum FileDataType {
-	Mesh(Mesh),
-	YadeData(YadeDemData),
-}
-
-
 fn main() {
 
 	let args = env::args().skip(1);
@@ -55,12 +45,24 @@ fn main() {
 		std::process::exit(1);
 	}
 
-	let data_to_draw = if settings.custom_path.ends_with(".obj") {
-		FileDataType::Mesh(read_mesh_from_obj_file(&settings.custom_path).unwrap())
+	if settings.custom_path.ends_with(".obj") {
+		let renderer = ObjRenderer::new(read_mesh_from_obj_file(&settings.custom_path).unwrap());
+		run_pipeline(renderer);
 	} else {
-		FileDataType::YadeData(YadeDemData::read_from_file_or_quit(&settings.custom_path))
+		let renderer = YadeRenderer::new(YadeDemData::read_from_file_or_quit(&settings.custom_path));
+		run_pipeline(renderer);
 	};
+}
 
+// TODO: try doing renderer with this:
+// https://refactoring.guru/design-patterns/abstract-factory/rust/example
+
+// TODO: try this less blurry crap
+// https://stackoverflow.com/questions/25445761/returning-a-closure-from-a-function
+// type RenderMeshFn = fn(&Mesh, &mut TerminalBuffer, &Timer, &Camera);
+// type RenderYadeFn = fn(&YadeDemData, &mut TerminalBuffer, &Timer, &Camera);
+
+fn run_pipeline<T>(renderer: T) where T : Renderer {
 	let mut app = App::init_with_screen();
 	// let mut app = App::init_wh(100, 30);
 
@@ -77,32 +79,7 @@ fn main() {
 	let mut terminal = configure_terminal();
 	set_panic_hook();
 
-	// #if MESH
-	// let draw_mesh: DrawMeshFunction = if settings.draw_wireframe {
-	// 	if settings.draw_normals { draw_mesh_wire_and_normals } else { draw_mesh_wire }
-	// } else {
-	// 	if settings.draw_normals { panic!("Can't draw normals + filled yet") } else { draw_mesh_filled }
-	// };
-	// #endif
-
-	// TODO: try doing renderer with this:
-	// https://refactoring.guru/design-patterns/abstract-factory/rust/example
-
-	// TODO: try this less blurry crap
-	// https://stackoverflow.com/questions/25445761/returning-a-closure-from-a-function
-
-
-	// BUNNY config
-	// mesh.invert_mesh_yz();
-	// translate_mesh(&mut mesh, &Vec3::new(0.0, 0.0, -0.125));
-
 	let print_to_terminal_func = if app.is_full_screen { print_and_flush_terminal_fscreen } else { print_and_flush_terminal_line_by_line };
-
-	let renderer: Box<dyn Renderer> = match data_to_draw {
-		FileDataType::YadeData(yade_data) => Box::new(YadeRenderer::new(yade_data)),
-		FileDataType::Mesh(mesh) => Box::new(ObjRenderer::new(mesh)),
-	};
-
 	let yade_debug = YadeDemData::debug();
 
 	// let mesh_debug = Mesh::pillars();
@@ -114,13 +91,14 @@ fn main() {
 
 	loop {
 		app.buf.clear_debug();
+		app.buf.write_debug(&format!("with resolution {} x {}\n", app.buf.wid, app.buf.hei));
 		just_poll_while_paused(&mut app, &mut terminal, &mut timer);
 		benchmark.start();
 		render_clear(&mut app.buf);
-		app.buf.write_debug(&benchmark.end("render clear"));
+		benchmark.end_and_log("render clear", &mut app.buf);
 
 		poll_events(&mut terminal, &mut app, &mut timer);
-		app.buf.write_debug(&benchmark.end("poll"));
+		benchmark.end_and_log("poll", &mut app.buf);
 
 		// TODO: only needs to do this when resizing
 
@@ -129,27 +107,28 @@ fn main() {
 		benchmark.start();
 		render_gizmos(&mut app.buf, &camera);
 		// render_axes(&mut app.buf, &camera, true);
-		app.buf.write_debug(&benchmark.end("render gizmos"));
+		benchmark.end_and_log("render gizmos", &mut app.buf);
 
 		// render_yade(&yade_debug, &mut app.buf, &timer, &camera);
-		// app.buf.write_debug(&benchmark.end("render yade"));
+
+		// benchmark.end_write("render yade", &mut app.buf);
 		// render_mesh(&mesh_debug, &mut app.buf, &timer, &camera);
 
-
 		renderer.render(&mut app.buf, &timer, &camera);
-		app.buf.write_debug(&benchmark.end("renderer render"));
+		benchmark.end_and_log("renderer render", &mut app.buf);
 
 		fps_measure.profile_frame(&timer);
 		benchmark.start();
 		render_benchmark(&fps_measure, &camera, &mut app.buf);
-		app.buf.write_debug(&benchmark.end("render benchmark"));
+		benchmark.end_and_log("render benchmark", &mut app.buf);
 
 		timer.run_frame();
 
 		try_saving_screenshot(&mut app, &timer);
 		benchmark.start();
 		print_to_terminal_func(&app.buf, &mut terminal);
-		app.buf.write_debug(&benchmark.end("print to terminal"));
+		benchmark.end_and_log("print to terminal", &mut app.buf);
+		app.buf.write_debug(&benchmark.accum_end());
 	}
 }
 

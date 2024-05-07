@@ -230,9 +230,7 @@ impl YadeDemData {
 
 
 pub struct TrianglesVec3Iterator<'a> {
-	// list: &'a [Tri],
 	list: &'a YadeDemData,
-	// tri_index: usize,
 	index: usize,
 }
 
