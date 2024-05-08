@@ -1,6 +1,6 @@
 #!/bin/sh
 
 # cargo run -- data/yade/mock.txt
-cargo run -- data/yade/dados.txt
+# cargo run -- data/yade/dados.txt
 
-# cargo run --release -- data/yade/dados.txt
+cargo run --release -- data/yade/dados.txt

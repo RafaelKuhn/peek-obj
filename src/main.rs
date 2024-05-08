@@ -62,7 +62,7 @@ fn main() {
 // type RenderMeshFn = fn(&Mesh, &mut TerminalBuffer, &Timer, &Camera);
 // type RenderYadeFn = fn(&YadeDemData, &mut TerminalBuffer, &Timer, &Camera);
 
-fn run_pipeline<T>(renderer: T) where T : Renderer {
+fn run_pipeline<T: Renderer>(renderer: T) {
 	let mut app = App::init_with_screen();
 	// let mut app = App::init_wh(100, 30);
 
@@ -126,7 +126,7 @@ fn run_pipeline<T>(renderer: T) where T : Renderer {
 
 		try_saving_screenshot(&mut app, &timer);
 		benchmark.start();
-		print_to_terminal_func(&app.buf, &mut terminal);
+		print_to_terminal_func(&mut app.buf, &mut terminal);
 		benchmark.end_and_log("print to terminal", &mut app.buf);
 		app.buf.write_debug(&benchmark.accum_end());
 	}

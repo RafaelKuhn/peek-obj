@@ -71,7 +71,7 @@ impl Benchmark {
 	}
 
 	pub fn accum_end(&mut self) -> String {
-		let str = format!("took {:<3} ms, {:<6} us in total - {:.2} FPS\n", self.total_ms, self.total_mc, 1000.0 / self.total_ms as f32);
+		let str = format!("\ntook {:<3} ms, {:<6} us in total - {:.2} FPS\n", self.total_ms, self.total_mc, 1_000_000.0 / self.total_mc as f32);
 		self.total_ms = 0;
 		self.total_mc = 0;
 		str

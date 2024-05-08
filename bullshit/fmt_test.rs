@@ -14,4 +14,7 @@ fn main() {
 	let f = 125.5643;
 	println("{:+.2}", f);
 
+
+	let b = br#"this is a byte string and I can have "quotes" inside it!"#;
+
 }

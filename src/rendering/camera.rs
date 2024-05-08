@@ -67,7 +67,11 @@ impl Camera {
 		self.set_initial_pos(0.0, 0.0, 16.0);
 		self.set_initial_rot(0.0, 0.0, 0.0);
 
+		// up close to debug balls clipping (yade debug)
 		self.set_initial_pos(-0.035866, 0.622454, 2.083412);
+		self.set_initial_rot(0.343612, 0.245437, 0.000000);
+
+		self.set_initial_pos(-5.594234, 8.236173, 22.627409);
 		self.set_initial_rot(0.343612, 0.245437, 0.000000);
 
 		self.update_view_matrix();

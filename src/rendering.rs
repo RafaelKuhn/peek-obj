@@ -50,6 +50,7 @@ pub fn render_clear(buffer: &mut TerminalBuffer) {
 	debug_assert!(BACKGROUND_FILL_CHAR.len_utf8() == 1, "Background fill should be ASCII");
 
 	buffer.vec.fill(BACKGROUND_FILL_CHAR as u8);
+	buffer.last_frame_vec.fill(BACKGROUND_FILL_CHAR as u8);
 
 	// only needs to care about this for braille rendering
 	// for y in 0..buffer.hei {

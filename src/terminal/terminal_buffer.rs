@@ -8,6 +8,7 @@ pub struct TerminalBuffer {
 	pub wid: u16,
 	pub hei: u16,
 	pub vec: Vec<u8>,
+	pub last_frame_vec: Vec<u8>,
 
 	// unique, just gets popuplated once per frame
 	proj_mat: Vec<f32>,
@@ -25,15 +26,15 @@ impl TerminalBuffer {
 	pub fn new(w: u16, h: u16) -> Self {
 
 		let char_len = w as usize * h as usize * ASCII_BYTES_PER_CHAR;
-		let vec = vec![0; char_len];
 
 		let debug_file = Self::open_and_clear_debug_file();
 
 		let mut this = TerminalBuffer {
 			wid: w,
 			hei: h,
-			vec,
-			proj_mat: create_identity_4x4(),
+			vec: vec![0; char_len],
+			last_frame_vec: vec![0; char_len],
+			proj_mat:   create_identity_4x4(),
 			transf_mat: create_identity_4x4(),
 			render_mat: create_identity_4x4(),
 			debug_file,

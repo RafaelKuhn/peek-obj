@@ -1,9 +1,10 @@
-use std::{f32::consts::TAU, io::{self, Stdout, Write}, process, time::Duration};
+use std::{f32::consts::TAU, io::{self, BufWriter, Stderr, Stdout, Write}, process, time::Duration};
 
 use crossterm::{terminal::*, event::*, cursor::*, style::*, *};
 
 pub struct CrosstermTerminal {
 	pub stdout: Stdout
+	// pub stdout: BufWriter<Stderr>
 }
 
 use crate::{maths::*, render_string, timer::Timer, try_saving_screenshot, App, TerminalBuffer};
@@ -13,19 +14,21 @@ pub fn configure_terminal() -> CrosstermTerminal {
 	enable_raw_mode().unwrap();
 
 	let mut stdout = io::stdout();
+	// let mut stdout = io::stderr();
 
 	// enter alternate screen, hides cursor
 	execute!(stdout, EnterAlternateScreen, Hide)
 		.unwrap();
 
-	CrosstermTerminal { stdout }
+	CrosstermTerminal { stdout: stdout }
+	// CrosstermTerminal { stdout: BufWriter::new(stdout) }
 }
 
 pub fn restore_terminal(terminal: &mut CrosstermTerminal) {
 	restore_stdout(&mut terminal.stdout)
 }
 
-pub fn restore_stdout(stdout: &mut Stdout) {
+pub fn restore_stdout<T: Write>(stdout: &mut T) {
 	disable_raw_mode().unwrap();
 
 	// leaves alternate screen, shows cursor
@@ -109,7 +112,7 @@ pub fn poll_events(terminal: &mut CrosstermTerminal, app: &mut App, timer: &mut 
 		Event::Resize(new_width, new_height) => {
 			app.resize_realloc(new_width, new_height);
 			// I don't remember why we draw it immediately after resizing but ok
-			print_and_flush_terminal_fscreen(&app.buf, terminal);
+			print_and_flush_terminal_fscreen(&mut app.buf, terminal);
 		}
 		_ => (),
 	}
@@ -121,7 +124,7 @@ pub fn just_poll_while_paused(app: &mut App, terminal_mut: &mut CrosstermTermina
 
 	const PAUSED_STR: &str = "PAUSED!";
 	render_string(PAUSED_STR, &UVec2::new(app.buf.wid - PAUSED_STR.len() as u16, app.buf.hei - 1), &mut app.buf);
-	print_and_flush_terminal_fscreen(&app.buf, terminal_mut);
+	print_and_flush_terminal_fscreen(&mut app.buf, terminal_mut);
 
 	while app.has_paused_rendering {
 		poll_events(terminal_mut, app, timer);
@@ -141,17 +144,38 @@ fn quit_with_message(terminal: &mut CrosstermTerminal, message: &str) {
 	process::exit(0);
 }
 
+pub fn print_and_flush_terminal_fscreen(buf: &mut TerminalBuffer, terminal: &mut CrosstermTerminal) {
 
-pub fn print_and_flush_terminal_fscreen(buf: &TerminalBuffer, terminal: &mut CrosstermTerminal) {
-	// print_and_flush_terminal_line_by_line(buf,terminal); return;
+	// for y in 0..buf.hei {
+	// 	for x in 0..buf.wid {
+	// 		let i = xy_to_it(x, y, buf.wid);
+	// 		let newu = buf.vec[i];
+	// 		let last = buf.last_frame_vec[i];
+
+	// 		if newu != last {
+	// 			queue!(terminal.stdout, MoveTo(x, y), Print(newu as char)).unwrap();
+	// 		}
+	// 	}
+	// }
+
+	// terminal.stdout.flush().unwrap();
+	// buf.last_frame_vec.copy_from_slice(&buf.vec);
+	// return;
+
+	// for y in buf.hei/3..buf.hei/2 {
+	// 	for x in buf.wid/3..buf.wid/2 {
+	// 		buf.vec[xy_to_it(x, y, buf.wid)] = b'\0';
+	// 	}
+	// }
 
 	// let buf_str = unsafe { std::str::from_utf8_unchecked(&buf.vec) };
 	let buf_str = std::str::from_utf8(&buf.vec).unwrap();
 	queue!(terminal.stdout, MoveTo(0, 0), Hide, Print(buf_str)).unwrap();
+
 	terminal.stdout.flush().unwrap();
 }
 
-pub fn print_and_flush_terminal_line_by_line(buf: &TerminalBuffer, terminal: &mut CrosstermTerminal) {
+pub fn print_and_flush_terminal_line_by_line(buf: &mut TerminalBuffer, terminal: &mut CrosstermTerminal) {
 	// line by line, this is required for "init with custom width/height"
 
 	let buf_wid = buf.wid as usize;
