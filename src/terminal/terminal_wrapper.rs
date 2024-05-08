@@ -1,10 +1,11 @@
-use std::{f32::consts::TAU, io::{self, BufWriter, Stderr, Stdout, Write}, process, time::Duration};
+use std::{f32::consts::TAU, fs::File, io::{self, BufWriter, Stderr, Stdout, Write}, process, time::Duration};
 
 use crossterm::{terminal::*, event::*, cursor::*, style::*, *};
 
 pub struct CrosstermTerminal {
 	pub stdout: Stdout
 	// pub stdout: BufWriter<Stderr>
+	// pub stdout: BufWriter<File>,
 }
 
 use crate::{maths::*, render_string, timer::Timer, try_saving_screenshot, App, TerminalBuffer};
@@ -22,6 +23,7 @@ pub fn configure_terminal() -> CrosstermTerminal {
 
 	CrosstermTerminal { stdout: stdout }
 	// CrosstermTerminal { stdout: BufWriter::new(stdout) }
+	// CrosstermTerminal { stdout: File::create("bullshit/_dump").map(BufWriter::new).ok().unwrap() }
 }
 
 pub fn restore_terminal(terminal: &mut CrosstermTerminal) {
@@ -146,27 +148,20 @@ fn quit_with_message(terminal: &mut CrosstermTerminal, message: &str) {
 
 pub fn print_and_flush_terminal_fscreen(buf: &mut TerminalBuffer, terminal: &mut CrosstermTerminal) {
 
+	// Does not work, trying to write only what's necessary
 	// for y in 0..buf.hei {
 	// 	for x in 0..buf.wid {
 	// 		let i = xy_to_it(x, y, buf.wid);
 	// 		let newu = buf.vec[i];
 	// 		let last = buf.last_frame_vec[i];
-
 	// 		if newu != last {
 	// 			queue!(terminal.stdout, MoveTo(x, y), Print(newu as char)).unwrap();
 	// 		}
 	// 	}
 	// }
-
 	// terminal.stdout.flush().unwrap();
 	// buf.last_frame_vec.copy_from_slice(&buf.vec);
 	// return;
-
-	// for y in buf.hei/3..buf.hei/2 {
-	// 	for x in buf.wid/3..buf.wid/2 {
-	// 		buf.vec[xy_to_it(x, y, buf.wid)] = b'\0';
-	// 	}
-	// }
 
 	// let buf_str = unsafe { std::str::from_utf8_unchecked(&buf.vec) };
 	let buf_str = std::str::from_utf8(&buf.vec).unwrap();

@@ -8,7 +8,7 @@ pub struct TerminalBuffer {
 	pub wid: u16,
 	pub hei: u16,
 	pub vec: Vec<u8>,
-	pub last_frame_vec: Vec<u8>,
+	// pub last_frame_vec: Vec<u8>,
 
 	// unique, just gets popuplated once per frame
 	proj_mat: Vec<f32>,
@@ -33,7 +33,7 @@ impl TerminalBuffer {
 			wid: w,
 			hei: h,
 			vec: vec![0; char_len],
-			last_frame_vec: vec![0; char_len],
+			// last_frame_vec: vec![0; char_len],
 			proj_mat:   create_identity_4x4(),
 			transf_mat: create_identity_4x4(),
 			render_mat: create_identity_4x4(),
@@ -81,8 +81,7 @@ impl TerminalBuffer {
 	const SCREENSHOT_PATH: &str = "screenshot.txt";
 	pub fn try_dump_buffer_content_to_file(&mut self) {
 
-		let file_result = File::create(Self::SCREENSHOT_PATH);
-
+		let file_result = File::create(Self::SCREENSHOT_PATH).map(BufWriter::new);
 		if file_result.is_err() { return }
 
 		// let mut screenshot_file = file_result.unwrap();
@@ -93,9 +92,10 @@ impl TerminalBuffer {
 			let y_start = y       as usize * self.wid as usize * ASCII_BYTES_PER_CHAR;
 			let y_end   = (y + 1) as usize * self.wid as usize * ASCII_BYTES_PER_CHAR;
 
-			let buf_str = std::str::from_utf8(&self.vec[y_start .. y_end]).unwrap();
+			// let buf_str = std::str::from_utf8(&self.vec[y_start .. y_end]).unwrap();
+			// screenshot_file.write_all(buf_str.as_bytes()).unwrap();
 
-			screenshot_file.write_all(buf_str.as_bytes()).unwrap();
+			screenshot_file.write_all(&self.vec[y_start .. y_end]).unwrap();
 			screenshot_file.write_all(&[b'\n']).unwrap();
 		}
 	}
