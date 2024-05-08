@@ -1,12 +1,15 @@
-// #![allow(unused)]
+#![allow(unused)]
 // #![allow(unused_variables)]
-#![allow(dead_code)]
+// #![allow(dead_code)]
 
 #![allow(clippy::redundant_field_names)]
 #![allow(clippy::identity_op)]
 // #![allow(clippy::erasing_op)]
 
-#[deny(unused_must_use)]
+// #![warn(unused_extern_crates)]
+// RUSTFLAGS=-Wunused-crate-dependencies cargo build
+
+#![deny(unused_must_use)]
 
 
 mod rendering;

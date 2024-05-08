@@ -78,7 +78,7 @@ impl TerminalBuffer {
 		dst.copy_from_slice(&self.proj_mat);
 	}
 	
-	const SCREENSHOT_PATH: &str = "screenshot.txt";
+	const SCREENSHOT_PATH: &'static str = "screenshot.txt";
 	pub fn try_dump_buffer_content_to_file(&mut self) {
 
 		let file_result = File::create(Self::SCREENSHOT_PATH);
@@ -100,7 +100,7 @@ impl TerminalBuffer {
 		}
 	}
 
-	const DEBUG_FILE_PATH: &str = "bullshit/_debug";
+	const DEBUG_FILE_PATH: &'static str = "bullshit/_debug";
 	pub fn clear_debug(&mut self) {	
 		self.debug_file = Self::open_and_clear_debug_file();
 	}

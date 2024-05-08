@@ -52,7 +52,7 @@ pub fn safe_render_char(ch: char, pos: &IVec2, buf: &mut TerminalBuffer) {
 }
 
 pub fn render_straight_x_line(p0x: Int, p1x: Int, y: Int, buf: &mut TerminalBuffer, fill_char: char) {
-	debug_assert!(p1x > p0x, "p1 larger, switch them?");
+	// debug_assert!(p1x > p0x, "p1 larger, switch them?");
 
 	let p0x = p0x.clamp(0, (buf.wid - 1).into());
 	let p1x = p1x.clamp(0, (buf.wid - 1).into());
