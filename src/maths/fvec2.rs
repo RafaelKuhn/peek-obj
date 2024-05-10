@@ -26,6 +26,14 @@ impl FVec2 {
 		let vec = Self::new(other.x - self.x, other.y - self.y);
 		vec.magnitude()
 	}
+
+	pub fn scale_y(&mut self, scale: f32) {
+		self.y *= scale;
+	}
+
+	pub fn squared_magnitude(&self) -> f32 {
+		self.x * self.x + self.y * self.y
+	}
 }
 
 impl From<IVec2> for UVec2 {
@@ -41,6 +49,29 @@ impl From<&IVec2> for UVec2 {
 		debug_assert!(vec.x >= 0, "ivec {:} x is < 0", vec);
 		debug_assert!(vec.y >= 0, "ivec {:} y is < 0", vec);
 		UVec2::new(vec.x as u16, vec.y as u16)
+	}
+}
+
+
+impl std::ops::Sub for FVec2 {
+	type Output = FVec2;
+
+	fn sub(self, rhs: Self) -> Self::Output {
+		Self::Output {
+			x: self.x - rhs.x,
+			y: self.y - rhs.y,
+		}
+	}
+}
+
+impl std::ops::Sub for &FVec2 {
+	type Output = FVec2;
+
+	fn sub(self, rhs: Self) -> Self::Output {
+		Self::Output {
+			x: self.x - rhs.x,
+			y: self.y - rhs.y,
+		}
 	}
 }
 

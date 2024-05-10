@@ -1,5 +1,6 @@
 /target
 .vscode
-bullshit/_debug
+
+bullshit/_debug.txt
+bullshit/_log.txt
 screenshot.txt
-bullshit/_log

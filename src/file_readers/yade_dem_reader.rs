@@ -178,7 +178,7 @@ impl YadeDemData {
 		// }
 		// #endif
 
-		const LOG_FILE_PATH: &str = "bullshit/_log";
+		const LOG_FILE_PATH: &str = "bullshit/_log.txt";
 		if let Ok(mut file) = fs::File::create(LOG_FILE_PATH).map(std::io::BufWriter::new) {
 			let fmt = format!("file at '{}':\n{} balls\n{} tris\n", path, balls.len(), tris.len());
 			let _ = file.write_all(fmt.as_bytes());

@@ -7,8 +7,7 @@ pub struct TerminalBuffer {
 	// width / height of the terminal in characters
 	pub wid: u16,
 	pub hei: u16,
-	pub vec: Vec<u8>,
-	// pub last_frame_vec: Vec<u8>,
+	pub raw_ascii_screen: Vec<u8>,
 
 	// unique, just gets popuplated once per frame
 	proj_mat: Vec<f32>,
@@ -32,8 +31,7 @@ impl TerminalBuffer {
 		let mut this = TerminalBuffer {
 			wid: w,
 			hei: h,
-			vec: vec![0; char_len],
-			// last_frame_vec: vec![0; char_len],
+			raw_ascii_screen: vec![0; char_len],
 			proj_mat:   create_identity_4x4(),
 			transf_mat: create_identity_4x4(),
 			render_mat: create_identity_4x4(),
@@ -55,8 +53,8 @@ impl TerminalBuffer {
 		self.hei = h;
 
 		let char_len = w as usize * h as usize * ASCII_BYTES_PER_CHAR;
-		self.vec.clear();
-		self.vec.resize(char_len, 0);
+		self.raw_ascii_screen.clear();
+		self.raw_ascii_screen.resize(char_len, 0);
 
 		render_clear(self);
 	}
@@ -95,12 +93,12 @@ impl TerminalBuffer {
 			// let buf_str = std::str::from_utf8(&self.vec[y_start .. y_end]).unwrap();
 			// screenshot_file.write_all(buf_str.as_bytes()).unwrap();
 
-			screenshot_file.write_all(&self.vec[y_start .. y_end]).unwrap();
+			screenshot_file.write_all(&self.raw_ascii_screen[y_start .. y_end]).unwrap();
 			screenshot_file.write_all(&[b'\n']).unwrap();
 		}
 	}
 
-	const DEBUG_FILE_PATH: &str = "bullshit/_debug";
+	const DEBUG_FILE_PATH: &str = "bullshit/_debug.txt";
 	pub fn clear_debug(&mut self) {	
 		self.debug_file = Self::open_and_clear_debug_file();
 	}

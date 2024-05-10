@@ -2,8 +2,6 @@ use std::f32::consts::TAU;
 
 use crate::{*, camera::Camera, maths::*, timer::Timer, terminal::TerminalBuffer, ASCII_BYTES_PER_CHAR};
 
-use super::BALL_FILL_CHAR;
-
 
 pub fn encode_char_in(ch: char, index: usize, vec: &mut [u8]) {
 	ch.encode_utf8(&mut vec[index .. index+ASCII_BYTES_PER_CHAR]);
@@ -21,7 +19,7 @@ pub fn render_char(ch: char, pos: &UVec2, buffer: &mut TerminalBuffer) {
 	debug_assert!(pos.y < buffer.hei);
 
 	let index = xy_to_it(pos.x, pos.y, buffer.wid);
-	encode_char_in(ch, index, &mut buffer.vec);
+	encode_char_in(ch, index, &mut buffer.raw_ascii_screen);
 }
 
 pub fn render_string(string: &str, pos: &UVec2, buf: &mut TerminalBuffer) {
@@ -31,7 +29,7 @@ pub fn render_string(string: &str, pos: &UVec2, buf: &mut TerminalBuffer) {
 
 	let mut index = xy_to_it(pos.x, pos.y, buf.wid);
 	for byte in string.bytes() {
-		buf.vec[index] = byte;
+		buf.raw_ascii_screen[index] = byte;
 		index += ASCII_BYTES_PER_CHAR
 	}
 }
@@ -51,30 +49,42 @@ pub fn safe_render_char(ch: char, pos: &IVec2, buf: &mut TerminalBuffer) {
 	render_char(ch, &pos.into(), buf);
 }
 
-pub fn render_straight_x_line(p0x: Int, p1x: Int, y: Int, buf: &mut TerminalBuffer, fill_char: char) {
+pub fn render_straight_x_line_safe(p0x: Int, p1x: Int, y: Int, fill_char: char, buf: &mut TerminalBuffer) {
+	
+	if y < 0 || y >= buf.hei.into() { return; }
+
 	// debug_assert!(p1x > p0x, "p1 larger, switch them?");
+
+	// starts after the screen or ends before the screen
+	if p0x >= buf.wid.into() || p1x < 0 { return }
 
 	let p0x = p0x.clamp(0, (buf.wid - 1).into());
 	let p1x = p1x.clamp(0, (buf.wid - 1).into());
-	let y   = y.clamp(0, (buf.hei - 1).into());
+
+	render_straight_x_line(p0x, p1x, y, fill_char, buf);
+}
+
+pub fn render_straight_x_line(p0x: Int, p1x: Int, y: Int, fill_char: char, buf: &mut TerminalBuffer) {
 
 	let start = xy_to_it(p0x as u16, y as u16, buf.wid);
-	let end = xy_to_it(p1x as u16, y as u16, buf.wid);
+	let end_inclusive = xy_to_it(p1x as u16, y as u16, buf.wid);
 
 	debug_assert!(fill_char.len_utf8() == 1, "NOT ASCII");
 	let ascii_fill_char = fill_char as u8;
 
-	// buf.vec[start..end].fill(ascii_fill_char);
-	// fill_char.encode_utf8(&mut buf.vec[index..index + ASCII_BYTES_PER_CHAR]);
+	// "safer" version
+	#[cfg(debug_assertions)]
+	buf.raw_ascii_screen[start..=end_inclusive].fill(ascii_fill_char);
 
+	// faster version
+	#[cfg(not(debug_assertions))]
 	unsafe {
-		let vec_start = buf.vec.as_mut_ptr();
+		let vec_start = buf.raw_ascii_screen.as_mut_ptr();
 		let write_start = vec_start.add(start);
 
-		let range = end - start;
+		let range = end_inclusive - start + 1;
 
 		write_start.write_bytes(ascii_fill_char, range);
-		// vec_start.write_bytes(ascii_fill_char, );
 	}
 }
 
@@ -107,7 +117,7 @@ pub fn render_bresenham_line(p0: &IVec2, p1: &IVec2, buf: &mut TerminalBuffer, f
 		// TODO: debug_assert, handle out of bounds in the caller
 		if x >= 0 && x < buf.wid.into() && y >= 0 && y < buf.hei.into() {
 			let index = xy_to_it(x as u16, y as u16, buf.wid);
-			fill_char.encode_utf8(&mut buf.vec[index..index + ASCII_BYTES_PER_CHAR]);
+			fill_char.encode_utf8(&mut buf.raw_ascii_screen[index..index + ASCII_BYTES_PER_CHAR]);
 		}
 
 		if x == x1 && y == y1 { return }
@@ -124,33 +134,32 @@ pub fn render_bresenham_line(p0: &IVec2, p1: &IVec2, buf: &mut TerminalBuffer, f
 	}
 }
 
-pub fn render_fill_bres_circle(pos: &IVec2, rad: f32, fill: char, buf: &mut TerminalBuffer) {
+pub fn render_fill_bres_circle(pos: &IVec2, rad_x: f32, fill: char, buf: &mut TerminalBuffer) {
+
+	// we have to divide by 2 because the radius calculation is done in X (in the terminal, X is double the Y)
+	let sc_rad = (rad_x) / 2.0;
+
 	let mut x = 0 as Int;
-	let mut y = rad as Int;
+	let mut y = sc_rad as Int;
 
 	let (base_x, base_y) = (pos.x, pos.y);
 
-	let mut d = 3 - 2 * (rad as Int);
+	let mut d = 3 - 2 * (sc_rad as Int);
 
 	// I will always start rendering from the right side ->
 	// and the first mirrored version will be the leftmost <-
 
 	let scaled_y = y * 2;
 
-	// TODO: compute more stuff for the straight lines here
-
-	// let left_st  = IVec2::new(base_x - scaled_y, base_y);
-	// let right_st = IVec2::new(base_x + scaled_y, base_y);
-	// render_bresenham_line(&left_st, &right_st, buf, fill);
-	render_straight_x_line(base_x - scaled_y, base_x + scaled_y, base_y, buf, fill);
+	render_straight_x_line_safe(base_x - scaled_y, base_x + scaled_y, base_y, fill, buf);
 
 	while y >= x {
 		x += 1;
 		if d > 0 {
 			y -= 1;
-			d = d + 4 * (x - y) + 10;
+			d = d + 4*(x-y) + 10;
 		} else {
-			d = d + 4 * x + 6;
+			d = d + 4*x + 6;
 		}
 
 		let scaled_x = x * 2;
@@ -160,7 +169,6 @@ pub fn render_fill_bres_circle(pos: &IVec2, rad: f32, fill: char, buf: &mut Term
 		// let left_1 = IVec2::new(base_x - scaled_y, base_y + x);
 		// let left_2 = IVec2::new(base_x - scaled_y, base_y - x);
 		// let left_3 = IVec2::new(base_x - scaled_x, base_y - y);
-
 		// let right_0 = IVec2::new(base_x + scaled_x, base_y + y);
 		// let right_1 = IVec2::new(base_x + scaled_y, base_y + x);
 		// let right_2 = IVec2::new(base_x + scaled_y, base_y - x);
@@ -171,10 +179,10 @@ pub fn render_fill_bres_circle(pos: &IVec2, rad: f32, fill: char, buf: &mut Term
 		// render_bresenham_line(&left_2, &right_2, buf, fill);
 		// render_bresenham_line(&left_3, &right_3, buf, fill);
 
-		render_straight_x_line(base_x - scaled_x, base_x + scaled_x, base_y + y, buf, fill);
-		render_straight_x_line(base_x - scaled_y, base_x + scaled_y, base_y + x, buf, fill);
-		render_straight_x_line(base_x - scaled_y, base_x + scaled_y, base_y - x, buf, fill);
-		render_straight_x_line(base_x - scaled_x, base_x + scaled_x, base_y - y, buf, fill);
+		render_straight_x_line_safe(base_x - scaled_x, base_x + scaled_x, base_y + y, fill, buf);
+		render_straight_x_line_safe(base_x - scaled_y, base_x + scaled_y, base_y + x, fill, buf);
+		render_straight_x_line_safe(base_x - scaled_y, base_x + scaled_y, base_y - x, fill, buf);
+		render_straight_x_line_safe(base_x - scaled_x, base_x + scaled_x, base_y - y, fill, buf);
 	}
 }
 
@@ -265,7 +273,7 @@ pub fn test_render_spheres(buf: &mut TerminalBuffer, timer: &Timer, camera: &Cam
 }
 
 
-
+#[deprecated]
 pub fn render_sphere(pos: &Vec3, rad: f32, ch: char, buf: &mut TerminalBuffer, timer: &Timer, camera: &Camera) {
 
 	buf.copy_projection_to_render_matrix();
@@ -305,7 +313,8 @@ pub fn render_sphere(pos: &Vec3, rad: f32, ch: char, buf: &mut TerminalBuffer, t
 	let dist = (ball_up_projected_2d_f32.y - screen_circ_f32.y).abs();
 
 	let screen_circ = clip_space_to_screen_space(&ball_pos_projected_clip, buf.wid, buf.hei);
-	render_fill_bres_circle(&screen_circ, dist, ch, buf);
+	// calculating Y radius, is half of X because of terminal chars
+	render_fill_bres_circle(&screen_circ, dist * 2.0, ch, buf);
 
 	// safe_render_char_at('O', screen_circ.x, screen_circ.y, buf);
 	// safe_render_char_at('U', ball_up_projected_2d_f32.x as i32, ball_up_projected_2d_f32.y as i32, buf);

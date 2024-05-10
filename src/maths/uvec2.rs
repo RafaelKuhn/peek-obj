@@ -1,7 +1,9 @@
 
 // TODO: generic? Vec<i16> and Vec<f32>
 
-use std::fmt;
+use std::{fmt, ops::Sub};
+
+use crate::FVec2;
 
 pub struct UVec2 {
 	pub x: u16,
@@ -26,6 +28,11 @@ impl UVec2 {
 	}
 }
 
+impl From<&FVec2> for UVec2 {
+	fn from(value: &FVec2) -> Self {
+		return UVec2 { x: value.x as u16, y: value.y as u16 }
+	}
+}
 
 impl fmt::Display for UVec2 {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

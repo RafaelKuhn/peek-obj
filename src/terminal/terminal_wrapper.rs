@@ -52,7 +52,7 @@ pub fn poll_events(terminal: &mut CrosstermTerminal, app: &mut App, timer: &mut 
 	if !has_event { return }
 
 	const MOVE_SPEED: f32 = 0.2;
-	const ROT_SPEED: f32 = TAU * 1./128.;
+	const ROT_SPEED: f32 = TAU * 1./256.;
 
 	match event::read().unwrap() {
 		Event::Key(key_evt) => {
@@ -164,7 +164,7 @@ pub fn print_and_flush_terminal_fscreen(buf: &mut TerminalBuffer, terminal: &mut
 	// return;
 
 	// let buf_str = unsafe { std::str::from_utf8_unchecked(&buf.vec) };
-	let buf_str = std::str::from_utf8(&buf.vec).unwrap();
+	let buf_str = std::str::from_utf8(&buf.raw_ascii_screen).unwrap();
 	queue!(terminal.stdout, MoveTo(0, 0), Hide, Print(buf_str)).unwrap();
 
 	terminal.stdout.flush().unwrap();
@@ -180,7 +180,7 @@ pub fn print_and_flush_terminal_line_by_line(buf: &mut TerminalBuffer, terminal:
 		let y_end   = y_start + buf_wid;
 
 		// let buf_str = unsafe { std::str::from_utf8_unchecked(&buf.vec[y_start..y_end]) };
-		let buf_str = std::str::from_utf8(&buf.vec[y_start .. y_end]).unwrap();
+		let buf_str = std::str::from_utf8(&buf.raw_ascii_screen[y_start .. y_end]).unwrap();
 
 		// terminal.stdout.queue(Hide).unwrap();
 		queue!(terminal.stdout, MoveTo(0, y), Print(buf_str), Hide).unwrap();

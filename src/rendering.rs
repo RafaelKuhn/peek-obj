@@ -49,7 +49,7 @@ pub fn render_clear(buffer: &mut TerminalBuffer) {
 	
 	debug_assert!(BACKGROUND_FILL_CHAR.len_utf8() == 1, "Background fill should be ASCII");
 
-	buffer.vec.fill(BACKGROUND_FILL_CHAR as u8);
+	buffer.raw_ascii_screen.fill(BACKGROUND_FILL_CHAR as u8);
 	// buffer.last_frame_vec.fill(BACKGROUND_FILL_CHAR as u8);
 
 
@@ -108,7 +108,7 @@ pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Ti
 	let speed = 0.5;
 	let start_ms = 0;
 	let start_ms = 5196;
-	let mut t = (timer.time_aggr.as_millis() + start_ms) as f32 * 0.001 * speed;
+	let mut t = (timer.time_aggr.as_millis() * 0 + start_ms) as f32 * 0.001 * speed;
 	if buf.test { t = 0.0; }
 
 	// let t = 0.0;
@@ -144,10 +144,6 @@ pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Ti
 	/* */ // bench.end_and_log("setup", buf);
 
 	for tri in yade_data.tris.iter() {
-
-		// let screen_p0 = screen_project_f(p0, &buf.render_mat, buf.wid, buf.hei);
-		// let screen_p1 = screen_project_f(p1, &buf.render_mat, buf.wid, buf.hei);
-		// let screen_p2 = screen_project_f(p2, &buf.render_mat, buf.wid, buf.hei);
 
 		let clip_p0 = tri.p0.get_transformed_by_mat4x4_w(&buf.render_mat);
 		let clip_p1 = tri.p1.get_transformed_by_mat4x4_w(&buf.render_mat);
@@ -194,12 +190,13 @@ pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Ti
 		let dot = Vec3::dot_product(&camera.forward, &ball_to_cam);
 		if dot < 0.0 { continue }
 
-		let trs_pos_up = transformed_pos.add_vec(&(camera.up * rad_scaled));
-		let trs_pos_up_proj = trs_pos_up.get_transformed_by_mat4x4_homogeneous(&render_mat_without_transform);
-		let trs_pos_up_projected_screen_f = clip_space_to_screen_space_f(&trs_pos_up_proj, buf.wid, buf.hei);
+		let trs_pos_sd = transformed_pos.add_vec(&(camera.side * rad_scaled));
+		let trs_pos_sd_proj = trs_pos_sd.get_transformed_by_mat4x4_homogeneous(&render_mat_without_transform);
+		let trs_pos_sd_projected_screen_f = clip_space_to_screen_space_f(&trs_pos_sd_proj, buf.wid, buf.hei);
 
 		let screen_pos_f32 = clip_space_to_screen_space_f(&clip_pos, buf.wid, buf.hei);
-		let rad = (trs_pos_up_projected_screen_f.y - screen_pos_f32.y).abs();
+		let rad = (trs_pos_sd_projected_screen_f.x - screen_pos_f32.x).abs();
+		// buf.write_debug(&format!("{:?} scr {:?}\n", trs_pos_sd_projected_screen_f, screen_pos_f32));
 
 		if cull_circle(&screen_pos_f32, rad, buf) { continue; }
 
@@ -217,7 +214,7 @@ pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Ti
 	/* */ // bench.end_and_log("set up render balls", buf);
 	
 	indices_by_dist.sort_by(|a, b| b.dist_sq_to_camera.partial_cmp(&a.dist_sq_to_camera).unwrap());
-	
+
 	/* */ // bench.end_and_log("sort render balls", buf);
 	for ball_data in indices_by_dist.iter() {
 
@@ -226,7 +223,14 @@ pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Ti
 
 		render_fill_bres_circle(&ball_data.screen_pos, ball_data.rad, letter, buf);
 		// render_bres_circle(&ball_data.screen_pos, ball_data.rad, letter, buf);
+
+		// // Renders chars at center, up and side of each sphere
 		// safe_render_char_at('O', ball_data.screen_pos.x, ball_data.screen_pos.y, buf);
+		// let transformed_pos = yade_data.balls[ball_data.index].pos.get_transformed_by_mat4x4_discard_w(&buf.transf_mat);
+		// let trs_pos_sd_projected_screen_f = clip_space_to_screen_space_f(&transformed_pos.add_vec(&(camera.up * yade_data.balls[ball_data.index].rad * scale)).get_transformed_by_mat4x4_homogeneous(&render_mat_without_transform), buf.wid, buf.hei);
+		// safe_render_char_at('U', trs_pos_sd_projected_screen_f.x as i32, trs_pos_sd_projected_screen_f.y as i32, buf);
+		// let trs_pos_sd_projected_screen_f = clip_space_to_screen_space_f(&transformed_pos.add_vec(&(camera.side * yade_data.balls[ball_data.index].rad * scale)).get_transformed_by_mat4x4_homogeneous(&render_mat_without_transform), buf.wid, buf.hei);
+		// safe_render_char_at('S', trs_pos_sd_projected_screen_f.x as i32, trs_pos_sd_projected_screen_f.y as i32, buf);
 	}
 	/* */ // bench.end_and_log("fill ball circle", buf);
 

@@ -45,13 +45,6 @@ pub fn in_range(f: f32, min: f32, max: f32) -> bool {
 }
 
 
-pub fn line_inside_screen(s0: &FVec2, s1: &FVec2, width: f32, height: f32) -> bool {
-	in_range(s0.x, 0.0, width)  &&
-	in_range(s0.y, 0.0, height) &&
-	in_range(s1.x, 0.0, width)  &&
-	in_range(s1.y, 0.0, height)
-}
-
 pub fn line_intersect_screen(s0: &FVec2, s1: &FVec2, width: f32, height: f32) -> bool {
 
 	let origin   = &FVec2::new(0.0, 0.0);

@@ -1,6 +1,6 @@
 // #![allow(clippy::let_and_return)]
 
-use crate::{maths::*, render_string, terminal::TerminalBuffer};
+use crate::{maths::*, render_char, render_char_i, render_string, terminal::TerminalBuffer};
 
 use self::vec3::Vec4;
 
@@ -76,22 +76,39 @@ pub fn cull_ball_into_radius(pos: Vec4, rad: f32, buf: &mut TerminalBuffer) -> O
 }
 
 
-pub fn cull_circle(pos: &FVec2, rad: f32, buf: &mut TerminalBuffer) -> bool {
+pub fn cull_circle(pos: &FVec2, x_rad: f32, buf: &mut TerminalBuffer) -> bool {
 	let (wid, hei) = (buf.wid as f32, buf.hei as f32);
+	
+	let (last_x, last_y) = (wid - 1.0, hei - 1.0);
 
-	let is_inside = pos.x > 0.0 && pos.x < wid && pos.y > 0.0 && pos.y < hei;
-	// buf.write_debug(&format!("is {:?} inside? {} W {} H {}\n", pos, is_inside, wid, hei));
-	if is_inside { return false }
+	let closest_point = if pos.x >= wid {
+		// buf.write_debug(&format!("to the right"));
+		FVec2::new(last_x, pos.y.clamp(0.0, last_y))
+	} else if pos.x < 0.0 {
+		// buf.write_debug(&format!("to the left"));
+		FVec2::new(0.0, pos.y.clamp(0.0, last_y))
+	} else if pos.y >= hei {
+		// buf.write_debug(&format!("downwards"));
+		FVec2::new(pos.x, last_y)
+	} else if pos.y < 0.0 {
+		// buf.write_debug(&format!("upwards"));
+		FVec2::new(pos.x, 0.0)
+	} else {
+		return false;
+	};
 
-	let left_dist = pos.x.abs();
-	let right_dist = (pos.x - wid).abs();
 
-	let top_dist = pos.y.abs();
-	let bottom_dist = (pos.y - hei).abs();
+	// X scale is double Y scale
+	let mut vec_pos_to_closest = pos - &closest_point;
+	vec_pos_to_closest.scale_y(2.0);
 
-	// buf.write_debug(&format!("dists l {} r {} t {} b {}, rad {}\n\n", left_dist, right_dist, top_dist, bottom_dist, rad));
-	let close_to_a_corner = left_dist < rad || right_dist < rad || top_dist < rad || bottom_dist < rad;
-	!close_to_a_corner
+	let sq_magnitude = vec_pos_to_closest.squared_magnitude();
+	let sq_x_rad = x_rad * x_rad;
+
+	// render_char('&', &(&closest_point).into(), buf);
+	// buf.write_debug(&format!("\npos to closest {:?}\nsq mag {:.4}, sq rad {:.2}\n(rad {:.4})\nCULL? {} \n\n", vec_pos_to_closest, sq_magnitude, sq_x_rad, x_rad, sq_magnitude >= sq_x_rad));
+
+	sq_magnitude >= sq_x_rad
 }
 
 #[must_use]

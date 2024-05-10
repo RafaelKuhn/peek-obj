@@ -93,29 +93,30 @@ fn run_pipeline<T: Renderer>(renderer: T) {
 		app.buf.clear_debug();
 		app.buf.write_debug(&format!("with resolution {} x {}\n", app.buf.wid, app.buf.hei));
 		just_poll_while_paused(&mut app, &mut terminal, &mut timer);
+
 		benchmark.start();
 		render_clear(&mut app.buf);
 		benchmark.end_and_log("render clear", &mut app.buf);
 
 		poll_events(&mut terminal, &mut app, &mut timer);
-		benchmark.end_and_log("poll", &mut app.buf);
-
-		// TODO: only needs to do this when resizing
+		benchmark.end_and_log("poll events", &mut app.buf);
 
 		update_camera(&mut camera, &mut app);
 
 		benchmark.start();
-		render_gizmos(&mut app.buf, &camera);
 		// render_axes(&mut app.buf, &camera, true);
-		benchmark.end_and_log("render gizmos", &mut app.buf);
+		// benchmark.end_and_log("render axes", &mut app.buf);
 
 		// render_yade(&yade_debug, &mut app.buf, &timer, &camera);
-
-		// benchmark.end_write("render yade", &mut app.buf);
 		// render_mesh(&mesh_debug, &mut app.buf, &timer, &camera);
+		// benchmark.end_and_log("render debug", &mut app.buf);
+
 
 		renderer.render(&mut app.buf, &timer, &camera);
 		benchmark.end_and_log("renderer render", &mut app.buf);
+		
+		render_gizmos(&mut app.buf, &camera);
+		benchmark.end_and_log("renderer gizmos", &mut app.buf);
 
 		fps_measure.profile_frame(&timer);
 		benchmark.start();
