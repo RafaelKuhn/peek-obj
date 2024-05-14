@@ -310,6 +310,14 @@ impl Vec3 {
 	pub fn dot_product(a: &Vec3, b: &Vec3) -> f32 {
 		a.x*b.x + a.y*b.y + a.z*b.z
 	}
+
+	pub fn mid_point_of_tri(p0: &Vec3, p1: &Vec3, p2: &Vec3) -> Vec3 {
+		Vec3::new(
+			(p0.x + p1.x + p2.x) * 1./3.,
+			(p0.y + p1.y + p2.y) * 1./3.,
+			(p0.z + p1.z + p2.z) * 1./3.,
+		)
+	}
 }
 
 impl std::ops::Add<&Vec3> for &Vec3 {

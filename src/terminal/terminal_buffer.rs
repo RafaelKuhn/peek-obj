@@ -1,23 +1,27 @@
 use std::{fs::File, io::{BufWriter, Write}};
 
-use crate::{maths::*, render_clear, ASCII_BYTES_PER_CHAR};
+use crate::{cull_mode::CullMode, maths::*, render_clear, ZSortingMode, ASCII_BYTES_PER_CHAR};
 
 
 pub struct TerminalBuffer {
 	// width / height of the terminal in characters
 	pub wid: u16,
 	pub hei: u16,
+
+	// global output buffer
 	pub raw_ascii_screen: Vec<u8>,
 
-	// unique, just gets popuplated once per frame
+	// unique 4x4 matrix buffer
 	proj_mat: Vec<f32>,
 
-	// reused across different rendered objects, mut be cleaned
+	// these are reused across different rendered objects, mut be cleaned after each used
 	pub transf_mat: Vec<f32>,
 	pub render_mat: Vec<f32>,
 
-	debug_file: Option<BufWriter<File>>,
+	sorting_mode: ZSortingMode,
+	cull_mask: CullMode,
 
+	debug_file: Option<BufWriter<File>>,
 	pub test: bool,
 }
 
@@ -36,11 +40,23 @@ impl TerminalBuffer {
 			transf_mat: create_identity_4x4(),
 			render_mat: create_identity_4x4(),
 			debug_file,
+    		sorting_mode: ZSortingMode::ClosestPoint,
+			cull_mask: CullMode::Nothing,
+
 			test: false,
 		};
 
 		render_clear(&mut this);
 		this
+	}
+
+
+	pub fn get_sorting_mode(&self) -> &ZSortingMode {
+		&self.sorting_mode
+	}
+
+	pub fn get_cull_mode(&self) -> &CullMode {
+		&self.cull_mask
 	}
 
 	fn open_and_clear_debug_file() -> Option<BufWriter<File>> {
@@ -97,6 +113,26 @@ impl TerminalBuffer {
 			screenshot_file.write_all(&[b'\n']).unwrap();
 		}
 	}
+
+	// TODO: iterate over enum and record an index
+	pub fn toggle_z_sorting_mode(&mut self) {
+		match self.sorting_mode {
+			ZSortingMode::ClosestPoint  => self.sorting_mode = ZSortingMode::FarthestPoint,
+			ZSortingMode::FarthestPoint => self.sorting_mode = ZSortingMode::LinesLast,
+			ZSortingMode::LinesLast     => self.sorting_mode = ZSortingMode::BallsLast,
+			ZSortingMode::BallsLast     => self.sorting_mode = ZSortingMode::ClosestPoint,
+		};
+	}
+
+	// TODO: iterate over enum and record an index
+	pub fn toggle_cull_mode(&mut self) {
+		self.cull_mask = match self.cull_mask {
+			CullMode::Nothing   => CullMode::CullTris,
+			CullMode::CullTris  => CullMode::CullBalls,
+			CullMode::CullBalls => CullMode::Nothing,
+		}
+	}
+
 
 	const DEBUG_FILE_PATH: &str = "bullshit/_debug.txt";
 	pub fn clear_debug(&mut self) {	

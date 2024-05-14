@@ -3,6 +3,7 @@ use std::fmt;
 use crate::{FVec2, Int};
 
 
+#[derive(Clone)]
 pub struct IVec2 {
 	pub x: Int,
 	pub y: Int,

@@ -30,9 +30,9 @@ impl Default for FpsMeasure {
 }
 
 impl FpsMeasure {
-	pub fn new(refresh_rate: f32) -> Self {
+	pub fn new(refresh_rate_secs: f32) -> Self {
 		let mut benchmark: FpsMeasure = Default::default();
-		benchmark.set_refresh_rate_secs(refresh_rate);
+		benchmark.set_refresh_rate_secs(refresh_rate_secs);
 
 		benchmark
 	}

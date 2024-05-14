@@ -7,16 +7,21 @@ pub mod obj_renderer;
 pub mod primitives;
 pub mod utils;
 pub mod bounding_box;
+pub mod z_sorting_mode;
+pub mod cull_mode;
 
 pub use primitives::*;
 pub use bounding_box::*;
 pub use utils::*;
+pub use z_sorting_mode::*;
 
-use std::fmt::{self, format};
+use std::{cmp::Ordering, fmt};
 
 
 
-use crate::{benchmark::{self, Benchmark}, camera::Camera, file_readers::yade_dem_reader::YadeDemData, fps_measure::FpsMeasure, maths::*, mesh::Mesh, terminal::TerminalBuffer, timer::Timer, utils::*};
+use crate::{camera::Camera, file_readers::yade_dem_reader::{Tri, YadeDemData}, fps_measure::FpsMeasure, maths::*, mesh::Mesh, terminal::TerminalBuffer, timer::Timer, utils::*};
+
+use self::cull_mode::CullMode;
 
 
 // ascii luminance:
@@ -70,39 +75,53 @@ pub fn render_clear(buffer: &mut TerminalBuffer) {
 }
 
 
-pub fn render_benchmark(benchmark: &FpsMeasure, camera: &Camera, buffer: &mut TerminalBuffer) {
+pub fn render_verbose(benchmark: &FpsMeasure, camera: &Camera, buf: &mut TerminalBuffer) {
 	let mut highest_pos = UVec2::new(0, 0);
-	render_string(&format!("cam pos: {:?}", camera.position), &highest_pos, buffer);
+	render_string(&format!("cam pos: {:?}", camera.position), &highest_pos, buf);
 	highest_pos.y += 1;
-	render_string(&format!("cam rot: {:?}", camera.rotation), &highest_pos, buffer);
+	render_string(&format!("cam rot: {:?}", camera.rotation), &highest_pos, buf);
 	highest_pos.y += 2;
-	render_string(&format!("cam sid: {:} m {:.4}", camera.side.inversed(), camera.side.magnitude()), &highest_pos, buffer);
+	render_string(&format!("sort mode: {:}", buf.get_sorting_mode()), &highest_pos, buf);
 	highest_pos.y += 1;
-	render_string(&format!("cam  up: {:} m {:.4}", camera.up, camera.up.magnitude()), &highest_pos, buffer);
-	highest_pos.y += 1;
-	render_string(&format!("cam fwd: {:} m {:.4}", camera.forward.inversed(), camera.forward.magnitude()), &highest_pos, buffer);
+	render_string(&format!("cull mode: {:}", buf.get_cull_mode()), &highest_pos, buf);
 
-	let mut lowest_pos = UVec2::new(0, buffer.hei - 1);
+	// highest_pos.y += 2;
+	// render_string(&format!("cam sid: {:} m {:.4}", camera.side.inversed(), camera.side.magnitude()), &highest_pos, buffer);
+	// highest_pos.y += 1;
+	// render_string(&format!("cam  up: {:} m {:.4}", camera.up, camera.up.magnitude()), &highest_pos, buffer);
+	// highest_pos.y += 1;
+	// render_string(&format!("cam fwd: {:} m {:.4}", camera.forward.inversed(), camera.forward.magnitude()), &highest_pos, buffer);
 
-	let wxh = buffer.wid as u32 * buffer.hei as u32;
-	let aspect = buffer.wid as f32 / buffer.hei as f32;
+	let mut lowest_pos = UVec2::new(0, buf.hei - 1);
 
-	render_string(&format!("w: {}, h: {}, w*h: {}, a: {:.2}", buffer.wid, buffer.hei, wxh, aspect), &lowest_pos, buffer);
+	let wxh = buf.wid as u32 * buf.hei as u32;
+	let aspect = buf.wid as f32 / buf.hei as f32;
+
+	render_string(&format!("w: {}, h: {}, w*h: {}, a: {:.2}", buf.wid, buf.hei, wxh, aspect), &lowest_pos, buf);
 	lowest_pos.y -= 1;
-	render_string(&format!("frame n: {}", benchmark.total_frame_count), &lowest_pos, buffer);
+	render_string(&format!("frame n: {}", benchmark.total_frame_count), &lowest_pos, buf);
 	lowest_pos.y -= 1;
-	render_string(&format!("scaled time: {:.2}", benchmark.time_aggr.as_millis() as f32 * 0.001), &lowest_pos, buffer);
+	render_string(&format!("scaled time: {:.2}", benchmark.time_aggr.as_millis() as f32 * 0.001), &lowest_pos, buf);
 	lowest_pos.y -= 1;
-	render_string(&format!("time scale: {:.1}", benchmark.time_scale), &lowest_pos, buffer);
+	render_string(&format!("time scale: {:.1}", benchmark.time_scale), &lowest_pos, buf);
 	lowest_pos.y -= 1;
-	render_string(&format!("dt: {:.4}ms", benchmark.delta_time_millis), &lowest_pos, buffer);
+	render_string(&format!("dt: {:.4}ms", benchmark.delta_time_millis), &lowest_pos, buf);
 	lowest_pos.y -= 1;
-	render_string(&format!("fps: {:.2}", benchmark.fps), &lowest_pos, buffer);
+	render_string(&format!("fps: {:.2}", benchmark.fps), &lowest_pos, buf);
 
 }
 
+pub struct RenderBallData {
+	// dist_sq_to_camera: f32,
+	index: usize,
+	screen_pos: IVec2,
+	rad: f32,
+}
+
+#[deprecated(since="0.0", note=r#"Call "render_yade_sorted""#)]
 pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Timer, camera: &Camera) {
 
+	todo!("figure standard render yade");
 	let (pos_x, pos_y, pos_z) = (0.0, 0.0, 0.0);
 
 	let speed = 0.5;
@@ -166,14 +185,6 @@ pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Ti
 	buf.copy_projection_to_mat4x4(&mut render_mat_without_transform);
 	multiply_4x4_matrices(&mut render_mat_without_transform, &camera.view_matrix);
 
-
-	struct RenderBallData {
-		dist_sq_to_camera: f32,
-		index: usize,
-		screen_pos: IVec2,
-		rad: f32,
-	}
-
 	// TODO: see how much data is copied by sorting this
 	let mut indices_by_dist = Vec::<RenderBallData>::with_capacity(yade_data.balls.len());
 
@@ -203,7 +214,6 @@ pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Ti
 		let dist_sq_to_camera = transformed_pos.squared_dist_to(&camera.position);
 
 		let render_data = RenderBallData {
-			dist_sq_to_camera,
 			rad,
 			screen_pos: screen_pos_f32.into(),
 			index,
@@ -213,7 +223,8 @@ pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Ti
 	}
 	/* */ // bench.end_and_log("set up render balls", buf);
 	
-	indices_by_dist.sort_by(|a, b| b.dist_sq_to_camera.partial_cmp(&a.dist_sq_to_camera).unwrap());
+	// TODO: fix this version
+	// indices_by_dist.sort_by(|a, b| b.dist_sq_to_camera.partial_cmp(&a.dist_sq_to_camera).unwrap());
 
 	/* */ // bench.end_and_log("sort render balls", buf);
 	for ball_data in indices_by_dist.iter() {
@@ -233,7 +244,185 @@ pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Ti
 		// safe_render_char_at('S', trs_pos_sd_projected_screen_f.x as i32, trs_pos_sd_projected_screen_f.y as i32, buf);
 	}
 	/* */ // bench.end_and_log("fill ball circle", buf);
+}
 
+pub enum Primitive {
+	Ball(RenderBallData),
+	Line(IVec2, IVec2),
+	// Tri(ScreenTri),
+}
+
+pub fn render_yade_sorted(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Timer, camera: &Camera) {
+
+	let (pos_x, pos_y, pos_z) = (0.0, 0.0, 0.0);
+
+	let speed = 0.5;
+	let start_ms = 0;
+	let mut t = (timer.time_aggr.as_millis() + start_ms) as f32 * 0.001 * speed;
+	if buf.test { t = 0.0; }
+
+	let (angle_x, angle_y, angle_z) = (0.0, t, 0.0);
+
+	let scale = 1.0;
+	let (scale_x, scale_y, scale_z) = (scale, scale, scale);
+
+	buf.copy_projection_to_render_matrix();
+
+	apply_identity_to_mat_4x4(&mut buf.transf_mat);
+
+	apply_scale_to_mat_4x4(&mut buf.transf_mat, scale_x, scale_y, scale_z);
+	apply_rotation_to_mat_4x4(&mut buf.transf_mat, angle_x, angle_y, angle_z);
+	apply_pos_to_mat_4x4(&mut buf.transf_mat, pos_x, pos_y, pos_z);
+
+	multiply_4x4_matrices(&mut buf.render_mat, &camera.view_matrix);
+	multiply_4x4_matrices(&mut buf.render_mat, &buf.transf_mat);
+
+
+	// TODO: see how much data is copied by sorting this
+	// might need a type for distance sorting
+	let mut render_data_by_dist = Vec::<(f32, Primitive)>::with_capacity(yade_data.balls.len());
+
+
+	// could make a buffer in TerminalBuffer for this
+	let mut render_mat_without_transform = create_identity_4x4_arr();
+	buf.copy_projection_to_mat4x4(&mut render_mat_without_transform);
+	multiply_4x4_matrices(&mut render_mat_without_transform, &camera.view_matrix);
+
+
+	let tris_iterator = match buf.get_cull_mode() {
+		CullMode::CullTris => [].iter(),
+		_ => yade_data.tris.iter(),
+	};
+
+	fn min_of_each_tri_line(trs_p0: &Vec3, trs_p1: &Vec3, trs_p2: &Vec3, camera: &Camera, screen_tri: &ScreenTri, render_data: &mut Vec::<(f32, Primitive)>) {
+		let dist0 = trs_p0.squared_dist_to(&camera.position).min(trs_p1.squared_dist_to(&camera.position));
+		render_data.push((dist0, Primitive::Line(screen_tri.p0.clone(), screen_tri.p1.clone())));
+		let dist1 = trs_p1.squared_dist_to(&camera.position).min(trs_p2.squared_dist_to(&camera.position));
+		render_data.push((dist1, Primitive::Line(screen_tri.p1.clone(), screen_tri.p2.clone())));
+		let dist2 = trs_p2.squared_dist_to(&camera.position).min(trs_p0.squared_dist_to(&camera.position));
+		render_data.push((dist2, Primitive::Line(screen_tri.p2.clone(), screen_tri.p0.clone())));
+	}
+
+	fn max_of_each_tri_line(trs_p0: &Vec3, trs_p1: &Vec3, trs_p2: &Vec3, camera: &Camera, screen_tri: &ScreenTri, render_data: &mut Vec::<(f32, Primitive)>) {
+		let dist0 = trs_p0.squared_dist_to(&camera.position).max(trs_p1.squared_dist_to(&camera.position));
+		render_data.push((dist0, Primitive::Line(screen_tri.p0.clone(), screen_tri.p1.clone())));
+		let dist1 = trs_p1.squared_dist_to(&camera.position).max(trs_p2.squared_dist_to(&camera.position));
+		render_data.push((dist1, Primitive::Line(screen_tri.p1.clone(), screen_tri.p2.clone())));
+		let dist2 = trs_p2.squared_dist_to(&camera.position).max(trs_p0.squared_dist_to(&camera.position));
+		render_data.push((dist2, Primitive::Line(screen_tri.p2.clone(), screen_tri.p0.clone())));
+	}
+
+	let sorting_criteria = buf.get_sorting_mode();
+
+	let triangle_sort_fn = if let ZSortingMode::FarthestPoint = sorting_criteria { max_of_each_tri_line } else { min_of_each_tri_line };
+
+	for tri in tris_iterator {
+
+		let clip_p0 = tri.p0.get_transformed_by_mat4x4_w(&buf.render_mat);
+		let clip_p1 = tri.p1.get_transformed_by_mat4x4_w(&buf.render_mat);
+		let clip_p2 = tri.p2.get_transformed_by_mat4x4_w(&buf.render_mat);
+
+		// buf.write_debug(&format!("p0 {:?} x {} y {}\n", clip_p0, clip_p0.x_in_w_range(), clip_p0.y_in_w_range()));
+		// buf.write_debug(&format!("p1 {:?} x {} y {}\n", clip_p1, clip_p1.x_in_w_range(), clip_p1.y_in_w_range()));
+		// buf.write_debug(&format!("p2 {:?} x {} y {}\n\n", clip_p2, clip_p2.x_in_w_range(), clip_p2.y_in_w_range()));
+
+		let Some(screen_tri) = cull_tri_into_screen_space(clip_p0, clip_p1, clip_p2, buf) else { continue };
+
+		let trs_p0 = tri.p0.get_transformed_by_mat4x4_discard_w(&buf.transf_mat);
+		let trs_p1 = tri.p1.get_transformed_by_mat4x4_discard_w(&buf.transf_mat);
+		let trs_p2 = tri.p2.get_transformed_by_mat4x4_discard_w(&buf.transf_mat);
+
+		// Avg between each of the 3 points
+		// let mid = Vec3::mid_point_of_tri(&trs_p0, &trs_p1, &trs_p2);
+		// let mid_scr = clip_space_to_screen_space(&mid.get_transformed_by_mat4x4_homogeneous(&render_mat_without_transform), buf.wid, buf.hei);
+		// safe_render_char_i('@', &mid_scr, buf);
+		// let sq_dist_to_camera = mid.squared_dist_to(&camera.position);
+		// safe_render_string_signed(&format!("d {:.2}", sq_dist_to_camera), mid_scr.x, mid_scr.y, buf);
+		// render_data_by_dist.push((sq_dist_to_camera, Primitive::Tri(screen_tri)));
+
+		// Min of the 3 points
+		// let sq_dist_to_scr = trs_p0.squared_dist_to(&camera.position)
+		// 	.min(trs_p1.squared_dist_to(&camera.position))
+		// 	.min(trs_p2.squared_dist_to(&camera.position));
+		// render_data_by_dist.push((sq_dist_to_scr, Primitive::Tri(screen_tri)));
+
+		triangle_sort_fn(&trs_p0, &trs_p1, &trs_p2, camera, &screen_tri, &mut render_data_by_dist);
+
+		// Avg between each line
+		// let dist0 = Vec3::new((trs_p0.x + trs_p1.x) * 0.5, (trs_p0.y + trs_p1.y) * 0.5, (trs_p0.z + trs_p1.z) * 0.5).squared_dist_to(&camera.position);
+		// render_data_by_dist.push((dist0, Primitive::Line(screen_tri.p0.clone(), screen_tri.p1.clone())));
+		// let dist1 = Vec3::new((trs_p1.x + trs_p2.x) * 0.5, (trs_p1.y + trs_p2.y) * 0.5, (trs_p1.z + trs_p2.z) * 0.5).squared_dist_to(&camera.position);
+		// render_data_by_dist.push((dist1, Primitive::Line(screen_tri.p1.clone(), screen_tri.p2.clone())));
+		// let dist2 = Vec3::new((trs_p2.x + trs_p0.x) * 0.5, (trs_p2.y + trs_p0.y) * 0.5, (trs_p2.z + trs_p0.z) * 0.5).squared_dist_to(&camera.position);
+		// render_data_by_dist.push((dist2, Primitive::Line(screen_tri.p2.clone(), screen_tri.p0.clone())));
+	}
+
+	let balls_iterator = match buf.get_cull_mode() {
+		CullMode::CullBalls => [].iter().enumerate(),
+		_ => yade_data.balls.iter().enumerate(),
+	};
+
+	for (index, ball) in balls_iterator {
+
+		let rad_scaled = ball.rad * scale;
+		let clip_pos = ball.pos.get_transformed_by_mat4x4_homogeneous(&buf.render_mat);
+
+		let transformed_pos = ball.pos.get_transformed_by_mat4x4_discard_w(&buf.transf_mat);
+
+		// culling balls behind the camera
+		let ball_to_cam = camera.position - transformed_pos;
+		let dot = Vec3::dot_product(&camera.forward, &ball_to_cam);
+		if dot < 0.0 { continue }
+
+		let trs_pos_sd = transformed_pos.add_vec(&(camera.side * rad_scaled));
+		let trs_pos_sd_proj = trs_pos_sd.get_transformed_by_mat4x4_homogeneous(&render_mat_without_transform);
+		let trs_pos_sd_projected_screen_f = clip_space_to_screen_space_f(&trs_pos_sd_proj, buf.wid, buf.hei);
+
+		let screen_pos_f32 = clip_space_to_screen_space_f(&clip_pos, buf.wid, buf.hei);
+		let rad = (trs_pos_sd_projected_screen_f.x - screen_pos_f32.x).abs();
+		// buf.write_debug(&format!("{:?} scr {:?}\n", trs_pos_sd_projected_screen_f, screen_pos_f32));
+
+		if cull_circle(&screen_pos_f32, rad, buf) { continue; }
+
+		let sq_dist_to_camera = transformed_pos.squared_dist_to(&camera.position);
+		let screen_pos = IVec2::from(&screen_pos_f32);
+
+		// DEBUG
+		// safe_render_string_signed(&format!("C {:.2}", sq_dist_to_camera), screen_pos.x, (screen_pos_f32.y as f32 - rad * 3.5) as i32, buf);
+
+		let render_data = RenderBallData {
+			rad,
+			screen_pos,
+			index,
+		};
+
+		render_data_by_dist.push((sq_dist_to_camera, Primitive::Ball(render_data)));
+	}
+
+	render_data_by_dist.sort_by(buf.get_sorting_mode().get_sorting_fn());
+
+
+	for data_to_render_by_dist in render_data_by_dist.iter() {
+
+		// buf.write_debug(&format!("- {}\n", data_to_render_by_dist.0));
+		let (_, data_to_render) = data_to_render_by_dist;
+
+		match data_to_render {
+			Primitive::Ball(ball_data) => {
+				let digit = ball_data.index as u32 % ('Z' as u32 - 'A' as u32) + ('A' as u32);
+				let letter = char::from_u32(digit).unwrap();
+				render_fill_bres_circle(&ball_data.screen_pos, ball_data.rad, letter, buf);
+			},
+			Primitive::Line(p0, p1) => {
+				render_bresenham_line(&p0, p1, buf, YADE_WIRE_FILL_CHAR);
+			},
+			// Primitive::Tri(screen_tri) => {
+			// 	render_bresenham_line(&screen_tri.p0, &screen_tri.p1, buf, YADE_WIRE_FILL_CHAR);
+			// 	render_bresenham_line(&screen_tri.p1, &screen_tri.p2, buf, YADE_WIRE_FILL_CHAR);
+			// 	render_bresenham_line(&screen_tri.p2, &screen_tri.p0, buf, YADE_WIRE_FILL_CHAR);
+			// },
+		}
+	}
 }
 
 pub fn render_mesh(mesh: &Mesh, buf: &mut TerminalBuffer, timer: &Timer, camera: &Camera) {

@@ -24,10 +24,10 @@ impl Timer {
 			time_since_start: VERY_SHORT_DURATION,
 			time_aggr:        VERY_SHORT_DURATION,
 			time_scale:       1.0,
-			
-			start:            now,
-			last_tick:        now,
-    		default_time_scale:   1.0,
+
+			start:     now,
+			last_tick: now,
+    		default_time_scale: 1.0,
 		}
 	}
 
@@ -42,10 +42,10 @@ impl Timer {
 
 	pub fn run_frame(&mut self) {
 		self.frame_count += 1;
-		self.run();
+		self.run_tick();
 	}
 
-	pub fn run(&mut self) {
+	pub fn run_tick(&mut self) {
 		let now = Instant::now();
 
 		self.delta_time = (now - self.last_tick).mul_f32(self.time_scale);

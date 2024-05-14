@@ -44,7 +44,7 @@ pub fn safe_render_char_at(ch: char, x: Int, y: Int, buf: &mut TerminalBuffer) {
 	render_char(ch, &UVec2::new(x as u16, y as u16), buf);
 }
 
-pub fn safe_render_char(ch: char, pos: &IVec2, buf: &mut TerminalBuffer) {
+pub fn safe_render_char_i(ch: char, pos: &IVec2, buf: &mut TerminalBuffer) {
 	if pos.x < 0 || pos.x >= buf.wid as Int || pos.y < 0 || pos.y >= buf.hei as Int { return }
 	render_char(ch, &pos.into(), buf);
 }

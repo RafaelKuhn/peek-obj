@@ -1,4 +1,4 @@
-use std::{f32::consts::TAU, fs::File, io::{self, BufWriter, Stderr, Stdout, Write}, process, time::Duration};
+use std::{f32::consts::TAU, io::{self, Stdout, Write}, process, time::Duration};
 
 use crossterm::{terminal::*, event::*, cursor::*, style::*, *};
 
@@ -8,7 +8,7 @@ pub struct CrosstermTerminal {
 	// pub stdout: BufWriter<File>,
 }
 
-use crate::{maths::*, render_string, timer::Timer, try_saving_screenshot, App, TerminalBuffer};
+use crate::{maths::*, render_string, timer::Timer, App, TerminalBuffer};
 
 
 pub fn configure_terminal() -> CrosstermTerminal {
@@ -46,7 +46,6 @@ pub fn poll_events(terminal: &mut CrosstermTerminal, app: &mut App, timer: &mut 
 	app.user_rot = Vec3::zero();
 	app.user_dir = Vec3::zero();
 	app.called_reset_camera = false;
-	app.called_take_screenshot = false;
 
 	let has_event = crossterm::event::poll(Duration::from_millis(0)).unwrap();
 	if !has_event { return }
@@ -71,7 +70,8 @@ pub fn poll_events(terminal: &mut CrosstermTerminal, app: &mut App, timer: &mut 
 				KeyCode::Esc => quit(terminal),
 
 				KeyCode::Char(ch) => match ch.to_ascii_lowercase() {
-					'm' => app.buf.test = !app.buf.test,
+					// 'm' => app.buf.test = !app.buf.test,
+					// 'm' => if timer.time_scale == 0.0 { timer.time_scale = 1.0 } else { timer.time_scale = 0.0},
 					'c' if key_evt.modifiers == KeyModifiers::CONTROL => quit(terminal),
 					'q' if key_evt.modifiers == KeyModifiers::CONTROL => quit(terminal),
 
@@ -84,28 +84,26 @@ pub fn poll_events(terminal: &mut CrosstermTerminal, app: &mut App, timer: &mut 
 					'e' => app.user_dir.y = MOVE_SPEED,
 					'q' => app.user_dir.y = -MOVE_SPEED,
 
+					// Z changes polygon sorting mode
+					'z' => app.buf.toggle_z_sorting_mode(),
+					'c' => app.buf.toggle_cull_mode(),
+
 					// XYZ moves along the XYZ axes, shift+XYZ moves back
-					'y' if key_evt.modifiers == KeyModifiers::SHIFT => app.user_pos.y = -MOVE_SPEED,
-					'y' => app.user_pos.y = MOVE_SPEED,
-					'x' if key_evt.modifiers == KeyModifiers::SHIFT => app.user_pos.x = -MOVE_SPEED,
-					'x' => app.user_pos.x = MOVE_SPEED,
-					'z' if key_evt.modifiers == KeyModifiers::SHIFT => app.user_pos.z = -MOVE_SPEED,
-					'z' => app.user_pos.z = MOVE_SPEED,
+					// 'y' if key_evt.modifiers == KeyModifiers::SHIFT => app.user_pos.y = -MOVE_SPEED,
+					// 'y' => app.user_pos.y = MOVE_SPEED,
+					// 'x' if key_evt.modifiers == KeyModifiers::SHIFT => app.user_pos.x = -MOVE_SPEED,
+					// 'x' => app.user_pos.x = MOVE_SPEED,
+					// 'z' if key_evt.modifiers == KeyModifiers::SHIFT => app.user_pos.z = -MOVE_SPEED,
+					// 'z' => app.user_pos.z = MOVE_SPEED,
+
 
 					// R resets camera position to default, shift+R sets the default
 					'r' if key_evt.modifiers == KeyModifiers::SHIFT => app.called_set_camera_default_orientation = true,
 					'r' => app.called_reset_camera = true,
-					// T takes screenshot, P pauses rendering
+					// T takes screenshot, P pauses time, shift+P pauses rendering
 					't' => app.called_take_screenshot = true,
-					'p' => {
-							if app.has_paused_rendering {
-							app.has_paused_rendering = false;
-							timer.reset_time_scale();
-						} else {
-							app.has_paused_rendering = true;
-							timer.time_scale = 0.0;
-						}
-					}
+					'p' if key_evt.modifiers == KeyModifiers::SHIFT => app.toggle_pause_anim(timer),
+					'p' => app.toggle_pause_full(timer),
 					_ => (),
 				}
 				_ => (),
@@ -122,16 +120,15 @@ pub fn poll_events(terminal: &mut CrosstermTerminal, app: &mut App, timer: &mut 
 
 pub fn just_poll_while_paused(app: &mut App, terminal_mut: &mut CrosstermTerminal, timer: &mut Timer) {
 
-	if !app.has_paused_rendering { return; }
+	if !app.is_fully_paused() { return; }
 
-	const PAUSED_STR: &str = "PAUSED!";
+	const PAUSED_STR: &str = "RENDERING PAUSED!";
 	render_string(PAUSED_STR, &UVec2::new(app.buf.wid - PAUSED_STR.len() as u16, app.buf.hei - 1), &mut app.buf);
 	print_and_flush_terminal_fscreen(&mut app.buf, terminal_mut);
 
-	while app.has_paused_rendering {
+	while app.is_fully_paused() {
 		poll_events(terminal_mut, app, timer);
-		timer.run();
-		try_saving_screenshot(app, timer);
+		timer.run_tick();
 	};
 }
 

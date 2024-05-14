@@ -52,21 +52,22 @@ impl YadeDemData {
 		let v6 = Vec3::new(-0.9,  0.9,  0.9);
 		let v7 = Vec3::new(-0.9,  0.9, -0.9);
 
-		// tris.push(Tri::with_pos(v1, v2, v3));
-		// tris.push(Tri::with_pos(v7, v6, v5));
+		tris.push(Tri::with_pos(v1, v2, v3));
+		tris.push(Tri::with_pos(v7, v6, v5));
 		tris.push(Tri::with_pos(v4, v5, v1));
-		// tris.push(Tri::with_pos(v5, v6, v2));
-		// tris.push(Tri::with_pos(v2, v6, v7));
-		// tris.push(Tri::with_pos(v0, v3, v7));
-		// tris.push(Tri::with_pos(v0, v1, v3));
-		// tris.push(Tri::with_pos(v4, v7, v5));
-		// tris.push(Tri::with_pos(v0, v4, v1));
-		// tris.push(Tri::with_pos(v1, v5, v2));
-		// tris.push(Tri::with_pos(v3, v2, v7));
-		// tris.push(Tri::with_pos(v4, v0, v7));
+		tris.push(Tri::with_pos(v5, v6, v2));
+		tris.push(Tri::with_pos(v2, v6, v7));
+		tris.push(Tri::with_pos(v0, v3, v7));
+
+		tris.push(Tri::with_pos(v0, v1, v3));
+		tris.push(Tri::with_pos(v4, v7, v5));
+		tris.push(Tri::with_pos(v0, v4, v1));
+		tris.push(Tri::with_pos(v1, v5, v2));
+		tris.push(Tri::with_pos(v3, v2, v7));
+		tris.push(Tri::with_pos(v4, v0, v7));
 
 		// balls.push(Ball { pos: Vec3 { x:  0.00, y:  0.00, z:  0.00 }, rad: 0.15 });
-		// balls.push(Ball { pos: Vec3 { x:  0.75, y:  0.00, z:  0.00 }, rad: 0.15 });
+		balls.push(Ball { pos: Vec3 { x:  0.75, y:  0.00, z:  0.00 }, rad: 0.15 });
 		// balls.push(Ball { pos: Vec3 { x:  0.00, y:  0.75, z:  0.00 }, rad: 0.15 });
 		// balls.push(Ball { pos: Vec3 { x:  0.00, y:  0.00, z:  0.75 }, rad: 0.15 });
 		balls.push(Ball { pos: Vec3 { x: -0.75, y:  0.00, z:  0.00 }, rad: 0.15 });

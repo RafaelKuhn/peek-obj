@@ -1,6 +1,8 @@
 // #![allow(clippy::let_and_return)]
 
-use crate::{maths::*, render_char, render_char_i, render_string, terminal::TerminalBuffer};
+use std::cmp::Ordering;
+
+use crate::{maths::*, render_string, terminal::TerminalBuffer, Primitive};
 
 use self::vec3::Vec4;
 
@@ -110,6 +112,7 @@ pub fn cull_circle(pos: &FVec2, x_rad: f32, buf: &mut TerminalBuffer) -> bool {
 
 	sq_magnitude >= sq_x_rad
 }
+
 
 #[must_use]
 pub fn screen_project(vec: &Vec3, render_mat: &[f32], wid: u16, hei: u16) -> IVec2 {

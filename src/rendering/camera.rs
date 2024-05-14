@@ -31,13 +31,22 @@ impl Camera {
 	}
 
 	pub fn configure_defaults(&mut self) {
+		
+		// DEFAULT
+		self.set_initial_pos(0.0, 0.0, 16.0);
+		self.set_initial_rot(0.0, 0.0, 0.0);
 
 		// TODO: use this to debug (AXIS_SZ_WORLD == 20.0)
-		// self.set_initial_pos(-4.53, 5.04, 18.23);
-		// self.set_initial_rot(0.25, 0.15, 0.0);
-		// ... or this
-		// self.set_initial_pos(2.87, 2.85, 19.44);
-		// self.set_initial_rot(0.15, -0.15, 0.00);
+		// self.set_initial_pos(-2.944836, 5.040000, 18.444765);
+		// self.set_initial_rot(0.250000, 0.100913, 0.000000);
+
+		// ... or this (with yade tris)
+		// self.set_initial_pos(1.304138, 1.611014, -1.207020);
+		// self.set_initial_rot(0.220893, -2.871613, 0.000000);
+
+		// from above
+		self.set_initial_pos(0.000000, 13.021900, 4.108858);
+		self.set_initial_rot(1.251728, 0.000000, 0.000000);
 
 		// self in front
 		// self.set_initial_pos(0.0, 0.0, 5.0);
@@ -63,16 +72,9 @@ impl Camera {
 		// self.set_initial_pos(2.398537, 2.217667, 11.542053);
 		// self.set_initial_rot(0.147262, -0.147262, 0.000000);
 
-		// DEFAULT
-		self.set_initial_pos(0.0, 0.0, 16.0);
-		self.set_initial_rot(0.0, 0.0, 0.0);
-
 		// up close to debug balls clipping (yade debug)
-		self.set_initial_pos(-0.035866, 0.622454, 2.083412);
-		self.set_initial_rot(0.343612, 0.245437, 0.000000);
-
-		self.set_initial_pos(-5.594234, 8.236173, 22.627409);
-		self.set_initial_rot(0.343612, 0.245437, 0.000000);
+		// self.set_initial_pos(-0.035866, 0.622454, 2.083412);
+		// self.set_initial_rot(0.343612, 0.245437, 0.000000);
 
 		self.update_view_matrix();
 	}
