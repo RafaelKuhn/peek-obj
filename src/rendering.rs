@@ -19,7 +19,7 @@ use std::{cmp::Ordering, fmt};
 
 
 
-use crate::{camera::Camera, file_readers::yade_dem_reader::{Tri, YadeDemData}, fps_measure::FpsMeasure, maths::*, mesh::Mesh, terminal::TerminalBuffer, timer::Timer, utils::*};
+use crate::{app::App, camera::Camera, file_readers::yade_dem_reader::{Tri, YadeDemData}, fps_measure::FpsMeasure, maths::*, mesh::Mesh, terminal::TerminalBuffer, timer::Timer, utils::*};
 
 use self::cull_mode::CullMode;
 
@@ -75,15 +75,16 @@ pub fn render_clear(buffer: &mut TerminalBuffer) {
 }
 
 
-pub fn render_verbose(benchmark: &FpsMeasure, camera: &Camera, buf: &mut TerminalBuffer) {
+pub fn render_verbose(benchmark: &FpsMeasure, camera: &Camera, app: &mut App) {
+
+	let is_free_mov = app.is_free_mov();
+	let buf = &mut app.buf;
+
 	let mut highest_pos = UVec2::new(0, 0);
-	render_string(&format!("cam pos: {:?}", camera.position), &highest_pos, buf);
+
+	render_string(&format!("cam pos: {:} ", camera.position), &highest_pos, buf);
 	highest_pos.y += 1;
-	render_string(&format!("cam rot: {:?}", camera.rotation), &highest_pos, buf);
-	highest_pos.y += 2;
-	render_string(&format!("sort mode: {:}", buf.get_sorting_mode()), &highest_pos, buf);
-	highest_pos.y += 1;
-	render_string(&format!("cull mode: {:}", buf.get_cull_mode()), &highest_pos, buf);
+	render_string(&format!("cam rot: {:} ", camera.rotation.rad_to_deg()), &highest_pos, buf);
 
 	// highest_pos.y += 2;
 	// render_string(&format!("cam sid: {:} m {:.4}", camera.side.inversed(), camera.side.magnitude()), &highest_pos, buffer);
@@ -92,33 +93,39 @@ pub fn render_verbose(benchmark: &FpsMeasure, camera: &Camera, buf: &mut Termina
 	// highest_pos.y += 1;
 	// render_string(&format!("cam fwd: {:} m {:.4}", camera.forward.inversed(), camera.forward.magnitude()), &highest_pos, buffer);
 
+
 	let mut lowest_pos = UVec2::new(0, buf.hei - 1);
 
 	let wxh = buf.wid as u32 * buf.hei as u32;
 	let aspect = buf.wid as f32 / buf.hei as f32;
+	render_string(&format!("w: {}, h: {}, w*h: {}, a: {:.2} ", buf.wid, buf.hei, wxh, aspect), &lowest_pos, buf);
+	lowest_pos.y -= 1;
+	render_string(&format!("frame n: {} ", benchmark.total_frame_count), &lowest_pos, buf);
+	lowest_pos.y -= 1;
+	render_string(&format!("scaled time: {:.2} ", benchmark.time_aggr.as_millis() as f32 * 0.001), &lowest_pos, buf);
+	lowest_pos.y -= 1;
+	render_string(&format!("time scale: {:.1} ", benchmark.time_scale), &lowest_pos, buf);
+	lowest_pos.y -= 1;
+	render_string(&format!("dt: {:.4}ms ", benchmark.delta_time_millis), &lowest_pos, buf);
+	lowest_pos.y -= 1;
+	render_string(&format!("fps: {:.2} ", benchmark.fps), &lowest_pos, buf);
 
-	render_string(&format!("w: {}, h: {}, w*h: {}, a: {:.2}", buf.wid, buf.hei, wxh, aspect), &lowest_pos, buf);
-	lowest_pos.y -= 1;
-	render_string(&format!("frame n: {}", benchmark.total_frame_count), &lowest_pos, buf);
-	lowest_pos.y -= 1;
-	render_string(&format!("scaled time: {:.2}", benchmark.time_aggr.as_millis() as f32 * 0.001), &lowest_pos, buf);
-	lowest_pos.y -= 1;
-	render_string(&format!("time scale: {:.1}", benchmark.time_scale), &lowest_pos, buf);
-	lowest_pos.y -= 1;
-	render_string(&format!("dt: {:.4}ms", benchmark.delta_time_millis), &lowest_pos, buf);
-	lowest_pos.y -= 1;
-	render_string(&format!("fps: {:.2}", benchmark.fps), &lowest_pos, buf);
 
+	let mut br_lowest_pos = UVec2::new(0, buf.hei - 2);
+
+	render_string_snap_right(&format!(" z sort mode: {:} ", buf.get_sorting_mode()), &br_lowest_pos, buf);
+	br_lowest_pos.y -= 1;
+	render_string_snap_right(&format!(" cull mode: {:} ", buf.get_cull_mode()), &br_lowest_pos, buf);
+	br_lowest_pos.y -= 1;
+	render_string_snap_right(&format!(" move mode: {:} ", if is_free_mov { "free movement" } else { "orbital" }), &br_lowest_pos, buf);
 }
 
-pub struct RenderBallData {
-	// dist_sq_to_camera: f32,
-	index: usize,
-	screen_pos: IVec2,
-	rad: f32,
+pub fn render_string_snap_right(string: &str, pos: &UVec2, buf: &mut TerminalBuffer) {
+	let new_pos = UVec2::new(buf.wid - string.len() as u16 - pos.x, pos.y);
+	render_string(string, &new_pos, buf);
 }
 
-#[deprecated(since="0.0", note=r#"Call "render_yade_sorted""#)]
+#[deprecated(since="0.0", note=r#"Call "render_yade_sorted", keeping this until I code Transform"#)]
 pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Timer, camera: &Camera) {
 
 	todo!("figure standard render yade");
@@ -244,6 +251,13 @@ pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Ti
 		// safe_render_char_at('S', trs_pos_sd_projected_screen_f.x as i32, trs_pos_sd_projected_screen_f.y as i32, buf);
 	}
 	/* */ // bench.end_and_log("fill ball circle", buf);
+}
+
+pub struct RenderBallData {
+	// dist_sq_to_camera: f32,
+	index: usize,
+	screen_pos: IVec2,
+	rad: f32,
 }
 
 pub enum Primitive {
@@ -700,4 +714,51 @@ pub fn render_bounding_box(bbox: &BoundingBox, buf: &mut TerminalBuffer, timer: 
 	render_bresenham_line(&bottom_right_back_2d, &top_right_back_2d, buf, '|');
 	render_bresenham_line(&bottom_left_back_2d, &top_left_back_2d, buf, '|');
 	render_bresenham_line(&bottom_left_front_2d, &top_left_front_2d, buf, '|');
+}
+
+pub fn render_test(camera: &mut Camera, app: &mut App) {
+	if app.is_free_mov() { return }
+	// else { return }
+
+	todo!("make some sort of struct and render it to debug 'rotate around arbitrary axis'");
+
+	let buf = &mut app.buf;
+
+	let ang_x = app.user_dir.y;
+	let ang_y = app.user_dir.x;
+
+	camera.cache_rot_x += ang_x;
+	camera.cache_rot_y += ang_y;
+	camera.cache_dist += app.user_dir.z;
+
+	let mut debug_pos = UVec2::new(0, 3);
+	render_string(&format!("ang x {:.2}, y {:.2}, deg x {:.2} y {:.2}", camera.cache_rot_x, camera.cache_rot_y, rad_to_deg(camera.cache_rot_x), rad_to_deg(camera.cache_rot_y)), &debug_pos, buf);
+
+	// TODO: camera initial position
+	// let base_pos = Vec3::new(0., 0., 16. + camera.cache_dist);
+	// let base_pos = Vec3::new(0., 0., 2. + camera.cache_dist);
+	let base_pos = Vec3::new(0.0, 0.0, 0.5 + camera.cache_dist);
+
+	apply_identity_to_mat_4x4(&mut buf.transf_mat);
+	apply_rotation_to_mat_4x4(&mut buf.transf_mat, camera.cache_rot_x, camera.cache_rot_y, 0.0);
+
+	buf.copy_projection_to_render_matrix();
+
+	let view_pos = base_pos
+	.rotated_x(camera.cache_rot_x)
+	.rotated_y(camera.cache_rot_y)
+	.get_transformed_by_mat4x4_discard_w(&camera.view_matrix)
+	;
+
+	let pos = screen_project(&view_pos, &buf.render_mat, buf.wid, buf.hei);
+
+	let target = Vec3::zero();
+	buf.copy_projection_to_render_matrix();
+	multiply_4x4_matrices(&mut buf.render_mat, &camera.view_matrix);
+	let target_scr = screen_project(&target, &buf.render_mat, buf.wid, buf.hei);
+
+	render_bresenham_line(&pos, &target_scr, buf, '*');
+
+	safe_render_char_i('@', &pos, buf);
+	safe_render_char_i('@', &target_scr, buf);
 }

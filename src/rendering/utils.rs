@@ -4,8 +4,6 @@ use std::cmp::Ordering;
 
 use crate::{maths::*, render_string, terminal::TerminalBuffer, Primitive};
 
-use self::vec3::Vec4;
-
 
 #[must_use]
 pub fn clip_space_to_screen_space(p: &Vec3, screen_width: u16, screen_height: u16) -> IVec2 {

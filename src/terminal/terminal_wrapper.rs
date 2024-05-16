@@ -8,7 +8,7 @@ pub struct CrosstermTerminal {
 	// pub stdout: BufWriter<File>,
 }
 
-use crate::{maths::*, render_string, timer::Timer, App, TerminalBuffer};
+use crate::{maths::*, render_string, render_string_snap_right, timer::Timer, App, TerminalBuffer};
 
 
 pub fn configure_terminal() -> CrosstermTerminal {
@@ -38,11 +38,10 @@ pub fn restore_stdout<T: Write>(stdout: &mut T) {
 		.unwrap();
 }
 
-
+// TODO: polling channels or some sort, for instance, only poll for unpause when paused
 pub fn poll_events(terminal: &mut CrosstermTerminal, app: &mut App, timer: &mut Timer) {
 
 	// TODO: app.polled_data.reset() or something
-	app.user_pos = Vec3::zero();
 	app.user_rot = Vec3::zero();
 	app.user_dir = Vec3::zero();
 	app.called_reset_camera = false;
@@ -78,30 +77,23 @@ pub fn poll_events(terminal: &mut CrosstermTerminal, app: &mut App, timer: &mut 
 					// WASD moves left|right and forwards|backwards
 					'w' => app.user_dir.z = -MOVE_SPEED,
 					's' => app.user_dir.z = MOVE_SPEED,
-					'd' => app.user_dir.x = -MOVE_SPEED,
-					'a' => app.user_dir.x = MOVE_SPEED,
+					'd' => app.user_dir.x = if app.is_free_mov() { -MOVE_SPEED } else {  ROT_SPEED },
+					'a' => app.user_dir.x = if app.is_free_mov() {  MOVE_SPEED } else { -ROT_SPEED },
 					// EQ moves camera up|down
-					'e' => app.user_dir.y = MOVE_SPEED,
-					'q' => app.user_dir.y = -MOVE_SPEED,
+					'e' => app.user_dir.y = if app.is_free_mov() {  MOVE_SPEED } else { -ROT_SPEED },
+					'q' => app.user_dir.y = if app.is_free_mov() { -MOVE_SPEED } else {  ROT_SPEED },
 
-					// Z changes polygon sorting mode
 					'z' => app.buf.toggle_z_sorting_mode(),
 					'c' => app.buf.toggle_cull_mode(),
 
-					// XYZ moves along the XYZ axes, shift+XYZ moves back
-					// 'y' if key_evt.modifiers == KeyModifiers::SHIFT => app.user_pos.y = -MOVE_SPEED,
-					// 'y' => app.user_pos.y = MOVE_SPEED,
-					// 'x' if key_evt.modifiers == KeyModifiers::SHIFT => app.user_pos.x = -MOVE_SPEED,
-					// 'x' => app.user_pos.x = MOVE_SPEED,
-					// 'z' if key_evt.modifiers == KeyModifiers::SHIFT => app.user_pos.z = -MOVE_SPEED,
-					// 'z' => app.user_pos.z = MOVE_SPEED,
-
+					'f' => app.called_toggle_free_mov = true,
 
 					// R resets camera position to default, shift+R sets the default
 					'r' if key_evt.modifiers == KeyModifiers::SHIFT => app.called_set_camera_default_orientation = true,
 					'r' => app.called_reset_camera = true,
-					// T takes screenshot, P pauses time, shift+P pauses rendering
+
 					't' => app.called_take_screenshot = true,
+					// P pauses time, shift+P pauses rendering
 					'p' if key_evt.modifiers == KeyModifiers::SHIFT => app.toggle_pause_anim(timer),
 					'p' => app.toggle_pause_full(timer),
 					_ => (),
@@ -122,8 +114,8 @@ pub fn just_poll_while_paused(app: &mut App, terminal_mut: &mut CrosstermTermina
 
 	if !app.is_fully_paused() { return; }
 
-	const PAUSED_STR: &str = "RENDERING PAUSED!";
-	render_string(PAUSED_STR, &UVec2::new(app.buf.wid - PAUSED_STR.len() as u16, app.buf.hei - 1), &mut app.buf);
+	const PAUSED_STR: &str = " RENDERING PAUSED! ";
+	render_string_snap_right(PAUSED_STR, &UVec2::new(0, app.buf.hei - 1), &mut app.buf);
 	print_and_flush_terminal_fscreen(&mut app.buf, terminal_mut);
 
 	while app.is_fully_paused() {

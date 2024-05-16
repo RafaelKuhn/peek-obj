@@ -1,13 +1,17 @@
 pub mod vec3;
+pub mod vec4;
 pub mod ivec2;
 pub mod uvec2;
 pub mod fvec2;
 pub mod matrices;
 
+use std::f32::consts::TAU;
+
 pub use self::uvec2::UVec2;
 pub use self::ivec2::IVec2;
 pub use self::fvec2::FVec2;
 pub use self::vec3::Vec3;
+pub use self::vec4::Vec4;
 pub use matrices::*;
 
 
@@ -44,9 +48,13 @@ pub fn in_range(f: f32, min: f32, max: f32) -> bool {
 	f > min && f < max
 }
 
+#[inline] #[must_use]
+pub fn rad_to_deg(ang: f32) -> f32 {
+	ang / TAU * 360.0
+}
+
 
 pub fn line_intersect_screen(s0: &FVec2, s1: &FVec2, width: f32, height: f32) -> bool {
-
 	let origin   = &FVec2::new(0.0, 0.0);
 	let up       = &FVec2::new(0.0, height);
 	let right    = &FVec2::new(width, 0.0);
@@ -56,10 +64,6 @@ pub fn line_intersect_screen(s0: &FVec2, s1: &FVec2, width: f32, height: f32) ->
 	line_intersect(s0, s1, origin, right) ||
 	line_intersect(s0, s1, up_right, right) ||
 	line_intersect(s0, s1, up_right, up)
-
-	// line_intersects_origin_x(s0, s1, height) ||
-	// line_intersects_origin_y(s0, s1, width) ||
-	
 }
 
 #[inline]

@@ -89,12 +89,12 @@ pub fn render_straight_x_line(p0x: Int, p1x: Int, y: Int, fill_char: char, buf: 
 }
 
 pub fn render_bresenham_line(p0: &IVec2, p1: &IVec2, buf: &mut TerminalBuffer, fill_char: char) {
-	// let last_x = buf.wid - 1;
-	// let last_y = buf.hei - 1;
+	let last_x = buf.wid - 1;
+	let last_y = buf.hei - 1;
 
 	// // cull lines completely out of the canvas
-	// if p0.x > last_x && p1.x > last_x { return }
-	// if p0.y > last_y && p1.y > last_y { return }
+	if p0.x > last_x.into() && p1.x > last_x.into() { return }
+	if p0.y > last_y.into() && p1.y > last_y.into() { return }
 
 	let x0 = p0.x;
 	let y0 = p0.y;

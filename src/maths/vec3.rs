@@ -1,40 +1,6 @@
-use std::fmt;
+use std::{f32::consts::TAU, fmt};
 
-use crate::{clip_space_to_screen_space, in_range, ivec2::IVec2, maths::*};
-
-
-pub struct Vec4 {
-	pub xyz: Vec3,
-	pub w: f32,
-}
-
-impl Vec4 {
-	pub fn homogeneous(mut self) -> Vec3 {
-		self.xyz.x /= self.w;
-		self.xyz.y /= self.w;
-		self.xyz.z /= self.w;
-
-		self.xyz
-	}
-
-	pub fn in_w_range(&self) -> bool {
-		in_range(self.xyz.x, self.w, -self.w) && in_range(self.xyz.y, self.w, -self.w)
-	}
-
-	pub fn x_in_w_range(&self) -> bool {
-		in_range(self.xyz.x, self.w, -self.w)
-	}
-	pub fn y_in_w_range(&self) -> bool {
-		in_range(self.xyz.y, self.w, -self.w)
-	}
-
-}
-
-impl fmt::Debug for Vec4 {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(f, "{:.6}, {:.6}, {:.6}, {:.6}", self.xyz.x, self.xyz.y, self.xyz.z, self.w)
-	}
-}
+use crate::{clip_space_to_screen_space, ivec2::IVec2, maths::*};
 
 
 #[derive(Clone, Copy)]
@@ -63,6 +29,18 @@ impl Vec3 {
 		Self { x: 0.0, y: 0.0, z: 1.0 }
 	}
 
+	pub fn xy(&self) -> (f32, f32) {
+		(self.x, self.y)
+	}
+
+	pub fn yz(&self) -> (f32, f32) {
+		(self.y, self.z)
+	}
+
+	pub fn xz(&self) -> (f32, f32) {
+		(self.x, self.z)
+	}
+		
 	pub fn squared_magnitude(&self) -> f32 {
 		self.x * self.x + self.y * self.y + self.z * self.z
 	}
@@ -76,17 +54,42 @@ impl Vec3 {
 		(self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
 	}
 
-	pub fn normalized(&self) -> Vec3 {
-		let magnitude = self.magnitude();
-		Self { x: self.x / magnitude, y: self.y / magnitude, z: self.z / magnitude }
-	}
-
 	pub fn dist_to(&self, other: &Vec3) -> f32 {
 		let vec = Self::new(other.x - self.x, other.y - self.y, other.z - self.z);
 		vec.magnitude()
 	}
 
-	// heavy, use only for debugging purposes!
+	pub fn normalized(&self) -> Vec3 {
+		let magnitude = self.magnitude();
+		Self { x: self.x / magnitude, y: self.y / magnitude, z: self.z / magnitude }
+	}
+
+	#[deprecated(since = "0.0", note = "This does not seem to work for some reason")]
+	pub fn get_rotation(&self) -> Vec3 {
+
+		// I don't know why but it look like it works less crappy like this
+		let rotation_x = -f32::atan2(self.y, self.z);
+		let rotation_y = f32::atan2(self.x, self.z);
+		let rotation_z = f32::atan2(self.y, self.x);
+
+		Vec3::new(rotation_x, rotation_y, rotation_z)
+	}
+
+	pub fn get_rotation_wo_orientation(&self) -> Vec3 {
+		let magnitude = self.magnitude();
+
+		let rotation_x = ( Vec3::dot_product( &self, &Vec3::new(1., 0., 0.) ) / magnitude ).acos();
+		let rotation_y = ( Vec3::dot_product( &self, &Vec3::new(0., 1., 0.) ) / magnitude ).acos();
+		let rotation_z = ( Vec3::dot_product( &self, &Vec3::new(0., 0., 1.) ) / magnitude ).acos();
+
+		Vec3::new(rotation_x, rotation_y, rotation_z)
+	}
+
+	pub fn rad_to_deg(&self) -> Vec3 {
+		Vec3::new(rad_to_deg(self.x), rad_to_deg(self.y), rad_to_deg(self.z))
+	}
+
+	// heavy, use only for debugging
 	pub fn rotated_x(&self, x_rot: f32) -> Vec3 {
 		let sin_x = x_rot.sin();
 		let cos_x = x_rot.cos();
@@ -98,7 +101,7 @@ impl Vec3 {
 		)
 	}
 
-	// heavy, use only for debugging purposes!
+	// heavy, use only for debugging
 	pub fn rotated_y(&self, y_rot: f32) -> Vec3 {
 		let sin_y = y_rot.sin();
 		let cos_y = y_rot.cos();
@@ -110,6 +113,7 @@ impl Vec3 {
 		)
 	}
 
+	// heavy, use only for debugging
 	pub fn rotated_xy(&self, x_rot: f32, y_rot: f32) -> Vec3 {
 		let sin_x = x_rot.sin();
 		let cos_x = x_rot.cos();
@@ -124,7 +128,7 @@ impl Vec3 {
 		)
 	}
 
-	// heavy, use only for debugging purposes!
+	// heavy, use only for debugging
 	pub fn rotated_z(&self, z_rot: f32) -> Vec3 {
 		let sin_z = z_rot.sin();
 		let cos_z = z_rot.cos();
@@ -228,7 +232,6 @@ impl Vec3 {
 		Self { x, y, z }
 	}
 
-	// pub fn get_transformed_by_mat4x4_uniform_w(&self, mat: &[f32]) -> (Vec3, f32) {
 	pub fn get_transformed_by_mat4x4_w(&self, mat: &[f32]) -> Vec4 {
 		const SZ: u16 = 4;
 		let x = self.x * mat[xy_to_it(0, 0, SZ)] + self.y * mat[xy_to_it(1, 0, SZ)] + self.z * mat[xy_to_it(2, 0, SZ)] + 1.0 * mat[xy_to_it(3, 0, SZ)];
@@ -298,7 +301,9 @@ impl Vec3 {
 			z: -self.z,
 		}
 	}
+}
 
+impl Vec3 {
 	pub fn cross_product(a: &Vec3, b: &Vec3) -> Vec3 {
 		Vec3::new(
 			a.y * b.z - a.z * b.y,
@@ -340,6 +345,14 @@ impl std::ops::Sub<Vec3> for Vec3 {
 	type Output = Vec3;
 
 	fn sub(self, rhs: Vec3) -> Self::Output {
+		self.sub_vec(&rhs)
+	}
+}
+
+impl std::ops::Sub<&Vec3> for &Vec3 {
+	type Output = Vec3;
+
+	fn sub(self, rhs: &Vec3) -> Self::Output {
 		self.sub_vec(&rhs)
 	}
 }

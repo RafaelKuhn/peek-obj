@@ -73,7 +73,7 @@ fn run_pipeline<T: Renderer>(renderer: T) {
 	let mut fps_measure = FpsMeasure::new(FPS_MEASURE_REFRESH_RATE_SECS);
 
 	let mut camera = Camera::new();
-	camera.configure_defaults();
+	camera.configure_defaults(&mut app);
 
 	timer.set_default_time_scale(1.0);
 
@@ -95,72 +95,44 @@ fn run_pipeline<T: Renderer>(renderer: T) {
 		app.buf.write_debug(&format!("with resolution {} x {}\n", app.buf.wid, app.buf.hei));
 		just_poll_while_paused(&mut app, &mut terminal, &mut timer);
 
-		benchmark.start();
+			benchmark.start();
 		render_clear(&mut app.buf);
-		benchmark.end_and_log("render clear", &mut app.buf);
+			benchmark.end_and_log("render clear", &mut app.buf);
 
 		poll_events(&mut terminal, &mut app, &mut timer);
-		benchmark.end_and_log("poll events", &mut app.buf);
+			benchmark.end_and_log("poll events", &mut app.buf);
 
-		update_camera(&mut camera, &mut app);
+		camera.consume_user_data(&mut app);
 
-		benchmark.start();
-		// render_axes(&mut app.buf, &camera, false);
-		// benchmark.end_and_log("render axes", &mut app.buf);
+			benchmark.start();
 
-		// render_yade(&yade_debug, &mut app.buf, &timer, &camera);
 		// render_yade_sorted(&yade_debug, &mut app.buf, &timer, &camera);
 		// render_mesh(&mesh_debug, &mut app.buf, &timer, &camera);
-		// benchmark.end_and_log("render debug", &mut app.buf);
+			// benchmark.end_and_log("render debug", &mut app.buf);
 
 
 		renderer.render(&mut app.buf, &timer, &camera);
-		benchmark.end_and_log("renderer render", &mut app.buf);
+			benchmark.end_and_log("renderer render", &mut app.buf);
 
+		render_axes(&mut app.buf, &camera, true);
 		render_gizmos(&mut app.buf, &camera);
-		benchmark.end_and_log("renderer gizmos", &mut app.buf);
+			benchmark.end_and_log("renderer gizmos", &mut app.buf);
 
-		benchmark.start();
+		// render_test(&mut camera, &mut app);
+
+			benchmark.start();
 		fps_measure.profile_frame(&timer);
-		render_verbose(&fps_measure, &camera, &mut app.buf);
-		benchmark.end_and_log("render benchmark", &mut app.buf);
+		render_verbose(&fps_measure, &camera, &mut app);
+			benchmark.end_and_log("render benchmark", &mut app.buf);
 
 		timer.run_frame();
 		app.run_post_render_events(&timer);
 
-		benchmark.start();
+			benchmark.start();
 		print_to_terminal_func(&mut app.buf, &mut terminal);
-		benchmark.end_and_log("print to terminal", &mut app.buf);
-		app.buf.write_debug(&benchmark.accum_end());
+			benchmark.end_and_log("print to terminal", &mut app.buf);
+app.buf.write_debug(&benchmark.accum_end());
 	}
-}
-
-
-fn update_camera(camera: &mut Camera, app: &mut App) {
-	if app.called_reset_camera {
-		app.called_reset_camera = false;
-
-		camera.restore_initial_pos_and_rot();
-		camera.update_view_matrix();
-		return;
-	}
-
-	if app.called_set_camera_default_orientation {
-		app.called_set_camera_default_orientation = false;
-
-		camera.set_initial_pos(camera.position.x, camera.position.y, camera.position.z);
-		camera.set_initial_rot(camera.rotation.x, camera.rotation.y, camera.rotation.z);
-		return;
-	}
-
-	camera.rotation = camera.rotation + app.user_rot;
-	camera.position = camera.position + app.user_pos;
-
-	let dir_vec = (camera.side * app.user_dir.x) + (camera.up * app.user_dir.y) + (camera.forward * app.user_dir.z);
-	camera.position = camera.position + dir_vec;
-
-	// TODO: only needs to do this when app.dir, app.rot or app.pos changesz	
-	camera.update_view_matrix();
 }
 
 fn set_panic_hook() {

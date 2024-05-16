@@ -36,13 +36,15 @@ impl TerminalBuffer {
 			wid: w,
 			hei: h,
 			raw_ascii_screen: vec![0; char_len],
+
 			proj_mat:   create_identity_4x4(),
 			transf_mat: create_identity_4x4(),
 			render_mat: create_identity_4x4(),
-			debug_file,
-    		sorting_mode: ZSortingMode::ClosestPoint,
-			cull_mask: CullMode::Nothing,
 
+    		sorting_mode: ZSortingMode::ClosestPoint,
+			cull_mask:    CullMode::Nothing,
+
+			debug_file,
 			test: false,
 		};
 

@@ -1,4 +1,6 @@
-use crate::maths::*;
+use std::f32::consts::TAU;
+
+use crate::{app::App, maths::*, render_string, timer::Timer, TerminalBuffer};
 
 
 pub struct Camera {
@@ -12,6 +14,11 @@ pub struct Camera {
 
 	initial_position: Vec3,
 	initial_rotation: Vec3,
+
+	pub cache_rot_x: f32,
+	pub cache_rot_y: f32,
+
+	pub cache_dist: f32,
 }
 
 impl Camera {
@@ -27,14 +34,118 @@ impl Camera {
 			view_matrix: create_identity_4x4(),
 			initial_position: Vec3::zero(),
 			initial_rotation: Vec3::zero(),
+
+			cache_rot_x: 0.,
+			cache_rot_y: 0.,
+
+			cache_dist: 0.,
 		}
 	}
 
-	pub fn configure_defaults(&mut self) {
+	pub fn consume_user_data(&mut self, app: &mut App) {
+		let camera = self;
+
+		if app.called_reset_camera {
+			app.called_reset_camera = false;
+	
+			camera.restore_initial_pos_and_rot();
+			if !app.is_free_mov() {
+				camera.clear_cache();
+			}
+
+			camera.update_view_matrix();
+		}
+
+		if app.called_set_camera_default_orientation {
+			app.called_set_camera_default_orientation = false;
+	
+			if app.is_free_mov() {
+				camera.set_initial_pos(camera.position.x, camera.position.y, camera.position.z);
+				camera.set_initial_rot(camera.rotation.x, camera.rotation.y, camera.rotation.z);
+			}
+		}
+
+		if app.called_toggle_free_mov {
+			app.called_toggle_free_mov = false;
+
+			app.toggle_free_mov(camera);
+		}
+
+		if app.is_free_mov() {
+			let dir_vec = camera.forward * app.user_dir.z + camera.side * app.user_dir.x + camera.up * app.user_dir.y;
+			camera.position = camera.position + dir_vec;
+			camera.rotation = camera.rotation + app.user_rot;
+			camera.update_view_matrix();
+			return;
+		}
+
+		Self::solve_ok(camera, app); return;
+	}
+
+	// TODO: remove this crap
+	fn solve_ok(camera: &mut Camera, app: &mut App) {
+		// is orbital
+		let ang_increment_x = app.user_dir.y;
+		let ang_increment_y = app.user_dir.x;
+
+		camera.cache_rot_x += ang_increment_x;
+		camera.cache_rot_y += ang_increment_y;
+
+		camera.cache_dist += app.user_dir.z;
+
+		// TODO: this will not work with any initial position that does not go in the direction (0.0, 0.0, 1.0)
+		// let initial_pos_dir = camera.initial_position.normalized();
+		// let base_pos = camera.initial_position + initial_pos_dir * camera.cache_dist;
+
+		let base_pos = Vec3::new(0.0, 0.0, 16.0) + Vec3::new(0.0, 0.0, camera.cache_dist);
+
+
+		camera.position = base_pos
+		.rotated_x(camera.cache_rot_x)
+		.rotated_y(camera.cache_rot_y)
+		;
+
+		camera.rotation.x = -camera.cache_rot_x;
+		camera.rotation.y = -camera.cache_rot_y;
+
+		// this makes the camera obey arrow keys to rotate instead of orbiting
+		camera.rotation = camera.rotation + app.user_rot;
+
+		camera.update_view_matrix();
+	}
+
+	#[deprecated(since="0.0", note="this shit does not work")]
+	pub fn look_at(&mut self, target: &Vec3) {
+		let direction = (target - &self.position).normalized();
+
+		// Calculate the rotation angles
+		let pitch = direction.y.atan2((direction.x.powi(2) + direction.z.powi(2)).sqrt());
+		let yaw = direction.x.atan2(direction.z);
+
+		// self.rotation.x = pitch;
+		// self.rotation.y = yaw;
+
+		self.rotation.x = -pitch;
+		self.rotation.y = yaw + TAU /4.0;
+	}
+
+	pub fn reset_cached_dist(&mut self) {
+		self.cache_dist = 0.0;
+	}
+
+	pub fn configure_defaults(&mut self, app: &mut App) {
 		
 		// DEFAULT
 		self.set_initial_pos(0.0, 0.0, 16.0);
 		self.set_initial_rot(0.0, 0.0, 0.0);
+
+		// if !app.is_free_mov() { app.toggle_free_mov(self) }
+
+		// self.set_initial_pos(3.133032, 1.927148, 5.394406);
+		// self.set_initial_rot(0.269980, -0.515418, 0.00000);
+
+		// self.set_initial_pos(5.0, 5.0, 5.0);
+		// self.set_initial_rot(0.5853, -0.7853, 0.);
 
 		// TODO: use this to debug (AXIS_SZ_WORLD == 20.0)
 		// self.set_initial_pos(-2.944836, 5.040000, 18.444765);
@@ -45,8 +156,8 @@ impl Camera {
 		// self.set_initial_rot(0.220893, -2.871613, 0.000000);
 
 		// from above
-		self.set_initial_pos(0.000000, 13.021900, 4.108858);
-		self.set_initial_rot(1.251728, 0.000000, 0.000000);
+		// self.set_initial_pos(0.000000, 13.021900, 4.108858);
+		// self.set_initial_rot(1.251728, 0.000000, 0.000000);
 
 		// self in front
 		// self.set_initial_pos(0.0, 0.0, 5.0);
@@ -94,10 +205,12 @@ impl Camera {
 		self.rotation = self.initial_rotation;
 	}
 
-	// TODO: implement
-	pub fn look_at(&mut self, _dest: &Vec3) {
-		panic!("not implemented");
+	pub fn clear_cache(&mut self) {
+		self.cache_dist  = 0.0;
+		self.cache_rot_x = 0.0;
+		self.cache_rot_y = 0.0;
 	}
+
 
 	#[deprecated]
 	fn find_up_and_forward(&self) -> (Vec3, Vec3) {
