@@ -50,10 +50,18 @@ pub fn apply_identity_to_mat_4x4(mat: &mut [f32]) {
 	mat[xy_to_it(3, 3, SZ)] = 1.0;
 }
 
-pub fn apply_projection_to_mat_4x4(mat: &mut [f32], width: u16, height: u16) {
+const ZN: f32 =   0.1;
+const ZF: f32 = 100.0;
+pub const SQUARED_ZF: f32 = ZF * ZF;
 
-	const ZN: f32 =   0.1;
-	const ZF: f32 = 100.0;
+// Objects will be culled if the distance between dot(cam_to_object, cam_position) and 1 is > this
+// 0.076120 is like 22.5 degrees away from the camera
+// pub const MAX_DOT_PROD_DIST_FROM_1: f32 = 0.076120;
+// 1.0 means it is completely behind the camera side (<- or ->)
+// pub const MAX_DOT_PROD_DIST_FROM_1: f32 = 1.0;
+pub const MAX_DOT_PROD_DIST_FROM_1: f32 = 0.15;
+
+pub fn apply_projection_to_mat_4x4(mat: &mut [f32], width: u16, height: u16) {
 
 	// height of the characters is double the width of the characters
 	let aspect_ratio = (height as f32 * 2.0) / width as f32;

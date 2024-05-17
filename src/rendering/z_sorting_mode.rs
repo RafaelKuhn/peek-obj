@@ -1,9 +1,9 @@
 use core::fmt;
 use std::cmp::Ordering;
 
-use crate::Primitive;
+use crate::YadePrimitive;
 
-pub type SortingFn = fn(&(f32, Primitive), &(f32, Primitive)) -> Ordering;
+pub type SortingFn = fn(&(f32, YadePrimitive), &(f32, YadePrimitive)) -> Ordering;
 
 
 pub enum ZSortingMode {
@@ -39,28 +39,28 @@ fn compare_distances(a: &f32, b: &f32) -> Ordering {
 	b.partial_cmp(&a).expect("Invalid float for some reason, what the actual fuck")
 }
 
-pub fn sort_by_distance(a: &(f32, Primitive), b: &(f32, Primitive)) -> Ordering {
+pub fn sort_by_distance(a: &(f32, YadePrimitive), b: &(f32, YadePrimitive)) -> Ordering {
 	let (dist_a, _) = a;
 	let (dist_b, _) = b;
 	return dist_b.partial_cmp(&dist_a).unwrap();
 }
 
-pub fn sort_lines_last(a: &(f32, Primitive), b: &(f32, Primitive)) -> Ordering {
+pub fn sort_lines_last(a: &(f32, YadePrimitive), b: &(f32, YadePrimitive)) -> Ordering {
 	with_lines_and_balls_ordering(a, b, Ordering::Less, Ordering::Greater)
 }
 
-pub fn sort_balls_last(a: &(f32, Primitive), b: &(f32, Primitive)) -> Ordering {
+pub fn sort_balls_last(a: &(f32, YadePrimitive), b: &(f32, YadePrimitive)) -> Ordering {
 	with_lines_and_balls_ordering(a, b, Ordering::Greater, Ordering::Less)
 }
 
-fn with_lines_and_balls_ordering(a: &(f32, Primitive), b: &(f32, Primitive), line_ord: Ordering, ball_ord: Ordering) -> Ordering {
+fn with_lines_and_balls_ordering(a: &(f32, YadePrimitive), b: &(f32, YadePrimitive), line_ord: Ordering, ball_ord: Ordering) -> Ordering {
 	let (dist_a, primitive_a) = a;
 	let (dist_b, primitive_b) = b;
 
 	match (primitive_a, primitive_b) {
-		(Primitive::Ball(_),    Primitive::Ball(_))    => compare_distances(dist_a, dist_b),
-		(Primitive::Line(_, _), Primitive::Line(_, _)) => compare_distances(dist_a, dist_b),
-		(Primitive::Ball(_),    Primitive::Line(_, _)) => line_ord,
-		(Primitive::Line(_, _), Primitive::Ball(_))    => ball_ord,
+		(YadePrimitive::Ball(_), YadePrimitive::Ball(_)) => compare_distances(dist_a, dist_b),
+		(YadePrimitive::Line(_), YadePrimitive::Line(_)) => compare_distances(dist_a, dist_b),
+		(YadePrimitive::Ball(_), YadePrimitive::Line(_)) => line_ord,
+		(YadePrimitive::Line(_), YadePrimitive::Ball(_)) => ball_ord,
 	}
 }

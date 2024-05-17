@@ -11,10 +11,8 @@ pub struct TerminalBuffer {
 	// global output buffer
 	pub raw_ascii_screen: Vec<u8>,
 
-	// unique 4x4 matrix buffer
+	// unique 4x4 matrix buffers, reused across different rendered objects, mut be cleaned after each used
 	proj_mat: Vec<f32>,
-
-	// these are reused across different rendered objects, mut be cleaned after each used
 	pub transf_mat: Vec<f32>,
 	pub render_mat: Vec<f32>,
 
@@ -41,7 +39,7 @@ impl TerminalBuffer {
 			transf_mat: create_identity_4x4(),
 			render_mat: create_identity_4x4(),
 
-    		sorting_mode: ZSortingMode::ClosestPoint,
+    		sorting_mode: ZSortingMode::BallsLast,
 			cull_mask:    CullMode::Nothing,
 
 			debug_file,
@@ -116,17 +114,15 @@ impl TerminalBuffer {
 		}
 	}
 
-	// TODO: iterate over enum and record an index
 	pub fn toggle_z_sorting_mode(&mut self) {
 		match self.sorting_mode {
 			ZSortingMode::ClosestPoint  => self.sorting_mode = ZSortingMode::FarthestPoint,
-			ZSortingMode::FarthestPoint => self.sorting_mode = ZSortingMode::LinesLast,
-			ZSortingMode::LinesLast     => self.sorting_mode = ZSortingMode::BallsLast,
-			ZSortingMode::BallsLast     => self.sorting_mode = ZSortingMode::ClosestPoint,
+			ZSortingMode::FarthestPoint => self.sorting_mode = ZSortingMode::BallsLast,
+			ZSortingMode::BallsLast     => self.sorting_mode = ZSortingMode::LinesLast,
+			ZSortingMode::LinesLast     => self.sorting_mode = ZSortingMode::ClosestPoint,
 		};
 	}
 
-	// TODO: iterate over enum and record an index
 	pub fn toggle_cull_mode(&mut self) {
 		self.cull_mask = match self.cull_mask {
 			CullMode::Nothing   => CullMode::CullTris,

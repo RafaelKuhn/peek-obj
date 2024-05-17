@@ -17,6 +17,14 @@ impl Vec4 {
 		self.xyz
 	}
 
+	pub fn homogeneous_cpy(&self) -> Vec3 {
+		Vec3::new(
+			self.xyz.x / self.w,
+			self.xyz.y / self.w,
+			self.xyz.z / self.w
+		)
+	}
+
 	pub fn in_w_range(&self) -> bool {
 		in_range(self.xyz.x, self.w, -self.w) && in_range(self.xyz.y, self.w, -self.w)
 	}

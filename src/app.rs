@@ -14,7 +14,7 @@ pub struct App {
 	has_paused_anim_only: bool,
 	is_free_mov: bool,
 
-	// TODO: this is the only one that needs to happen after scene is drawn
+	// this is the only one that needs to happen after scene is drawn
 	pub called_take_screenshot: bool,
 
 	// TODO: struct 'user polled data', this can probably be stateless
@@ -24,7 +24,6 @@ pub struct App {
 	pub called_set_camera_default_orientation: bool,
 
 	pub called_toggle_free_mov: bool,
-
 
 	last_screenshot_instant: Instant,
 }

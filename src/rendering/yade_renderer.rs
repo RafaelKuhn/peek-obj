@@ -1,4 +1,7 @@
-use crate::{camera::Camera, file_readers::yade_dem_reader::YadeDemData, render_bounding_box, render_yade, render_yade_sorted, renderer::Renderer, terminal::TerminalBuffer, timer::Timer, BoundingBox};
+use crate::{camera::Camera, file_readers::yade_dem_reader::YadeDemData, renderer::Renderer, terminal::TerminalBuffer, timer::Timer, maths::*, rendering::*};
+
+
+const TRIS_WIRE_FILL_CHAR: char = '*';
 
 pub struct YadeRenderer {
 	data: YadeDemData,
@@ -13,8 +16,301 @@ impl YadeRenderer {
 impl Renderer for YadeRenderer {
 	fn render(&self, buf: &mut TerminalBuffer, timer: &Timer, camera: &Camera) {
 		render_yade_sorted(&self.data, buf, timer, camera);
-
-		// let bbox = BoundingBox::from_vec3_iter(self.data.get_verts_iter());
-		// render_bounding_box(&bbox, buf, timer, camera);
 	}
+}
+
+
+
+pub fn render_yade_sorted(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Timer, camera: &Camera) {
+
+	let (pos_x, pos_y, pos_z) = (0.0, 0.0, 0.0);
+
+	let speed = 0.5;
+	let start_ms = 0;
+	let mut t = (timer.time_aggr.as_millis() * 0 + start_ms) as f32 * 0.001 * speed;
+	if buf.test { t = 0.0; }
+
+	let (angle_x, angle_y, angle_z) = (0.0, t, 0.0);
+
+	let scale = 1.0;
+	let (scale_x, scale_y, scale_z) = (scale, scale, scale);
+
+	buf.copy_projection_to_render_matrix();
+
+	apply_identity_to_mat_4x4(&mut buf.transf_mat);
+
+	apply_scale_to_mat_4x4(&mut buf.transf_mat, scale_x, scale_y, scale_z);
+	apply_rotation_to_mat_4x4(&mut buf.transf_mat, angle_x, angle_y, angle_z);
+	apply_pos_to_mat_4x4(&mut buf.transf_mat, pos_x, pos_y, pos_z);
+
+	multiply_4x4_matrices(&mut buf.render_mat, &camera.view_matrix);
+	multiply_4x4_matrices(&mut buf.render_mat, &buf.transf_mat);
+
+
+	// TODO: see how much data is copied by sorting this
+	let mut render_data_by_dist = Vec::<(f32, YadePrimitive)>::with_capacity(yade_data.balls.len());
+
+
+	// could make a buffer in TerminalBuffer for this
+	let mut render_mat_without_transform = create_identity_4x4_arr();
+	buf.copy_projection_to_mat4x4(&mut render_mat_without_transform);
+	multiply_4x4_matrices(&mut render_mat_without_transform, &camera.view_matrix);
+
+
+	let tris_iterator = match buf.get_cull_mode() {
+		CullMode::CullTris => [].iter(),
+		_ => yade_data.tris.iter(),
+	};
+
+	let sorting_criteria = buf.get_sorting_mode();
+	let triangle_lines_distance_fn = if let ZSortingMode::FarthestPoint = sorting_criteria { max_of_each_tri_line } else { min_of_each_tri_line };
+
+	// for tri in tris_iterator.skip(1).take(1) { // side one
+	for tri in tris_iterator {
+
+		let Some(screen_tri) = cull_tri_into_screen_space(&tri.p0, &tri.p1, &tri.p2, camera, buf) else { continue };
+
+		let trs_p0 = tri.p0.get_transformed_by_mat4x4_discard_w(&buf.transf_mat);
+		let trs_p1 = tri.p1.get_transformed_by_mat4x4_discard_w(&buf.transf_mat);
+		let trs_p2 = tri.p2.get_transformed_by_mat4x4_discard_w(&buf.transf_mat);
+
+		triangle_lines_distance_fn(&trs_p0, &trs_p1, &trs_p2, camera, &screen_tri, &mut render_data_by_dist);
+
+		// TODO: implement as an injected function, Avg between each of the 3 points
+		// let mid = Vec3::mid_point_of_tri(&trs_p0, &trs_p1, &trs_p2);
+		// let mid_scr = clip_space_to_screen_space(&mid.get_transformed_by_mat4x4_homogeneous(&render_mat_without_transform), buf.wid, buf.hei);
+		// safe_render_char_i('@', &mid_scr, buf);
+		// let sq_dist_to_camera = mid.squared_dist_to(&camera.position);
+		// safe_render_string_signed(&format!("d {:.2}", sq_dist_to_camera), mid_scr.x, mid_scr.y, buf);
+		// render_data_by_dist.push((sq_dist_to_camera, Primitive::Tri(screen_tri)));
+
+		// TODO: Avg between each line
+		// let dist0 = Vec3::new((trs_p0.x + trs_p1.x) * 0.5, (trs_p0.y + trs_p1.y) * 0.5, (trs_p0.z + trs_p1.z) * 0.5).squared_dist_to(&camera.position);
+		// render_data_by_dist.push((dist0, Primitive::Line(screen_tri.p0.clone(), screen_tri.p1.clone())));
+		// let dist1 = Vec3::new((trs_p1.x + trs_p2.x) * 0.5, (trs_p1.y + trs_p2.y) * 0.5, (trs_p1.z + trs_p2.z) * 0.5).squared_dist_to(&camera.position);
+		// render_data_by_dist.push((dist1, Primitive::Line(screen_tri.p1.clone(), screen_tri.p2.clone())));
+		// let dist2 = Vec3::new((trs_p2.x + trs_p0.x) * 0.5, (trs_p2.y + trs_p0.y) * 0.5, (trs_p2.z + trs_p0.z) * 0.5).squared_dist_to(&camera.position);
+		// render_data_by_dist.push((dist2, Primitive::Line(screen_tri.p2.clone(), screen_tri.p0.clone())));
+	}
+
+	let balls_iterator = match buf.get_cull_mode() {
+		CullMode::CullBalls => [].iter().enumerate(),
+		_ => yade_data.balls.iter().enumerate(),
+	};
+
+	for (index, ball) in balls_iterator {
+
+		let rad_scaled = ball.rad * scale;
+		let clip_pos = ball.pos.get_transformed_by_mat4x4_homogeneous(&buf.render_mat);
+
+		let transformed_pos = ball.pos.get_transformed_by_mat4x4_discard_w(&buf.transf_mat);
+
+		// culling balls too far away
+		if transformed_pos.squared_dist_to(&camera.position) > SQUARED_ZF { continue }
+
+		// culling balls behind the camera
+		let ball_to_cam = camera.position - transformed_pos;
+		let dot = Vec3::dot_product(&camera.forward, &ball_to_cam);
+		if dot < 0.0 { continue }
+
+		let reference_pos = transformed_pos.add_vec(&(camera.side * rad_scaled));
+		let reference_pos_proj = reference_pos.get_transformed_by_mat4x4_homogeneous(&render_mat_without_transform);
+		let reference_pos_proj_screen_f = clip_space_to_screen_space_f(&reference_pos_proj, buf.wid, buf.hei);
+
+		let screen_pos_f32 = clip_space_to_screen_space_f(&clip_pos, buf.wid, buf.hei);
+		let rad = (reference_pos_proj_screen_f.x - screen_pos_f32.x).abs();
+		// buf.write_debug(&format!("{:?} scr {:?}\n", trs_pos_sd_projected_screen_f, screen_pos_f32));
+
+		if cull_circle(&screen_pos_f32, rad, buf) { continue; }
+
+		let sq_dist_to_camera = transformed_pos.squared_dist_to(&camera.position);
+		let screen_pos = IVec2::from(&screen_pos_f32);
+
+		// DEBUG
+		// safe_render_string_signed(&format!("C {:.2}", sq_dist_to_camera), screen_pos.x, (screen_pos_f32.y as f32 - rad * 3.5) as i32, buf);
+
+		let render_data = RenderBallData {
+			rad,
+			screen_pos,
+			index,
+		};
+
+		render_data_by_dist.push((sq_dist_to_camera, YadePrimitive::Ball(render_data)));
+	}
+
+	render_data_by_dist.sort_by(buf.get_sorting_mode().get_sorting_fn());
+
+
+	for data_to_render_by_dist in render_data_by_dist.iter() {
+
+		// buf.write_debug(&format!("- {}\n", data_to_render_by_dist.0));
+		let (_, data_to_render) = data_to_render_by_dist;
+
+		match data_to_render {
+			YadePrimitive::Ball(ball_data) => {
+				let digit = ball_data.index as u32 % ('Z' as u32 - 'A' as u32) + ('A' as u32);
+				let letter = char::from_u32(digit).unwrap();
+				render_fill_bres_circle(&ball_data.screen_pos, ball_data.rad, letter, buf);
+			},
+			YadePrimitive::Line(line) => {
+				render_bresenham_line(&line.p0, &line.p1, buf, TRIS_WIRE_FILL_CHAR);
+			},
+			// Primitive::Tri(screen_tri) => {
+			// 	render_bresenham_line(&screen_tri.p0, &screen_tri.p1, buf, YADE_WIRE_FILL_CHAR);
+			// 	render_bresenham_line(&screen_tri.p1, &screen_tri.p2, buf, YADE_WIRE_FILL_CHAR);
+			// 	render_bresenham_line(&screen_tri.p2, &screen_tri.p0, buf, YADE_WIRE_FILL_CHAR);
+			// },
+		}
+	}
+}
+
+fn min_of_each_tri_line(trs_p0: &Vec3, trs_p1: &Vec3, trs_p2: &Vec3, camera: &Camera, screen_tri: &ScreenTri, render_data: &mut Vec::<(f32, YadePrimitive)>) {
+	let dist0 = trs_p0.squared_dist_to(&camera.position).min(trs_p1.squared_dist_to(&camera.position));
+	let line_p0_p1 = YadePrimitive::Line( (screen_tri.p0.clone(), screen_tri.p1.clone()).into() );
+	render_data.push((dist0, line_p0_p1));
+
+	let dist1 = trs_p1.squared_dist_to(&camera.position).min(trs_p2.squared_dist_to(&camera.position));
+	let line_p1_p2 = YadePrimitive::Line( (screen_tri.p1.clone(), screen_tri.p2.clone()).into() );
+	render_data.push((dist1, line_p1_p2));
+
+	let dist2 = trs_p2.squared_dist_to(&camera.position).min(trs_p0.squared_dist_to(&camera.position));
+	let line_p2_p0 = YadePrimitive::Line( (screen_tri.p2.clone(), screen_tri.p0.clone()).into() );
+	render_data.push((dist2, line_p2_p0));
+}
+
+fn max_of_each_tri_line(trs_p0: &Vec3, trs_p1: &Vec3, trs_p2: &Vec3, camera: &Camera, screen_tri: &ScreenTri, render_data: &mut Vec::<(f32, YadePrimitive)>) {
+	let dist0 = trs_p0.squared_dist_to(&camera.position).max(trs_p1.squared_dist_to(&camera.position));
+	let line_p0_p1 = YadePrimitive::Line( (screen_tri.p0.clone(), screen_tri.p1.clone()).into() );
+	render_data.push((dist0, line_p0_p1));
+
+	let dist1 = trs_p1.squared_dist_to(&camera.position).max(trs_p2.squared_dist_to(&camera.position));
+	let line_p1_p2 = YadePrimitive::Line( (screen_tri.p1.clone(), screen_tri.p2.clone()).into() );
+	render_data.push((dist1, line_p1_p2));
+
+	let dist2 = trs_p2.squared_dist_to(&camera.position).max(trs_p0.squared_dist_to(&camera.position));
+	let line_p2_p0 = YadePrimitive::Line( (screen_tri.p2.clone(), screen_tri.p0.clone()).into() );
+	render_data.push((dist2, line_p2_p0));
+}
+
+
+
+
+
+#[deprecated(since="0.0", note=r#"Call "render_yade_sorted", keeping this until I code Transform"#)]
+pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Timer, camera: &Camera) {
+
+	let (pos_x, pos_y, pos_z) = (0.0, 0.0, 0.0);
+
+	let speed = 0.5;
+	let start_ms = 0;
+	let start_ms = 5196;
+	let mut t = (timer.time_aggr.as_millis() * 0 + start_ms) as f32 * 0.001 * speed;
+	if buf.test { t = 0.0; }
+
+	// let t = 0.0;
+	let (angle_x, angle_y, angle_z) = (0.0, 0.0, 0.0);
+	let (angle_x, angle_y, angle_z) = (0.0, t, 0.0);
+	// let (angle_x, angle_y, angle_z) = (t, 0.0, 0.0);
+	// let (angle_x, angle_y, angle_z) = (t * 0.3, t, t * 2.1);
+
+	let scale = 1.0;
+	let (scale_x, scale_y, scale_z) = (scale, scale, scale);
+
+	// // Funky zoom scale animation
+	// let speed = 0.5;
+	// let tmod = ((t * speed % 1.0) - 0.5).abs() * 2.0;
+	// // // render_string(&format!("{}", tmod), &UVec2::new(0, 7), buf);
+	// let animation_curve = smoothed_0_to_1_s(tmod, 4.0) * 0.5 + 0.25;
+	// let scale = animation_curve;
+	// let (scale_x, scale_y, scale_z) = (animation_curve, animation_curve, animation_curve);
+
+
+	/* */ // let mut bench = Benchmark::named(" RENDER");
+	/* */ // bench.start();
+	buf.copy_projection_to_render_matrix();
+
+	apply_identity_to_mat_4x4(&mut buf.transf_mat);
+
+	apply_scale_to_mat_4x4(&mut buf.transf_mat, scale_x, scale_y, scale_z);
+	apply_rotation_to_mat_4x4(&mut buf.transf_mat, angle_x, angle_y, angle_z);
+	apply_pos_to_mat_4x4(&mut buf.transf_mat, pos_x, pos_y, pos_z);
+
+	multiply_4x4_matrices(&mut buf.render_mat, &camera.view_matrix);
+	multiply_4x4_matrices(&mut buf.render_mat, &buf.transf_mat);
+	/* */ // bench.end_and_log("setup", buf);
+
+	for tri in yade_data.tris.iter() {
+
+		let Some(screen_tri) = cull_tri_into_screen_space(&tri.p0, &tri.p1, &tri.p2, camera, buf) else { continue };
+
+		render_bresenham_line(&screen_tri.p0, &screen_tri.p1, buf, TRIS_WIRE_FILL_CHAR);
+		render_bresenham_line(&screen_tri.p1, &screen_tri.p2, buf, TRIS_WIRE_FILL_CHAR);
+		render_bresenham_line(&screen_tri.p2, &screen_tri.p0, buf, TRIS_WIRE_FILL_CHAR);
+	}
+	/* */ // bench.end_and_log("render tris", buf);
+
+	// TODO: could make a buffer in TerminalBuffer for this
+	let mut render_mat_without_transform = create_identity_4x4_arr();
+	buf.copy_projection_to_mat4x4(&mut render_mat_without_transform);
+	multiply_4x4_matrices(&mut render_mat_without_transform, &camera.view_matrix);
+
+	// TODO: see how much data is copied by sorting this
+	let mut indices_by_dist = Vec::<RenderBallData>::with_capacity(yade_data.balls.len());
+
+	/* */ // bench.start();
+	for (index, ball) in yade_data.balls.iter().enumerate() {
+
+		let rad_scaled = ball.rad * scale;
+		let clip_pos = ball.pos.get_transformed_by_mat4x4_homogeneous(&buf.render_mat);
+
+		let transformed_pos = ball.pos.get_transformed_by_mat4x4_discard_w(&buf.transf_mat);
+
+		// culling balls behind the camera
+		let ball_to_cam = camera.position - transformed_pos;
+		let dot = Vec3::dot_product(&camera.forward, &ball_to_cam);
+		if dot < 0.0 { continue }
+
+		let trs_pos_sd = transformed_pos.add_vec(&(camera.side * rad_scaled));
+		let trs_pos_sd_proj = trs_pos_sd.get_transformed_by_mat4x4_homogeneous(&render_mat_without_transform);
+		let trs_pos_sd_projected_screen_f = clip_space_to_screen_space_f(&trs_pos_sd_proj, buf.wid, buf.hei);
+
+		let screen_pos_f32 = clip_space_to_screen_space_f(&clip_pos, buf.wid, buf.hei);
+		let rad = (trs_pos_sd_projected_screen_f.x - screen_pos_f32.x).abs();
+		// buf.write_debug(&format!("{:?} scr {:?}\n", trs_pos_sd_projected_screen_f, screen_pos_f32));
+
+		if cull_circle(&screen_pos_f32, rad, buf) { continue; }
+
+		let dist_sq_to_camera = transformed_pos.squared_dist_to(&camera.position);
+
+		let render_data = RenderBallData {
+			rad,
+			screen_pos: screen_pos_f32.into(),
+			index,
+		};
+
+		indices_by_dist.push(render_data);
+	}
+	/* */ // bench.end_and_log("set up render balls", buf);
+	
+	// TODO: fix this version
+	// indices_by_dist.sort_by(|a, b| b.dist_sq_to_camera.partial_cmp(&a.dist_sq_to_camera).unwrap());
+
+	/* */ // bench.end_and_log("sort render balls", buf);
+	for ball_data in indices_by_dist.iter() {
+
+		let digit = ball_data.index as u32 % ('Z' as u32 - 'A' as u32) + ('A' as u32);
+		let letter = char::from_u32(digit).unwrap();
+
+		render_fill_bres_circle(&ball_data.screen_pos, ball_data.rad, letter, buf);
+		// render_bres_circle(&ball_data.screen_pos, ball_data.rad, letter, buf);
+
+		// // Renders chars at center, up and side of each sphere
+		// safe_render_char_at('O', ball_data.screen_pos.x, ball_data.screen_pos.y, buf);
+		// let transformed_pos = yade_data.balls[ball_data.index].pos.get_transformed_by_mat4x4_discard_w(&buf.transf_mat);
+		// let trs_pos_sd_projected_screen_f = clip_space_to_screen_space_f(&transformed_pos.add_vec(&(camera.up * yade_data.balls[ball_data.index].rad * scale)).get_transformed_by_mat4x4_homogeneous(&render_mat_without_transform), buf.wid, buf.hei);
+		// safe_render_char_at('U', trs_pos_sd_projected_screen_f.x as i32, trs_pos_sd_projected_screen_f.y as i32, buf);
+		// let trs_pos_sd_projected_screen_f = clip_space_to_screen_space_f(&transformed_pos.add_vec(&(camera.side * yade_data.balls[ball_data.index].rad * scale)).get_transformed_by_mat4x4_homogeneous(&render_mat_without_transform), buf.wid, buf.hei);
+		// safe_render_char_at('S', trs_pos_sd_projected_screen_f.x as i32, trs_pos_sd_projected_screen_f.y as i32, buf);
+	}
+	/* */ // bench.end_and_log("fill ball circle", buf);
 }

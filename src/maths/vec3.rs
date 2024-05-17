@@ -89,6 +89,10 @@ impl Vec3 {
 		Vec3::new(rad_to_deg(self.x), rad_to_deg(self.y), rad_to_deg(self.z))
 	}
 
+	pub fn rad_to_deg_pretty(&self) -> Vec3 {
+		Vec3::new(rad_to_deg(self.x) % 360.0, rad_to_deg(self.y) % 360.0, rad_to_deg(self.z) % 360.0)
+	}
+
 	// heavy, use only for debugging
 	pub fn rotated_x(&self, x_rot: f32) -> Vec3 {
 		let sin_x = x_rot.sin();
@@ -376,7 +380,7 @@ impl std::ops::Mul<f32> for Vec3 {
 
 impl fmt::Display for Vec3 {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(f, "[{:+.2}, {:+.2}, {:+.2}]", self.x, self.y, self.z)
+		write!(f, "[{:+.4}, {:+.4}, {:+.4}]", self.x, self.y, self.z)
 	}
 }
 

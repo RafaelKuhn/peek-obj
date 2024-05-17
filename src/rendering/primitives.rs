@@ -1,6 +1,69 @@
-use std::f32::consts::TAU;
+use std::{f32::consts::TAU, num::Wrapping};
 
 use crate::{*, camera::Camera, maths::*, timer::Timer, terminal::TerminalBuffer, ASCII_BYTES_PER_CHAR};
+
+
+pub enum YadePrimitive {
+	Ball(RenderBallData),
+	Line(Line),
+}
+
+pub struct RenderBallData {
+	// dist_sq_to_camera: f32,
+	pub index: usize,
+	pub screen_pos: IVec2,
+	pub rad: f32,
+}
+
+pub struct Line {
+	pub p0: IVec2,
+	pub p1: IVec2,
+}
+
+pub struct ScreenTri {
+	pub p0: IVec2,
+	pub p1: IVec2,
+	pub p2: IVec2,
+}
+
+
+impl Line {
+	pub fn from_clip_space(p0: Vec4, p1: Vec4, wid: u16, hei: u16) -> Self {
+		let p0 = clip_space_to_screen_space(&p0.homogeneous(), wid, hei);
+		let p1 = clip_space_to_screen_space(&p1.homogeneous(), wid, hei);
+		Line { p0, p1 }
+	}
+
+	pub fn from_screen_points(p0: FVec2, p1: FVec2) -> Self {
+		Line { p0: p0.into(), p1: p1.into() }
+	}
+}
+
+impl From<Line> for (IVec2, IVec2) {
+	fn from(line: Line) -> Self {
+		(line.p0, line.p1)
+	}
+}
+
+impl From<(IVec2, IVec2)> for Line {
+	fn from(value: (IVec2, IVec2)) -> Self {
+		Line { p0: value.0, p1: value.1 }
+	}
+}
+
+
+impl ScreenTri {
+	pub fn from_clip_space(p0: Vec4, p1: Vec4, p2: Vec4, wid: u16, hei: u16) -> Self {
+		let p0 = clip_space_to_screen_space(&p0.homogeneous(), wid, hei);
+		let p1 = clip_space_to_screen_space(&p1.homogeneous(), wid, hei);
+		let p2 = clip_space_to_screen_space(&p2.homogeneous(), wid, hei);
+		ScreenTri { p0, p1, p2 }
+	}
+
+	pub fn from_screen_points(p0: FVec2, p1: FVec2, p2: FVec2) -> Self {
+		ScreenTri { p0: p0.into(), p1: p1.into(), p2: p2.into() }
+	}
+}
 
 
 pub fn encode_char_in(ch: char, index: usize, vec: &mut [u8]) {
@@ -24,8 +87,8 @@ pub fn render_char(ch: char, pos: &UVec2, buffer: &mut TerminalBuffer) {
 
 pub fn render_string(string: &str, pos: &UVec2, buf: &mut TerminalBuffer) {
 	// string can't overflow the line
-	debug_assert!(pos.x as usize + string.len() - 1 < buf.wid.into(), "trying to render string after line end");
-	debug_assert!(!string.contains('\n'), "can't render a string that has a line end!");
+	assert!(pos.x as usize + string.len() - 1 < buf.wid.into(), "trying to render a string that overflows a line!");
+	assert!(!string.contains('\n'), "can't render a string that has a line end!");
 
 	let mut index = xy_to_it(pos.x, pos.y, buf.wid);
 	for byte in string.bytes() {
@@ -68,6 +131,9 @@ pub fn render_straight_x_line(p0x: Int, p1x: Int, y: Int, fill_char: char, buf: 
 
 	let start = xy_to_it(p0x as u16, y as u16, buf.wid);
 	let end_inclusive = xy_to_it(p1x as u16, y as u16, buf.wid);
+
+	// this can happen if the ball is too far away
+	if p0x > p1x { return }
 
 	debug_assert!(fill_char.len_utf8() == 1, "NOT ASCII");
 	let ascii_fill_char = fill_char as u8;
@@ -122,7 +188,11 @@ pub fn render_bresenham_line(p0: &IVec2, p1: &IVec2, buf: &mut TerminalBuffer, f
 
 		if x == x1 && y == y1 { return }
 
-		let double_deriv_diff = deriv_diff * 2;
+		// TODO: clip bresenham lines to screen
+		// meanwhile use this version to prevent crashes in long lines
+		let double_deriv_diff = (Wrapping(deriv_diff) * Wrapping(2)).0;
+		// let double_deriv_diff = deriv_diff * 2;
+
 		if double_deriv_diff > -dy {
 			deriv_diff -= dy;
 			x += sx;

@@ -43,11 +43,12 @@ impl Camera {
 	}
 
 	pub fn consume_user_data(&mut self, app: &mut App) {
+
 		let camera = self;
 
 		if app.called_reset_camera {
 			app.called_reset_camera = false;
-	
+
 			camera.restore_initial_pos_and_rot();
 			if !app.is_free_mov() {
 				camera.clear_cache();
@@ -58,7 +59,7 @@ impl Camera {
 
 		if app.called_set_camera_default_orientation {
 			app.called_set_camera_default_orientation = false;
-	
+
 			if app.is_free_mov() {
 				camera.set_initial_pos(camera.position.x, camera.position.y, camera.position.z);
 				camera.set_initial_rot(camera.rotation.x, camera.rotation.y, camera.rotation.z);
@@ -79,12 +80,11 @@ impl Camera {
 			return;
 		}
 
-		Self::solve_ok(camera, app); return;
+		Self::solve_orbital_movement(camera, app);
 	}
 
-	// TODO: remove this crap
-	fn solve_ok(camera: &mut Camera, app: &mut App) {
-		// is orbital
+	fn solve_orbital_movement(camera: &mut Camera, app: &mut App) {
+
 		let ang_increment_x = app.user_dir.y;
 		let ang_increment_y = app.user_dir.x;
 
@@ -99,7 +99,6 @@ impl Camera {
 
 		let base_pos = Vec3::new(0.0, 0.0, 16.0) + Vec3::new(0.0, 0.0, camera.cache_dist);
 
-
 		camera.position = base_pos
 		.rotated_x(camera.cache_rot_x)
 		.rotated_y(camera.cache_rot_y)
@@ -108,8 +107,8 @@ impl Camera {
 		camera.rotation.x = -camera.cache_rot_x;
 		camera.rotation.y = -camera.cache_rot_y;
 
-		// this makes the camera obey arrow keys to rotate instead of orbiting
-		camera.rotation = camera.rotation + app.user_rot;
+		// (won't work) this makes the camera obey arrow keys to rotate instead of orbiting
+		// camera.rotation = camera.rotation + app.user_rot;
 
 		camera.update_view_matrix();
 	}
@@ -134,58 +133,55 @@ impl Camera {
 	}
 
 	pub fn configure_defaults(&mut self, app: &mut App) {
-		
-		// DEFAULT
+
+		// DEFAULT (production)
 		self.set_initial_pos(0.0, 0.0, 16.0);
 		self.set_initial_rot(0.0, 0.0, 0.0);
 
-		// if !app.is_free_mov() { app.toggle_free_mov(self) }
+		#[cfg(debug_assertions)] {
 
-		// self.set_initial_pos(3.133032, 1.927148, 5.394406);
-		// self.set_initial_rot(0.269980, -0.515418, 0.00000);
+			// if !app.is_free_mov() { app.toggle_free_mov(self) }
 
-		// self.set_initial_pos(5.0, 5.0, 5.0);
-		// self.set_initial_rot(0.5853, -0.7853, 0.);
+			// // TODO: use this to debug (AXIS_SZ_WORLD == 20.0) go forward
+			// self.set_initial_pos(0.589387, 0.680431, 2.741510);
+			// self.set_initial_rot(0.220893, -0.196350, 0.000000);
 
-		// TODO: use this to debug (AXIS_SZ_WORLD == 20.0)
-		// self.set_initial_pos(-2.944836, 5.040000, 18.444765);
-		// self.set_initial_rot(0.250000, 0.100913, 0.000000);
+			// // use this to debug frustum clipping with the blender blade
+			// self.set_initial_pos(1.448884, -0.630452, -0.223440);
+			// self.set_initial_rot(0.098175, -1.693514, 0.000000);
 
-		// ... or this (with yade tris)
-		// self.set_initial_pos(1.304138, 1.611014, -1.207020);
-		// self.set_initial_rot(0.220893, -2.871613, 0.000000);
-
-		// from above
-		// self.set_initial_pos(0.000000, 13.021900, 4.108858);
-		// self.set_initial_rot(1.251728, 0.000000, 0.000000);
-
-		// self in front
-		// self.set_initial_pos(0.0, 0.0, 5.0);
-		// self.set_initial_rot(0.00, 0.00, 0.00);
-
-		// self from above
-		// self.set_initial_pos(0.0, 7.7989, 0.1271);
-		// self.set_initial_rot(1.52, 0.00, 0.00);
-
-		// self from side
-		// self.set_initial_pos(8.585467,  3.822423, 0.048875);
-		// self.set_initial_rot(0.392699, -1.570797, 0.000000);
-
-		// can see the 3 axes
-		// self.set_initial_pos(6.560868, 3.081584, 5.002097);
-		// self.set_initial_rot(0.343612, -0.932661, 0.000000);
-
-		// can see the 3 axes a little far
-		// self.set_initial_pos(16.997_18, 7.730669, 12.742184);
-		// self.set_initial_rot(0.343612, -0.932661, 0.000000);
-
-		// a little bit up and to the right (good for bounding boxes)
-		// self.set_initial_pos(2.398537, 2.217667, 11.542053);
-		// self.set_initial_rot(0.147262, -0.147262, 0.000000);
-
-		// up close to debug balls clipping (yade debug)
-		// self.set_initial_pos(-0.035866, 0.622454, 2.083412);
-		// self.set_initial_rot(0.343612, 0.245437, 0.000000);
+			// from above
+			// self.set_initial_pos(0.000000, 13.021900, 4.108858);
+			// self.set_initial_rot(1.251728, 0.000000, 0.000000);
+	
+			// self in front
+			// self.set_initial_pos(0.0, 0.0, 5.0);
+			// self.set_initial_rot(0.00, 0.00, 0.00);
+	
+			// self from above
+			// self.set_initial_pos(0.0, 7.7989, 0.1271);
+			// self.set_initial_rot(1.52, 0.00, 0.00);
+	
+			// self from side
+			// self.set_initial_pos(8.585467,  3.822423, 0.048875);
+			// self.set_initial_rot(0.392699, -1.570797, 0.000000);
+	
+			// can see the 3 axes
+			// self.set_initial_pos(6.560868, 3.081584, 5.002097);
+			// self.set_initial_rot(0.343612, -0.932661, 0.000000);
+	
+			// can see the 3 axes a little far
+			// self.set_initial_pos(16.997_18, 7.730669, 12.742184);
+			// self.set_initial_rot(0.343612, -0.932661, 0.000000);
+	
+			// a little bit up and to the right (good for bounding boxes)
+			// self.set_initial_pos(2.398537, 2.217667, 11.542053);
+			// self.set_initial_rot(0.147262, -0.147262, 0.000000);
+	
+			// up close to debug balls clipping (yade debug)
+			// self.set_initial_pos(-0.035866, 0.622454, 2.083412);
+			// self.set_initial_rot(0.343612, 0.245437, 0.000000);
+		}
 
 		self.update_view_matrix();
 	}
