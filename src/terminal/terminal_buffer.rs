@@ -1,7 +1,8 @@
 use std::{fs::File, io::{BufWriter, Write}};
 
-use crate::{cull_mode::CullMode, maths::*, render_clear, ZSortingMode, ASCII_BYTES_PER_CHAR};
+use crate::{cull_mode::CullMode, maths::*, render_clear, render_settings::*, ASCII_BYTES_PER_CHAR};
 
+type DebugFile = File;
 
 pub struct TerminalBuffer {
 	// width / height of the terminal in characters
@@ -18,8 +19,10 @@ pub struct TerminalBuffer {
 
 	sorting_mode: ZSortingMode,
 	cull_mask: CullMode,
+	ball_fill_mode: BallFillMode,
 
-	debug_file: Option<BufWriter<File>>,
+	// debug_file: Option<BufWriter<File>>,
+	debug_file: Option<File>,
 	pub test: bool,
 }
 
@@ -39,8 +42,9 @@ impl TerminalBuffer {
 			transf_mat: create_identity_4x4(),
 			render_mat: create_identity_4x4(),
 
-    		sorting_mode: ZSortingMode::BallsLast,
-			cull_mask:    CullMode::Nothing,
+    		sorting_mode:   ZSortingMode::BallsLast,
+			cull_mask:      CullMode::Nothing,
+			ball_fill_mode: BallFillMode::Index,
 
 			debug_file,
 			test: false,
@@ -59,8 +63,13 @@ impl TerminalBuffer {
 		&self.cull_mask
 	}
 
-	fn open_and_clear_debug_file() -> Option<BufWriter<File>> {
-		File::create(Self::DEBUG_FILE_PATH).map(BufWriter::new).ok()
+	pub fn get_ball_fill_mode(&self) -> &BallFillMode {
+		&self.ball_fill_mode
+	}
+
+	fn open_and_clear_debug_file() -> Option<DebugFile> {
+		File::create(Self::DEBUG_FILE_PATH).ok()
+		// File::create(Self::DEBUG_FILE_PATH).map(BufWriter::new).ok()
 	}
 
 	pub fn resize_and_render_clear(&mut self, w: u16, h: u16) {
@@ -128,6 +137,14 @@ impl TerminalBuffer {
 			CullMode::Nothing   => CullMode::CullTris,
 			CullMode::CullTris  => CullMode::CullBalls,
 			CullMode::CullBalls => CullMode::Nothing,
+		}
+	}
+
+	pub fn toggle_ball_fill_mode(&mut self) {
+		self.ball_fill_mode = match self.ball_fill_mode {
+			BallFillMode::Height     => BallFillMode::XZDistance,
+			BallFillMode::XZDistance => BallFillMode::Index,
+			BallFillMode::Index      => BallFillMode::Height,
 		}
 	}
 

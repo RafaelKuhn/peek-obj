@@ -8,14 +8,15 @@ pub mod primitives;
 pub mod utils;
 pub mod bounding_box;
 pub mod culling;
-pub mod z_sorting_mode;
-pub mod cull_mode;
+pub mod render_settings;
+pub mod ball_painter;
 
 pub use primitives::*;
 pub use utils::*;
 pub use culling::*;
 pub use bounding_box::*;
-pub use z_sorting_mode::*;
+pub use render_settings::*;
+pub use ball_painter::*;
 
 use std::fmt;
 
@@ -67,7 +68,7 @@ pub fn render_clear(buffer: &mut TerminalBuffer) {
 }
 
 
-pub fn render_verbose(benchmark: &FpsMeasure, camera: &Camera, app: &mut App) {
+pub fn render_verbose(fps_measure: &FpsMeasure, camera: &Camera, app: &mut App) {
 
 	let is_free_mov = app.is_free_mov();
 	let buf = &mut app.buf;
@@ -101,15 +102,15 @@ pub fn render_verbose(benchmark: &FpsMeasure, camera: &Camera, app: &mut App) {
 	let aspect = buf.wid as f32 / buf.hei as f32;
 	render_string(&format!("w: {}, h: {}, w*h: {}, a: {:.2} ", buf.wid, buf.hei, wxh, aspect), &lowest_pos, buf);
 	lowest_pos.y -= 1;
-	render_string(&format!("frame n: {} ", benchmark.total_frame_count), &lowest_pos, buf);
+	render_string(&format!("frame n: {} ", fps_measure.total_frame_count), &lowest_pos, buf);
 	lowest_pos.y -= 1;
-	render_string(&format!("scaled time: {:.2} ", benchmark.time_aggr.as_millis() as f32 * 0.001), &lowest_pos, buf);
+	render_string(&format!("scaled time: {:.2} ", fps_measure.time_aggr.as_millis() as f32 * 0.001), &lowest_pos, buf);
 	lowest_pos.y -= 1;
-	render_string(&format!("time scale: {:.1} ", benchmark.time_scale), &lowest_pos, buf);
+	render_string(&format!("time scale: {:.1} ", fps_measure.time_scale), &lowest_pos, buf);
 	lowest_pos.y -= 1;
-	render_string(&format!("dt: {:.4}ms ", benchmark.delta_time_millis), &lowest_pos, buf);
+	render_string(&format!("dt: {:.4}ms ", fps_measure.delta_time_millis), &lowest_pos, buf);
 	lowest_pos.y -= 1;
-	render_string(&format!("fps: {:.2} ", benchmark.fps), &lowest_pos, buf);
+	render_string(&format!("fps: {:.2} ", fps_measure.fps), &lowest_pos, buf);
 
 
 	let mut br_lowest_pos = UVec2::new(0, buf.hei - 2);
@@ -119,6 +120,8 @@ pub fn render_verbose(benchmark: &FpsMeasure, camera: &Camera, app: &mut App) {
 	render_string_snap_right(&format!(" cull mode: {:} ", buf.get_cull_mode()), &br_lowest_pos, buf);
 	br_lowest_pos.y -= 1;
 	render_string_snap_right(&format!(" move mode: {:} ", if is_free_mov { "free movement" } else { "orbital" }), &br_lowest_pos, buf);
+	br_lowest_pos.y -= 1;
+	render_string_snap_right(&format!(" light mode: {:} ", buf.get_ball_fill_mode()), &br_lowest_pos, buf);
 }
 
 pub fn render_string_snap_right(string: &str, pos: &UVec2, buf: &mut TerminalBuffer) {
@@ -257,7 +260,6 @@ pub fn render_gizmos(buf: &mut TerminalBuffer, camera: &Camera) {
 		draw_between(&dbg_forward, 'z');
 	}
 
-
 	if dot_x <= 0.0 {
 		draw_between(&dbg_side, 'X');
 	}
@@ -269,7 +271,6 @@ pub fn render_gizmos(buf: &mut TerminalBuffer, camera: &Camera) {
 	if dot_z <= 0.0 {
 		draw_between(&dbg_forward, 'Z');
 	}
-
 
 	render_char('O', &origin_2d.into(), buf);
 }

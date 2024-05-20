@@ -1,3 +1,6 @@
+use core::{panic, time};
+use std::{thread, time::Duration};
+
 use crate::{camera::Camera, file_readers::yade_dem_reader::YadeDemData, renderer::Renderer, terminal::TerminalBuffer, timer::Timer, maths::*, rendering::*};
 
 
@@ -65,7 +68,7 @@ pub fn render_yade_sorted(yade_data: &YadeDemData, buf: &mut TerminalBuffer, tim
 	let sorting_criteria = buf.get_sorting_mode();
 	let triangle_lines_distance_fn = if let ZSortingMode::FarthestPoint = sorting_criteria { max_of_each_tri_line } else { min_of_each_tri_line };
 
-	// for tri in tris_iterator.skip(1).take(1) { // side one
+	// for tri in tris_iterator.skip(30).take(2) { // middle bladder
 	for tri in tris_iterator {
 
 		let Some(screen_tri) = cull_tri_into_screen_space(&tri.p0, &tri.p1, &tri.p2, camera, buf) else { continue };
@@ -95,8 +98,10 @@ pub fn render_yade_sorted(yade_data: &YadeDemData, buf: &mut TerminalBuffer, tim
 
 	let balls_iterator = match buf.get_cull_mode() {
 		CullMode::CullBalls => [].iter().enumerate(),
-		_ => yade_data.balls.iter().enumerate(),
+		_ =>yade_data.balls.iter().enumerate(),
 	};
+
+	let mut ball_painter = BallPainter::new(buf.get_ball_fill_mode());
 
 	for (index, ball) in balls_iterator {
 
@@ -124,12 +129,20 @@ pub fn render_yade_sorted(yade_data: &YadeDemData, buf: &mut TerminalBuffer, tim
 		if cull_circle(&screen_pos_f32, rad, buf) { continue; }
 
 		let sq_dist_to_camera = transformed_pos.squared_dist_to(&camera.position);
-		let screen_pos = IVec2::from(&screen_pos_f32);
 
+		let screen_pos = IVec2::from(&screen_pos_f32);
+		
 		// DEBUG
 		// safe_render_string_signed(&format!("C {:.2}", sq_dist_to_camera), screen_pos.x, (screen_pos_f32.y as f32 - rad * 3.5) as i32, buf);
 
+		let cam_to_pos_vec = transformed_pos - camera.position;
+		let sq_dist_xz = cam_to_pos_vec.x * cam_to_pos_vec.x + cam_to_pos_vec.z * cam_to_pos_vec.z;
+
+		ball_painter.find_min_max(&transformed_pos, sq_dist_xz);
+
 		let render_data = RenderBallData {
+			height: transformed_pos.y,
+			sq_dist_to_camera: sq_dist_xz,
 			rad,
 			screen_pos,
 			index,
@@ -140,16 +153,16 @@ pub fn render_yade_sorted(yade_data: &YadeDemData, buf: &mut TerminalBuffer, tim
 
 	render_data_by_dist.sort_by(buf.get_sorting_mode().get_sorting_fn());
 
-
 	for data_to_render_by_dist in render_data_by_dist.iter() {
 
 		// buf.write_debug(&format!("- {}\n", data_to_render_by_dist.0));
 		let (_, data_to_render) = data_to_render_by_dist;
 
+		// buf.write_debug(&format!("cur {:.2} min {:.2} max {:.2} \n", dist_sq, min_dist_sq, max_dist_sq));
+
 		match data_to_render {
 			YadePrimitive::Ball(ball_data) => {
-				let digit = ball_data.index as u32 % ('Z' as u32 - 'A' as u32) + ('A' as u32);
-				let letter = char::from_u32(digit).unwrap();
+				let letter = ball_painter.get_fill_letter(&ball_data);
 				render_fill_bres_circle(&ball_data.screen_pos, ball_data.rad, letter, buf);
 			},
 			YadePrimitive::Line(line) => {
@@ -280,9 +293,11 @@ pub fn render_yade(yade_data: &YadeDemData, buf: &mut TerminalBuffer, timer: &Ti
 
 		if cull_circle(&screen_pos_f32, rad, buf) { continue; }
 
-		let dist_sq_to_camera = transformed_pos.squared_dist_to(&camera.position);
+		let sq_dist_to_camera = transformed_pos.squared_dist_to(&camera.position);
 
 		let render_data = RenderBallData {
+			height: transformed_pos.y,
+			sq_dist_to_camera,
 			rad,
 			screen_pos: screen_pos_f32.into(),
 			index,

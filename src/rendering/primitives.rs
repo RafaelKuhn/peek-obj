@@ -9,7 +9,8 @@ pub enum YadePrimitive {
 }
 
 pub struct RenderBallData {
-	// dist_sq_to_camera: f32,
+	pub height: f32,
+	pub sq_dist_to_camera: f32,
 	pub index: usize,
 	pub screen_pos: IVec2,
 	pub rad: f32,

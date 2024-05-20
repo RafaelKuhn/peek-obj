@@ -85,6 +85,7 @@ pub fn poll_events(terminal: &mut CrosstermTerminal, app: &mut App, timer: &mut 
 
 					'z' => app.buf.toggle_z_sorting_mode(),
 					'c' => app.buf.toggle_cull_mode(),
+					'l' => app.buf.toggle_ball_fill_mode(),
 
 					'f' => app.called_toggle_free_mov = true,
 
