@@ -78,20 +78,20 @@ pub fn cull_line_into_screen_space(p0: &Vec3, p1: &Vec3, camera: &Camera, buf: &
 		(Vec3::dot_product(&from_trs_p0_to_cam.normalized(), &camera.forward) - 1.0).abs() > MAX_DOT_PROD_DIST_FROM_1 &&
 		(Vec3::dot_product(&from_trs_p1_to_cam.normalized(), &camera.forward) - 1.0).abs() > MAX_DOT_PROD_DIST_FROM_1;
 
-	// buf.write_debug(&format!(" trs_p0  {:?} dot {:.6}\n", trs_p0, (Vec3::dot_product(&from_trs_p0_to_cam.normalized(), &camera.forward) - 1.0).abs()));
-	// buf.write_debug(&format!(" trs_p1  {:?} dot {:.6}\n", trs_p1, (Vec3::dot_product(&from_trs_p1_to_cam.normalized(), &camera.forward) - 1.0).abs()));
-	// buf.write_debug(&format!(" cam pos {:?} completely off? {} \n", camera.position, is_completely_off_camera));
+	buf.write_debug(&format!(" trs_p0  {:?} dot {:.6}\n", trs_p0, (Vec3::dot_product(&from_trs_p0_to_cam.normalized(), &camera.forward) - 1.0).abs()));
+	buf.write_debug(&format!(" trs_p1  {:?} dot {:.6}\n", trs_p1, (Vec3::dot_product(&from_trs_p1_to_cam.normalized(), &camera.forward) - 1.0).abs()));
+	buf.write_debug(&format!(" cam pos {:?} completely off? {} \n", camera.position, is_completely_off_camera));
 	if is_completely_off_camera { return None }
 
 	let p0_clip = p0.get_transformed_by_mat4x4_w(&buf.render_mat);
 	let p1_clip = p1.get_transformed_by_mat4x4_w(&buf.render_mat);
 
-	// buf.write_debug(&format!(" homog {:?}, scr space {:?} \n", &p0_clip.homogeneous_cpy(), clip_space_to_screen_space(&p0_clip.homogeneous_cpy(), buf.wid, buf.hei)));
-	// buf.write_debug(&format!(" homog {:?}, scr space {:?} \n", &p1_clip.homogeneous_cpy(), clip_space_to_screen_space(&p1_clip.homogeneous_cpy(), buf.wid, buf.hei)));
-	// the triangle is inside the screen, don't cull
-	// buf.write_debug(&format!("p0 {:?} in w ran {} \n", p0_clip, p0_clip.in_w_range()));
+	buf.write_debug(&format!(" homog {:?}, scr space {:?} \n", &p0_clip.homogeneous_cpy(), clip_space_to_screen_space(&p0_clip.homogeneous_cpy(), buf.wid, buf.hei)));
+	buf.write_debug(&format!(" homog {:?}, scr space {:?} \n", &p1_clip.homogeneous_cpy(), clip_space_to_screen_space(&p1_clip.homogeneous_cpy(), buf.wid, buf.hei)));
+
+	buf.write_debug(&format!("p0 {:?} in w ran {} \n", p0_clip, p0_clip.in_w_range()));
 	if p0_clip.in_w_range() { return Some(Line::from_clip_space(p0_clip, p1_clip, buf.wid, buf.hei)) }
-	// buf.write_debug(&format!("p1 {:?} in w ran {} \n", p1_clip, p1_clip.in_w_range()));
+	buf.write_debug(&format!("p1 {:?} in w ran {} \n", p1_clip, p1_clip.in_w_range()));
 	if p1_clip.in_w_range() { return Some(Line::from_clip_space(p0_clip, p1_clip, buf.wid, buf.hei)) }
 
 	let screen_p0 = clip_space_to_screen_space_f(&p0_clip.homogeneous(), buf.wid, buf.hei);

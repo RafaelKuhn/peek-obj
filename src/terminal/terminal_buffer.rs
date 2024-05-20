@@ -17,12 +17,15 @@ pub struct TerminalBuffer {
 	pub transf_mat: Vec<f32>,
 	pub render_mat: Vec<f32>,
 
-	sorting_mode: ZSortingMode,
-	cull_mask: CullMode,
+	sorting_mode:   ZSortingMode,
+	cull_mask:      CullMode,
 	ball_fill_mode: BallFillMode,
+	gizmos_mode:    GizmosType,
 
 	// debug_file: Option<BufWriter<File>>,
 	debug_file: Option<File>,
+
+	// this is to turn random crap on/off for debugging
 	pub test: bool,
 }
 
@@ -45,6 +48,7 @@ impl TerminalBuffer {
     		sorting_mode:   ZSortingMode::BallsLast,
 			cull_mask:      CullMode::Nothing,
 			ball_fill_mode: BallFillMode::Index,
+			gizmos_mode:    GizmosType::None,
 
 			debug_file,
 			test: false,
@@ -65,6 +69,10 @@ impl TerminalBuffer {
 
 	pub fn get_ball_fill_mode(&self) -> &BallFillMode {
 		&self.ball_fill_mode
+	}
+
+	pub fn get_gizmos_mode(&self) -> &GizmosType {
+		&self.gizmos_mode
 	}
 
 	fn open_and_clear_debug_file() -> Option<DebugFile> {
@@ -145,6 +153,13 @@ impl TerminalBuffer {
 			BallFillMode::Height     => BallFillMode::XZDistance,
 			BallFillMode::XZDistance => BallFillMode::Index,
 			BallFillMode::Index      => BallFillMode::Height,
+		}
+	}
+
+	pub fn toggle_gizmos_mode(&mut self) {
+		self.gizmos_mode = match self.gizmos_mode {
+			GizmosType::None      => GizmosType::WorldAxes,
+			GizmosType::WorldAxes => GizmosType::None,
 		}
 	}
 

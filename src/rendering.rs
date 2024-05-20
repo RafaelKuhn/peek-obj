@@ -22,7 +22,7 @@ use std::fmt;
 
 
 
-use crate::{app::App, camera::Camera, file_readers::yade_dem_reader::{Tri, YadeDemData}, fps_measure::FpsMeasure, maths::*, mesh::Mesh, terminal::TerminalBuffer, timer::Timer, utils::*};
+use crate::{app::App, camera::Camera, fps_measure::FpsMeasure, maths::*, terminal::TerminalBuffer, timer::Timer, utils::*};
 
 use self::cull_mode::CullMode;
 
@@ -70,6 +70,11 @@ pub fn render_clear(buffer: &mut TerminalBuffer) {
 
 pub fn render_verbose(fps_measure: &FpsMeasure, camera: &Camera, app: &mut App) {
 
+	const PAUSED_STR: &str = " ENGINE RUNNING! ";
+	render_string_snap_right(PAUSED_STR, &UVec2::new(0, app.buf.hei - 1), &mut app.buf);
+
+	if !app.is_verbose { return }
+
 	let is_free_mov = app.is_free_mov();
 	let buf = &mut app.buf;
 
@@ -79,8 +84,8 @@ pub fn render_verbose(fps_measure: &FpsMeasure, camera: &Camera, app: &mut App) 
 	render_string(&format!("cam pos: {:?} ", camera.position), &highest_pos, buf);
 	#[cfg(not(debug_assertions))]
 	render_string(&format!("cam pos: {:} ", camera.position), &highest_pos, buf);
-	highest_pos.y += 1;
 
+	highest_pos.y += 1;
 	#[cfg(debug_assertions)]
 	render_string(&format!("cam rot: {:?} ", camera.rotation), &highest_pos, buf);
 	#[cfg(not(debug_assertions))]
@@ -96,32 +101,38 @@ pub fn render_verbose(fps_measure: &FpsMeasure, camera: &Camera, app: &mut App) 
 	}
 
 
-	let mut lowest_pos = UVec2::new(0, buf.hei - 1);
+	let mut lowest_pos_bl = UVec2::new(0, buf.hei - 1);
 
 	let wxh = buf.wid as u32 * buf.hei as u32;
 	let aspect = buf.wid as f32 / buf.hei as f32;
-	render_string(&format!("w: {}, h: {}, w*h: {}, a: {:.2} ", buf.wid, buf.hei, wxh, aspect), &lowest_pos, buf);
-	lowest_pos.y -= 1;
-	render_string(&format!("frame n: {} ", fps_measure.total_frame_count), &lowest_pos, buf);
-	lowest_pos.y -= 1;
-	render_string(&format!("scaled time: {:.2} ", fps_measure.time_aggr.as_millis() as f32 * 0.001), &lowest_pos, buf);
-	lowest_pos.y -= 1;
-	render_string(&format!("time scale: {:.1} ", fps_measure.time_scale), &lowest_pos, buf);
-	lowest_pos.y -= 1;
-	render_string(&format!("dt: {:.4}ms ", fps_measure.delta_time_millis), &lowest_pos, buf);
-	lowest_pos.y -= 1;
-	render_string(&format!("fps: {:.2} ", fps_measure.fps), &lowest_pos, buf);
+	render_string(&format!("w: {}, h: {}, w*h: {}, a: {:.2} ", buf.wid, buf.hei, wxh, aspect), &lowest_pos_bl, buf);
+	lowest_pos_bl.y -= 1;
+	render_string(&format!("frame n: {} ", fps_measure.total_frame_count), &lowest_pos_bl, buf);
+	lowest_pos_bl.y -= 1;
+	render_string(&format!("scaled time: {:.2} ", fps_measure.time_aggr.as_millis() as f32 * 0.001), &lowest_pos_bl, buf);
+	lowest_pos_bl.y -= 1;
+	render_string(&format!("time scale: {:.1} ", fps_measure.time_scale), &lowest_pos_bl, buf);
+	lowest_pos_bl.y -= 1;
+	render_string(&format!("dt: {:.4}ms ", fps_measure.delta_time_millis), &lowest_pos_bl, buf);
+	lowest_pos_bl.y -= 1;
+	render_string(&format!("fps: {:.2} ", fps_measure.fps), &lowest_pos_bl, buf);
 
 
-	let mut br_lowest_pos = UVec2::new(0, buf.hei - 2);
+	let mut lowest_pos_br = UVec2::new(0, buf.hei - 2);
 
-	render_string_snap_right(&format!(" z sort mode: {:} ", buf.get_sorting_mode()), &br_lowest_pos, buf);
-	br_lowest_pos.y -= 1;
-	render_string_snap_right(&format!(" cull mode: {:} ", buf.get_cull_mode()), &br_lowest_pos, buf);
-	br_lowest_pos.y -= 1;
-	render_string_snap_right(&format!(" move mode: {:} ", if is_free_mov { "free movement" } else { "orbital" }), &br_lowest_pos, buf);
-	br_lowest_pos.y -= 1;
-	render_string_snap_right(&format!(" light mode: {:} ", buf.get_ball_fill_mode()), &br_lowest_pos, buf);
+	render_string_snap_right(&format!(" z sort mode: {:} ", buf.get_sorting_mode()), &lowest_pos_br, buf);
+	lowest_pos_br.y -= 1;
+	render_string_snap_right(&format!(" cull mode: {:} ", buf.get_cull_mode()), &lowest_pos_br, buf);
+	lowest_pos_br.y -= 1;
+	render_string_snap_right(&format!(" move mode: {:} ", if is_free_mov { "free movement" } else { "orbital" }), &lowest_pos_br, buf);
+	lowest_pos_br.y -= 1;
+	render_string_snap_right(&format!(" light mode: {:} ", buf.get_ball_fill_mode()), &lowest_pos_br, buf);
+
+	let gizmos_mode = buf.get_gizmos_mode();
+	if let GizmosType::WorldAxes = gizmos_mode {
+		lowest_pos_br.y -= 1;
+		render_string_snap_right(&format!(" gizmos: {:} ", gizmos_mode), &lowest_pos_br, buf);
+	}
 }
 
 pub fn render_string_snap_right(string: &str, pos: &UVec2, buf: &mut TerminalBuffer) {
@@ -143,8 +154,12 @@ pub fn render_mat_dbg(mat: &[f32], pos: &UVec2, buf: &mut TerminalBuffer) {
 	render_string(&r3, &UVec2::new(pos.x, pos.y+3), buf);
 }
 
-// TODO: cut axes in smaller pieces
+// TODO: FIX THIS SHIT
 pub fn render_axes(axis_size: f32, render_marks: bool, camera: &Camera, buf: &mut TerminalBuffer) {
+
+	if let GizmosType::None = buf.get_gizmos_mode() { return }
+
+	buf.write_debug("rendering axes\n");
 
 	buf.copy_projection_to_render_matrix();
 	multiply_4x4_matrices(&mut buf.render_mat, &camera.view_matrix);
@@ -157,16 +172,16 @@ pub fn render_axes(axis_size: f32, render_marks: bool, camera: &Camera, buf: &mu
 	// const AXIS_SZ_WORLD: f32 = 20.0;
 
 	// TODO: cull and render line
-	// let up    = cull_line_into_screen_space(&origin, &Vec3::new(0.0, axis_size, 0.0), camera, buf);
-	// let right = cull_line_into_screen_space(&origin, &Vec3::new(axis_size, 0.0, 0.0), camera, buf);
+	let up    = cull_line_into_screen_space(&origin, &Vec3::new(0.0, axis_size, 0.0), camera, buf);
+	let right = cull_line_into_screen_space(&origin, &Vec3::new(axis_size, 0.0, 0.0), camera, buf);
 	let front = cull_line_into_screen_space(&origin, &Vec3::new(0.0, 0.0, axis_size), camera, buf);
 
-	// if let Some(up_line) = up {
-	// 	render_bresenham_line(&up_line.p0, &up_line.p1, buf, '|');
-	// }
-	// if let Some(right_line) = right {
-	// 	render_bresenham_line(&right_line.p0, &right_line.p1, buf, '-');
-	// }
+	if let Some(up_line) = up {
+		render_bresenham_line(&up_line.p0, &up_line.p1, buf, '|');
+	}
+	if let Some(right_line) = right {
+		render_bresenham_line(&right_line.p0, &right_line.p1, buf, '-');
+	}
 	if let Some(front_line) = front {
 		render_bresenham_line(&front_line.p0, &front_line.p1, buf, '/');
 	}
@@ -175,7 +190,6 @@ pub fn render_axes(axis_size: f32, render_marks: bool, camera: &Camera, buf: &mu
 	// let right = screen_project(&Vec3::new(AXIS_SZ_WORLD, 0.0, 0.0), &buf.render_mat, buf.wid, buf.hei);
 	// let front = screen_project(&Vec3::new(0.0, 0.0, AXIS_SZ_WORLD), &buf.render_mat, buf.wid, buf.hei);
 
-	
 	// render_bresenham_line(&origin, &up, buf, '|');
 	// render_bresenham_line(&origin, &right, buf, '-');
 	// render_bresenham_line(&origin, &front, buf, '/');
@@ -214,7 +228,7 @@ pub fn render_axes(axis_size: f32, render_marks: bool, camera: &Camera, buf: &mu
 	}	
 }
 
-pub fn render_gizmos(buf: &mut TerminalBuffer, camera: &Camera) {
+pub fn render_orientation(buf: &mut TerminalBuffer, camera: &Camera) {
 
 	buf.copy_projection_to_render_matrix();
 

@@ -13,6 +13,7 @@ pub struct App {
 	has_paused_full: bool,
 	has_paused_anim_only: bool,
 	is_free_mov: bool,
+	pub is_verbose: bool,
 
 	// this is the only one that needs to happen after scene is drawn
 	pub called_take_screenshot: bool,
@@ -47,6 +48,7 @@ impl App {
 			has_paused_full: false,
 			has_paused_anim_only: false,
 			is_free_mov: false,
+			is_verbose: true,
 
 			buf: TerminalBuffer::new(width, height),
 
@@ -95,12 +97,12 @@ impl App {
 	}
 
 	pub fn toggle_free_mov(&mut self, camera: &mut Camera) {
-		if self.is_free_mov {
-			self.is_free_mov = false;
+		let will_turn_orbital = self.is_free_mov;
+		if will_turn_orbital {
 			camera.reset_cached_dist();
-		} else {
-			self.is_free_mov = true;
 		}
+
+		self.is_free_mov = !self.is_free_mov;
 	}
 
 	pub fn toggle_pause_anim(&mut self, timer: &mut Timer) {

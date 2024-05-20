@@ -111,10 +111,8 @@ fn run_pipeline<T: Renderer>(renderer: T) {
 		renderer.render(&mut app.buf, &timer, &camera);
 #[cfg(debug_assertions)] benchmark.end_and_log("renderer render", &mut app.buf);
 
-		// render_axes(20.0, false, &camera, &mut app.buf);
-		// render_axes(20.0, true, &camera, &mut app.buf);
-		// render_axes(3.0, true, &camera, &mut app.buf);
-		render_gizmos(&mut app.buf, &camera);
+		render_axes(2.0, false, &camera, &mut app.buf);
+		render_orientation(&mut app.buf, &camera);
 #[cfg(debug_assertions)] benchmark.end_and_log("renderer gizmos", &mut app.buf);
 
 		// render_test(&mut camera, &mut app);

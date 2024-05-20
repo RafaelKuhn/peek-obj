@@ -85,6 +85,7 @@ impl Camera {
 	fn solve_orbital_movement(camera: &mut Camera, app: &mut App) {
 
 		const BASE_POS: Vec3 = Vec3::new(0.0, 0.0, 16.0);
+		const TOLERANCE: f32 = 1.0;
 
 		let ang_increment_x = app.user_dir.y;
 		let ang_increment_y = app.user_dir.x;
@@ -93,7 +94,7 @@ impl Camera {
 		camera.cache_rot_y += ang_increment_y;
 
 		camera.cache_dist += app.user_dir.z;
-		camera.cache_dist = camera.cache_dist.clamp(-BASE_POS.z, f32::MAX);
+		camera.cache_dist = camera.cache_dist.clamp(-BASE_POS.z + TOLERANCE, f32::MAX);
 
 		// TODO: this will not work with any initial position that does not go in the direction (0.0, 0.0, 1.0)
 		// let initial_pos_dir = camera.initial_position.normalized();
