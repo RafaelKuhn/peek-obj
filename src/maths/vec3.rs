@@ -1,4 +1,4 @@
-use std::{f32::consts::TAU, fmt};
+use std::fmt;
 
 use crate::{clip_space_to_screen_space, ivec2::IVec2, maths::*};
 
@@ -11,36 +11,36 @@ pub struct Vec3 {
 }
 
 impl Vec3 {
-	pub fn new(x: f32, y: f32, z: f32) -> Vec3 {
+	pub const fn new(x: f32, y: f32, z: f32) -> Vec3 {
 		Self { x, y, z }
 	}
 
-	pub fn zero() -> Vec3 {
+	pub const fn zero() -> Vec3 {
 		Self { x: 0.0, y: 0.0, z: 0.0 }
 	}
 
-	pub fn side() -> Vec3 {
+	pub const fn side() -> Vec3 {
 		Self { x: 0.0, y: 0.0, z: 1.0 }
 	}
-	pub fn up() -> Vec3 {
+	pub const fn up() -> Vec3 {
 		Self { x: 0.0, y: 0.0, z: 1.0 }
 	}
-	pub fn forward() -> Vec3 {
+	pub const fn forward() -> Vec3 {
 		Self { x: 0.0, y: 0.0, z: 1.0 }
 	}
 
-	pub fn xy(&self) -> (f32, f32) {
+	pub const fn xy(&self) -> (f32, f32) {
 		(self.x, self.y)
 	}
 
-	pub fn yz(&self) -> (f32, f32) {
+	pub const fn yz(&self) -> (f32, f32) {
 		(self.y, self.z)
 	}
 
-	pub fn xz(&self) -> (f32, f32) {
+	pub const fn xz(&self) -> (f32, f32) {
 		(self.x, self.z)
 	}
-		
+
 	pub fn squared_magnitude(&self) -> f32 {
 		self.x * self.x + self.y * self.y + self.z * self.z
 	}
@@ -148,7 +148,7 @@ impl Vec3 {
 	pub fn get_rotated_xyz(&self, x_rot: f32, y_rot: f32, z_rot: f32) -> Vec3 {
 		let sin_x = x_rot.sin();
 		let cos_x = x_rot.cos();
-		
+
 		let sin_y = y_rot.sin();
 		let cos_y = y_rot.cos();
 
