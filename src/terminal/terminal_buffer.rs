@@ -1,8 +1,9 @@
-use std::{fs::File, io::{BufWriter, Write}};
+use std::{fmt::Debug, fs::File, io::{BufWriter, Write}};
 
 use crate::{cull_mode::CullMode, maths::*, render_clear, render_settings::*, ASCII_BYTES_PER_CHAR};
 
-type DebugFile = File;
+// type DebugFile = File;
+type DebugFile = BufWriter<File>;
 
 pub struct TerminalBuffer {
 	// width / height of the terminal in characters
@@ -22,8 +23,7 @@ pub struct TerminalBuffer {
 	ball_fill_mode: BallFillMode,
 	gizmos_mode:    GizmosType,
 
-	// debug_file: Option<BufWriter<File>>,
-	debug_file: Option<File>,
+	debug_file: Option<DebugFile>,
 
 	// this is to turn random crap on/off for debugging
 	pub test: bool,
@@ -76,8 +76,8 @@ impl TerminalBuffer {
 	}
 
 	fn open_and_clear_debug_file() -> Option<DebugFile> {
-		File::create(Self::DEBUG_FILE_PATH).ok()
-		// File::create(Self::DEBUG_FILE_PATH).map(BufWriter::new).ok()
+		// File::create(Self::DEBUG_FILE_PATH).ok()
+		File::create(Self::DEBUG_FILE_PATH).map(BufWriter::new).ok()
 	}
 
 	pub fn resize_and_render_clear(&mut self, w: u16, h: u16) {

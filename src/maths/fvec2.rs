@@ -1,7 +1,8 @@
 use std::fmt;
 
-use crate::{Float, IVec2, UVec2};
+use crate::{Float, IVec2, Int, UVec2};
 
+#[derive(Clone)]
 pub struct FVec2 {
 	pub x: Float,
 	pub y: Float,
@@ -12,8 +13,16 @@ impl FVec2 {
 		Self { x, y }
 	}
 
+	pub fn sum(&self, rhs: &FVec2) -> Self {
+		Self { x: self.x + rhs.x, y: self.y + rhs.y }
+	}
+
 	pub fn sum_t(&self, rhs: (Float, Float)) -> Self {
 		Self { x: self.x as Float + rhs.0, y: self.y as Float + rhs.1 }
+	}
+
+	pub fn round_into_ivec2(&self) -> IVec2 {
+		IVec2::new(self.x.round() as Int, self.y.round() as Int)
 	}
 
 	pub fn magnitude(&self) -> f32 {
@@ -33,22 +42,6 @@ impl FVec2 {
 
 	pub fn squared_magnitude(&self) -> f32 {
 		self.x * self.x + self.y * self.y
-	}
-}
-
-impl From<IVec2> for UVec2 {
-	fn from(vec: IVec2) -> UVec2 {
-		debug_assert!(vec.x >= 0, "ivec {:} x is < 0", vec);
-		debug_assert!(vec.y >= 0, "ivec {:} y is < 0", vec);
-		UVec2::new(vec.x as u16, vec.y as u16)
-	}
-}
-
-impl From<&IVec2> for UVec2 {
-	fn from(vec: &IVec2) -> UVec2 {
-		debug_assert!(vec.x >= 0, "ivec {:} x is < 0", vec);
-		debug_assert!(vec.y >= 0, "ivec {:} y is < 0", vec);
-		UVec2::new(vec.x as u16, vec.y as u16)
 	}
 }
 

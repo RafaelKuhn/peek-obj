@@ -20,6 +20,52 @@ impl Default for Benchmark {
 	}
 }
 
+#[macro_export]
+macro_rules! bench_clr {
+	($ben: expr, $buf_ref: expr) => {
+		#[cfg(debug_assertions)] {
+			$buf_ref.clear_debug();
+			$buf_ref.write_debug(&format!("with resolution {} x {}\n", $buf_ref.wid, $buf_ref.hei));
+		}
+	}
+}
+
+// #[macro_export]
+// macro_rules! bench_ini {
+// 	($ben: expr, $buf_ref: expr) => {
+// 		#[cfg(debug_assertions)] {
+// 			$buf_ref.clear_debug();
+// 			$buf_ref.write_debug(&format!("with resolution {} x {}\n", $buf_ref.wid, $buf_ref.hei));
+// 			$ben.start()
+// 		}
+// 	}
+// }
+
+#[macro_export]
+macro_rules! bench {
+	($ben: expr, $message: expr, $app_mut: expr) => {
+		#[cfg(debug_assertions)] {
+			$ben.end_and_log($message, &mut $app_mut)
+		}
+	};
+}
+
+#[macro_export]
+macro_rules! bench_st {
+	($ben: expr) => {
+		#[cfg(debug_assertions)] {
+			$ben.start()
+		}
+	};
+}
+
+#[macro_export]
+macro_rules! bench_accum {
+	($ben: expr, $app_mut: expr) => {
+		$app_mut.write_debug(&$ben.accum_end())
+	};
+}
+
 impl Benchmark {
 	pub fn new() -> Self {
 		Default::default()

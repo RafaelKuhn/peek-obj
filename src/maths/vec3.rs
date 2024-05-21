@@ -380,7 +380,7 @@ impl std::ops::Mul<f32> for Vec3 {
 
 impl fmt::Display for Vec3 {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(f, "[{:+.4}, {:+.4}, {:+.4}]", self.x, self.y, self.z)
+		write!(f, "[{:+04.4}, {:+04.4}, {:+04.4}]", self.x, self.y, self.z)
 	}
 }
 

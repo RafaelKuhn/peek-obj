@@ -5,7 +5,7 @@ run() {
 	# cargo run -- data/yade/mock.txt; return
 	# cargo run --release -- data/yade/mock.txt; return
 
-	cargo run --release -- data/yade/dados.txt; return
+	# cargo run --release -- data/yade/dados.txt; return
 	cargo run -- data/yade/dados.txt; return
 }
 

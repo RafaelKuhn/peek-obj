@@ -236,25 +236,26 @@ pub fn render_orientation(buf: &mut TerminalBuffer, camera: &Camera) {
 
 	// in world space, the gizmos is 8 units back (view matrix is irrelevant for these calculations)
 	let base_world_space = Vec3::new(0.0, 0.0, -8.0);
-	let origin = screen_project(&base_world_space, &buf.render_mat, buf.wid, buf.hei);
+	let origin = screen_project_f(&base_world_space, &buf.render_mat, buf.wid, buf.hei);
 	let gizmos_side_reference_point = base_world_space.added_vec(&Vec3::new(GIZMO_SIZE_WORLD, 0.0, 0.0));
-	let gizmos_side_reference_point_projected = screen_project(&gizmos_side_reference_point, &buf.render_mat, buf.wid, buf.hei);
+	let gizmos_side_reference_point_projected = screen_project_f(&gizmos_side_reference_point, &buf.render_mat, buf.wid, buf.hei);
 
-	let side_offset = (gizmos_side_reference_point_projected.x - origin.x) as Int;
-	let screen_offset = IVec2::new(
-			buf.wid as Int / 2 -   side_offset       - 1,
-		- ( buf.hei as Int / 2 - ( side_offset / 2 ) - 1 )
+	let side_offset = (gizmos_side_reference_point_projected.x - origin.x) as Float;
+
+	let screen_offset = FVec2::new(
+			buf.wid as Float / 2.0 -   side_offset       - 1.0,
+		- ( buf.hei as Float / 2.0 - ( side_offset / 2.0 ) - 1.0 )
 	);
 
 	let origin_2d = origin.sum(&screen_offset);
 
-	let dbg_forward = camera.forward.inversed().with_y_inverted();
-	let dbg_side = camera.side.inversed().with_y_inverted();
+	let dbg_forward = camera.forward.with_y_inverted();
+	let dbg_side = camera.side.with_y_inverted();
 	let dbg_up = camera.up.with_y_inverted();
 
 	let mut draw_between = |dir: &Vec3, ch: char| {
-		let ptr = screen_project(&(base_world_space + (dir * GIZMO_SIZE_WORLD)), &buf.render_mat, buf.wid, buf.hei).sum(&screen_offset);
-		render_bresenham_line(&origin_2d, &ptr, buf, ch);
+		let ptr = screen_project_f(&(base_world_space + (dir * GIZMO_SIZE_WORLD)), &buf.render_mat, buf.wid, buf.hei).sum(&screen_offset).round_into_ivec2();
+		render_bresenham_line(&origin_2d.round_into_ivec2(), &ptr, buf, ch);
 		render_char('O', &ptr.into(), buf);
 	};
 

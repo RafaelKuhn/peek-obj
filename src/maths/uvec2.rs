@@ -3,7 +3,7 @@
 
 use std::{fmt, ops::Sub};
 
-use crate::FVec2;
+use crate::{FVec2, IVec2};
 
 pub struct UVec2 {
 	pub x: u16,
@@ -28,11 +28,40 @@ impl UVec2 {
 	}
 }
 
+
 impl From<&FVec2> for UVec2 {
-	fn from(value: &FVec2) -> Self {
-		return UVec2 { x: value.x as u16, y: value.y as u16 }
+	fn from(vec: &FVec2) -> Self {
+		debug_assert!(vec.x >= 0.0, "ivec {:} x is < 0", vec);
+		debug_assert!(vec.y >= 0.0, "ivec {:} y is < 0", vec);
+		return UVec2 { x: vec.x as u16, y: vec.y as u16 }
 	}
 }
+
+impl From<FVec2> for UVec2 {
+	fn from(vec: FVec2) -> UVec2 {
+		debug_assert!(vec.x >= 0.0, "ivec {:} x is < 0", vec);
+		debug_assert!(vec.y >= 0.0, "ivec {:} y is < 0", vec);
+		UVec2::new(vec.x as u16, vec.y as u16)
+	}
+}
+
+
+impl From<IVec2> for UVec2 {
+	fn from(vec: IVec2) -> UVec2 {
+		debug_assert!(vec.x >= 0, "ivec {:} x is < 0", vec);
+		debug_assert!(vec.y >= 0, "ivec {:} y is < 0", vec);
+		UVec2::new(vec.x as u16, vec.y as u16)
+	}
+}
+
+impl From<&IVec2> for UVec2 {
+	fn from(vec: &IVec2) -> UVec2 {
+		debug_assert!(vec.x >= 0, "ivec {:} x is < 0", vec);
+		debug_assert!(vec.y >= 0, "ivec {:} y is < 0", vec);
+		UVec2::new(vec.x as u16, vec.y as u16)
+	}
+}
+
 
 impl fmt::Display for UVec2 {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
