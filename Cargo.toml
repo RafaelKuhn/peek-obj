@@ -12,7 +12,6 @@ edition = "2021"
 
 [dependencies]
 crossterm = "0.25"
-num = "0.4.1"
 rand = "0.8.5"
 seeded-random = "0.6.0"
 
