@@ -2,8 +2,8 @@ use std::{fmt::Debug, fs::File, io::{BufWriter, Write}};
 
 use crate::{cull_mode::CullMode, maths::*, render_clear, render_settings::*, ASCII_BYTES_PER_CHAR};
 
-// type DebugFile = File;
-type DebugFile = BufWriter<File>;
+type DebugFile = File;
+// type DebugFile = BufWriter<File>;
 
 pub struct TerminalBuffer {
 	// width / height of the terminal in characters
@@ -13,7 +13,7 @@ pub struct TerminalBuffer {
 	// global output buffer
 	pub raw_ascii_screen: Vec<u8>,
 
-	// unique 4x4 matrix buffers, reused across different rendered objects, mut be cleaned after each used
+	// unique 4x4 matrix buffers, reused across different rendered objects, mut be cleaned after each use
 	proj_mat: Vec<f32>,
 	pub transf_mat: Vec<f32>,
 	pub render_mat: Vec<f32>,
@@ -25,8 +25,9 @@ pub struct TerminalBuffer {
 
 	debug_file: Option<DebugFile>,
 
-	// this is to turn random crap on/off for debugging
+	// this is for turning random crap on/off for debugging
 	pub test: bool,
+	pub test_i: i32,
 }
 
 impl TerminalBuffer {
@@ -45,13 +46,14 @@ impl TerminalBuffer {
 			transf_mat: create_identity_4x4(),
 			render_mat: create_identity_4x4(),
 
-    		sorting_mode:   ZSortingMode::BallsLast,
+    		sorting_mode:   ZSortingMode::Optimized,
 			cull_mask:      CullMode::Nothing,
 			ball_fill_mode: BallFillMode::Index,
 			gizmos_mode:    GizmosType::None,
 
 			debug_file,
 			test: false,
+			test_i: 0,
 		};
 
 		render_clear(&mut this);
@@ -76,8 +78,8 @@ impl TerminalBuffer {
 	}
 
 	fn open_and_clear_debug_file() -> Option<DebugFile> {
-		// File::create(Self::DEBUG_FILE_PATH).ok()
-		File::create(Self::DEBUG_FILE_PATH).map(BufWriter::new).ok()
+		File::create(Self::DEBUG_FILE_PATH).ok()
+		// File::create(Self::DEBUG_FILE_PATH).map(BufWriter::new).ok()
 	}
 
 	pub fn resize_and_render_clear(&mut self, w: u16, h: u16) {
@@ -132,12 +134,23 @@ impl TerminalBuffer {
 	}
 
 	pub fn toggle_z_sorting_mode(&mut self) {
+
+		#[cfg(debug_assertions)]
 		match self.sorting_mode {
+			ZSortingMode::Optimized     => self.sorting_mode = ZSortingMode::ClosestPoint,
 			ZSortingMode::ClosestPoint  => self.sorting_mode = ZSortingMode::FarthestPoint,
 			ZSortingMode::FarthestPoint => self.sorting_mode = ZSortingMode::BallsLast,
 			ZSortingMode::BallsLast     => self.sorting_mode = ZSortingMode::LinesLast,
-			ZSortingMode::LinesLast     => self.sorting_mode = ZSortingMode::ClosestPoint,
+			ZSortingMode::LinesLast     => self.sorting_mode = ZSortingMode::Optimized,
 		};
+
+		#[cfg(not(debug_assertions))]
+		match self.sorting_mode {
+			ZSortingMode::Optimized => self.sorting_mode = ZSortingMode::BallsLast,
+			ZSortingMode::BallsLast => self.sorting_mode = ZSortingMode::LinesLast,
+			ZSortingMode::LinesLast => self.sorting_mode = ZSortingMode::Optimized,
+			_ => panic!("Production set up incorrectly")
+		}
 	}
 
 	pub fn toggle_cull_mode(&mut self) {
@@ -170,6 +183,9 @@ impl TerminalBuffer {
 	}
 
 	pub fn write_debug(&mut self, string: &str) {
+		// #[cfg(not(debug_assertions))] panic!("Don't allow this in prod!")
+
+		// #[cfg(debug_assertions)]
 		if let Some(ref mut file) = &mut self.debug_file {
 			file.write_all(string.as_bytes()).expect("shit, couldn't write to file");
 		}
@@ -177,14 +193,14 @@ impl TerminalBuffer {
 
 	// OTHER WAYS OF DOING THIS SHIT:
 
-	#[allow(clippy::style)]
+	#[allow(clippy::style, unused)]
 	pub fn write_debug2(&mut self, string: &str) {
 		if self.debug_file.is_none() { return }
 		let file = self.debug_file.as_mut().unwrap();
 		file.write_all(string.as_bytes()).expect("shit, couldn't write to file");
 	}
 
-	#[allow(clippy::style)]
+	#[allow(clippy::style, unused)]
 	pub fn write_debug3(&mut self, string: &str) {
 		match self.debug_file.as_mut() {
 			None => (),
@@ -192,21 +208,21 @@ impl TerminalBuffer {
 		}
 	}
 
-	#[allow(clippy::style)]
+	#[allow(clippy::style, unused)]
 	pub fn write_debug4(&mut self, string: &str) {
 		if self.debug_file.is_none() { return }
 
 		self.debug_file.as_mut().unwrap().write_all(string.as_bytes()).expect("shit, couldn't write to file");
 	}
 
-	#[allow(clippy::style)]
+	#[allow(clippy::style, unused)]
 	pub fn write_debug5(&mut self, string: &str) {
 		if self.debug_file.is_some() {
 			self.debug_file.as_mut().unwrap().write_all(string.as_bytes()).expect("shit, couldn't write to file");
 		}
 	}
 
-	#[allow(clippy::style)]
+	#[allow(clippy::style, unused)]
 	pub fn write_debug6(&mut self, string: &str) -> Option<()> {
 		let file = self.debug_file.as_mut()?;
 		file.write_all(string.as_bytes()).expect("shit, couldn't write to file");

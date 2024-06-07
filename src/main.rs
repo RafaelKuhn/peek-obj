@@ -1,4 +1,4 @@
-#![allow(unused)]
+// #![allow(unused)]
 // #![allow(unused_variables)]
 // #![allow(dead_code)]
 
@@ -20,7 +20,7 @@ mod file_readers;
 mod app;
 mod timer;
 mod fps_measure;
-mod bench;
+mod benchmark;
 mod settings;
 mod utils;
 
@@ -36,7 +36,7 @@ use fps_measure::FpsMeasure;
 use terminal::*;
 use maths::*;
 
-use crate::{bench::Benchmark, file_readers::obj_reader::read_mesh_from_obj_file, obj_renderer::ObjRenderer};
+use crate::{benchmark::Benchmark, file_readers::obj_reader::read_mesh_from_obj_file, obj_renderer::ObjRenderer};
 
 
 fn main() {
@@ -58,10 +58,7 @@ fn main() {
 	};
 }
 
-// TODO: try doing renderer with this:
-// https://refactoring.guru/design-patterns/abstract-factory/rust/example
-
-// TODO: try this less blurry crap
+// TODO: try functional with this less blurry crap
 // https://stackoverflow.com/questions/25445761/returning-a-closure-from-a-function
 // type RenderMeshFn = fn(&Mesh, &mut TerminalBuffer, &Timer, &Camera);
 // type RenderYadeFn = fn(&YadeDemData, &mut TerminalBuffer, &Timer, &Camera);
@@ -69,17 +66,17 @@ fn main() {
 
 fn run_pipeline<T: Renderer>(renderer: T) {
 	let mut app = App::init_with_screen();
-	// let mut app = App::init_wh(100, 30);
+	// let mut app = App::init_wh(200, 60);
 
 	let mut timer = Timer::new();
-
-	const FPS_MEASURE_REFRESH_RATE_SECS: f32 = 0.5;
-	let mut fps_measure = FpsMeasure::new(FPS_MEASURE_REFRESH_RATE_SECS);
+	timer.set_default_time_scale(1.0);
 
 	let mut camera = Camera::new();
 	camera.configure_defaults(&mut app);
 
-	timer.set_default_time_scale(1.0);
+	const FPS_MEASURE_REFRESH_RATE_SECS: f32 = 0.5;
+	let mut fps_measure = FpsMeasure::new(FPS_MEASURE_REFRESH_RATE_SECS);
+
 
 	let mut terminal = configure_terminal();
 	set_panic_hook();
@@ -95,9 +92,9 @@ fn run_pipeline<T: Renderer>(renderer: T) {
 	let mut b = Benchmark::default();
 
 	loop {
-		bench_clr!(b, app.buf);
-
 		just_poll_while_paused(&mut app, &mut terminal, &mut timer);
+
+		bench_clr!(b, app.buf);
 
 		bench_st!(b);
 		render_clear(&mut app.buf);
@@ -121,7 +118,7 @@ fn run_pipeline<T: Renderer>(renderer: T) {
 		render_axes(2.0, false, &camera, &mut app.buf);
 		render_orientation(&mut app.buf, &camera);
 		bench!(b, "renderer gizmos", &mut app.buf);
-		
+
 		// render_test(&mut camera, &mut app);
 		// bench!(b, "renderer test", &mut app.buf);
 
@@ -138,16 +135,4 @@ fn run_pipeline<T: Renderer>(renderer: T) {
 
 		bench_accum!(b, app.buf);
 	}
-}
-
-
-
-fn set_panic_hook() {
-	let hook = std::panic::take_hook();
-	std::panic::set_hook(Box::new(move |info| {
-		restore_stdout(&mut io::stdout());
-
-		hook(info);
-		restore_stdout(&mut io::stdout());
-	}));
 }

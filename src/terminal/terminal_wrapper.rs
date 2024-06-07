@@ -2,6 +2,9 @@ use std::{f32::consts::TAU, io::{self, Stdout, Write}, process, time::Duration};
 
 use crossterm::{terminal::*, event::*, cursor::*, style::*, *};
 
+
+// TODO: refactor this whole shit to use methods, don't be afraid of methods, they are not OOP!
+
 pub struct CrosstermTerminal {
 	pub stdout: Stdout
 	// pub stdout: BufWriter<Stderr>
@@ -26,19 +29,18 @@ pub fn configure_terminal() -> CrosstermTerminal {
 	// CrosstermTerminal { stdout: File::create("bullshit/_dump").map(BufWriter::new).ok().unwrap() }
 }
 
-pub fn restore_terminal(terminal: &mut CrosstermTerminal) {
-	restore_stdout(&mut terminal.stdout)
+pub fn set_panic_hook() {
+	let hook = std::panic::take_hook();
+	std::panic::set_hook(Box::new(move |info| {
+		restore_stdout(&mut io::stdout());
+
+		hook(info);
+		restore_stdout(&mut io::stdout());
+	}));
 }
 
-pub fn restore_stdout<T: Write>(stdout: &mut T) {
-	disable_raw_mode().unwrap();
-
-	// leaves alternate screen, shows cursor
-	execute!(stdout, LeaveAlternateScreen, Show)
-		.unwrap();
-}
-
-// TODO: polling channels or some sort, for instance, only poll for unpause when paused
+// TODO: polling channels or some sort, for instance, when paused, only poll for unpause 
+// TODO: make it an impl of CrosstermTerminal
 pub fn poll_events(terminal: &mut CrosstermTerminal, app: &mut App, timer: &mut Timer) {
 
 	// TODO: app.polled_data.reset() or something
@@ -69,7 +71,9 @@ pub fn poll_events(terminal: &mut CrosstermTerminal, app: &mut App, timer: &mut 
 				KeyCode::Esc => quit(terminal),
 
 				KeyCode::Char(ch) => match ch.to_ascii_lowercase() {
-					// 'o' => app.buf.test = !app.buf.test,
+					'o' => app.buf.test = !app.buf.test,
+					'i' if key_evt.modifiers == KeyModifiers::SHIFT => app.buf.test_i -= 1,
+					'i' => app.buf.test_i += 1,
 
 					'c' if key_evt.modifiers == KeyModifiers::CONTROL => quit(terminal),
 					'q' if key_evt.modifiers == KeyModifiers::CONTROL => quit(terminal),
@@ -128,17 +132,6 @@ pub fn just_poll_while_paused(app: &mut App, terminal_mut: &mut CrosstermTermina
 	};
 }
 
-fn quit(terminal: &mut CrosstermTerminal) {
-	restore_terminal(terminal);
-	process::exit(0);
-}
-
-fn quit_with_message(terminal: &mut CrosstermTerminal, message: &str) {
-	restore_terminal(terminal);
-	println!("{message}");
-	process::exit(0);
-}
-
 pub fn print_and_flush_terminal_fscreen(buf: &mut TerminalBuffer, terminal: &mut CrosstermTerminal) {
 
 	// Does not work, trying to write only what's necessary
@@ -180,4 +173,28 @@ pub fn print_and_flush_terminal_line_by_line(buf: &mut TerminalBuffer, terminal:
 	}
 
 	terminal.stdout.flush().unwrap();
+}
+
+
+fn quit(terminal: &mut CrosstermTerminal) {
+	restore_terminal(terminal);
+	process::exit(0);
+}
+
+fn quit_with_message(terminal: &mut CrosstermTerminal, message: &str) {
+	restore_terminal(terminal);
+	println!("{message}");
+	process::exit(0);
+}
+
+fn restore_terminal(terminal: &mut CrosstermTerminal) {
+	restore_stdout(&mut terminal.stdout)
+}
+
+fn restore_stdout<T: Write>(stdout: &mut T) {
+	disable_raw_mode().unwrap();
+
+	// leaves alternate screen, shows cursor
+	execute!(stdout, LeaveAlternateScreen, Show)
+		.unwrap();
 }

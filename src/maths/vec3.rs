@@ -298,6 +298,14 @@ impl Vec3 {
 		}
 	}
 
+	pub fn div_vec(&self, rhs: f32) -> Vec3 {
+		Vec3 {
+			x: self.x / rhs,
+			y: self.y / rhs,
+			z: self.z / rhs,
+		}
+	}
+
 	pub fn inversed(&self) -> Vec3 {
 		Self {
 			x: -self.x,
@@ -375,6 +383,22 @@ impl std::ops::Mul<f32> for Vec3 {
 
 	fn mul(self, rhs: f32) -> Self::Output {
 		self.mul_vec(rhs)
+	}
+}
+
+impl std::ops::Div<f32> for &Vec3 {
+	type Output = Vec3;
+
+	fn div(self, rhs: f32) -> Self::Output {
+		self.div_vec(rhs)
+	}
+}
+
+impl std::ops::Div<f32> for Vec3 {
+	type Output = Vec3;
+
+	fn div(self, rhs: f32) -> Self::Output {
+		self.div_vec(rhs)
 	}
 }
 

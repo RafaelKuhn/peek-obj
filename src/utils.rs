@@ -1,6 +1,5 @@
 #![allow(dead_code)]
 
-// TODO: format this more decently
 pub fn fmt_mat4x4(mat: &[f32]) -> String {
 	format!("\n[{} {} {} {}]\n[{} {} {} {}]\n[{} {} {} {}]\n[{} {} {} {}]", 
 		fmt_f(mat[ 0]), fmt_f(mat[ 1]), fmt_f(mat[ 2]), fmt_f(mat[ 3]),

@@ -7,6 +7,7 @@ pub type SortingFn = fn(&(f32, YadePrimitive), &(f32, YadePrimitive)) -> Orderin
 
 
 pub enum ZSortingMode {
+	Optimized,
 	ClosestPoint,
 	FarthestPoint,
 	LinesLast,
@@ -16,6 +17,7 @@ pub enum ZSortingMode {
 impl ZSortingMode {
 	pub fn get_sorting_fn(&self) -> SortingFn {
 		match self {
+			ZSortingMode::Optimized => sort_by_distance,
 			ZSortingMode::ClosestPoint  => sort_by_distance,
 			ZSortingMode::FarthestPoint => sort_by_distance,
 			ZSortingMode::LinesLast => sort_lines_last,
@@ -27,6 +29,7 @@ impl ZSortingMode {
 impl fmt::Display for ZSortingMode {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		match self {
+			ZSortingMode::Optimized => write!(f, "painter's", ),
 			ZSortingMode::ClosestPoint  => write!(f, "closest point", ),
 			ZSortingMode::FarthestPoint => write!(f, "farthest point", ),
 			ZSortingMode::LinesLast => write!(f, "lines last", ),

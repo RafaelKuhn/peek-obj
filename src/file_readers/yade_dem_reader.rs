@@ -163,7 +163,7 @@ impl YadeDemData {
 			let is_comment = line.starts_with('#') || line.starts_with("//");
 			if is_comment { continue; }
 
-			eprintln!("line should ")
+			quit_with(&format!("unexpected error reading line {}", line_num), path);
 		}
 
 		// #if VERBOSE

@@ -15,7 +15,7 @@ pub struct App {
 	is_free_mov: bool,
 	pub is_verbose: bool,
 
-	// this is the only one that needs to happen after scene is drawn
+	// this is the only "event" that needs to happen after scene is drawn
 	pub called_take_screenshot: bool,
 
 	// TODO: struct 'user polled data', this can probably be stateless

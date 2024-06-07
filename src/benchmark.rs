@@ -20,26 +20,17 @@ impl Default for Benchmark {
 	}
 }
 
+// These shouldn't really be macros, could just make functions out of them
+
 #[macro_export]
 macro_rules! bench_clr {
 	($ben: expr, $buf_ref: expr) => {
+		$buf_ref.clear_debug();
 		#[cfg(debug_assertions)] {
-			$buf_ref.clear_debug();
 			$buf_ref.write_debug(&format!("with resolution {} x {}\n", $buf_ref.wid, $buf_ref.hei));
 		}
 	}
 }
-
-// #[macro_export]
-// macro_rules! bench_ini {
-// 	($ben: expr, $buf_ref: expr) => {
-// 		#[cfg(debug_assertions)] {
-// 			$buf_ref.clear_debug();
-// 			$buf_ref.write_debug(&format!("with resolution {} x {}\n", $buf_ref.wid, $buf_ref.hei));
-// 			$ben.start()
-// 		}
-// 	}
-// }
 
 #[macro_export]
 macro_rules! bench {
@@ -62,9 +53,12 @@ macro_rules! bench_st {
 #[macro_export]
 macro_rules! bench_accum {
 	($ben: expr, $app_mut: expr) => {
-		$app_mut.write_debug(&$ben.accum_end())
+		#[cfg(debug_assertions)] {
+			$app_mut.write_debug(&$ben.accum_end())
+		}
 	};
 }
+
 
 impl Benchmark {
 	pub fn new() -> Self {

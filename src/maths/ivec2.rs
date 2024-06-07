@@ -34,6 +34,64 @@ impl IVec2 {
 	}
 }
 
+impl std::ops::Sub for IVec2 {
+	type Output = IVec2;
+
+	fn sub(self, rhs: Self) -> Self::Output {
+		Self::Output {
+			x: self.x - rhs.x,
+			y: self.y - rhs.y,
+		}
+	}
+}
+
+impl std::ops::Sub for &IVec2 {
+	type Output = IVec2;
+
+	fn sub(self, rhs: Self) -> Self::Output {
+		Self::Output {
+			x: self.x - rhs.x,
+			y: self.y - rhs.y,
+		}
+	}
+}
+
+
+impl std::ops::Add for IVec2 {
+	type Output = IVec2;
+
+	fn add(self, rhs: Self) -> Self::Output {
+		Self::Output {
+			x: self.x + rhs.x,
+			y: self.y + rhs.y,
+		}
+	}
+}
+
+impl std::ops::Add for &IVec2 {
+	type Output = IVec2;
+
+	fn add(self, rhs: Self) -> Self::Output {
+		Self::Output {
+			x: self.x + rhs.x,
+			y: self.y + rhs.y,
+		}
+	}
+}
+
+
+impl std::ops::Mul<f32> for &IVec2 {
+	type Output = IVec2;
+
+	fn mul(self, rhs: f32) -> Self::Output {
+		Self::Output {
+			x: (self.x as f32 * rhs) as Int,
+			y: (self.y as f32 * rhs) as Int,
+		}
+	}
+}
+
+
 impl From<FVec2> for IVec2 {
 	fn from(vec: FVec2) -> IVec2 {
 		IVec2::new(vec.x as Int, vec.y as Int)

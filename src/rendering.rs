@@ -133,6 +133,13 @@ pub fn render_verbose(fps_measure: &FpsMeasure, camera: &Camera, app: &mut App) 
 		lowest_pos_br.y -= 1;
 		render_string_snap_right(&format!(" gizmos: {:} ", gizmos_mode), &lowest_pos_br, buf);
 	}
+
+	// indices
+	// TODO: DEBUG OPTION draw indices
+	// for num in 0..buf.hei {
+	// 	render_string(&format!("{}", num), &UVec2::new(0, num), buf);
+	// 	render_string_snap_right(&format!("{}", num), &UVec2::new(0, num), buf);
+	// }
 }
 
 pub fn render_string_snap_right(string: &str, pos: &UVec2, buf: &mut TerminalBuffer) {

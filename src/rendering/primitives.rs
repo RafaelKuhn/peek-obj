@@ -177,12 +177,13 @@ pub fn render_bresenham_line(p0: &IVec2, p1: &IVec2, buf: &mut TerminalBuffer, f
 	let mut x = x0;
 	let mut y = y0;
 
-	// buf.write_debug(&format!("w {} h {} \np0 {:} p1 {:} dx {} dy {}  sx {} sy {}\n ", buf.wid, buf.hei, p0, p1, dx, dy, sy, sy));
+	// buf.write_debug(&format!("bresenham p0 {:} p1 {:}   dx {} dy {}  sx {} sy {} (w {} h {})\n", p0, p1, dx, dy, sy, sy, buf.wid, buf.hei));
 
 	loop {
 
-		// TODO: debug_assert, handle out of bounds in the caller
+		// TODO: debug_assert, handle out of bounds above
 		if x >= 0 && x < buf.wid.into() && y >= 0 && y < buf.hei.into() {
+			// buf.write_debug(&format!("   bres char {} [{},{}]\n", fill_char, x, y));
 			let index = xy_to_it(x as u16, y as u16, buf.wid);
 			fill_char.encode_utf8(&mut buf.raw_ascii_screen[index..index + ASCII_BYTES_PER_CHAR]);
 		}
@@ -190,7 +191,7 @@ pub fn render_bresenham_line(p0: &IVec2, p1: &IVec2, buf: &mut TerminalBuffer, f
 		if x == x1 && y == y1 { return }
 
 		// TODO: clip bresenham lines to screen
-		// meanwhile use this version to prevent crashes in long lines
+		// meanwhile use this version to prevent crashes in very long lines
 		let double_deriv_diff = (Wrapping(deriv_diff) * Wrapping(2)).0;
 		// let double_deriv_diff = deriv_diff * 2;
 
