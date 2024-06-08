@@ -153,6 +153,26 @@ impl TerminalBuffer {
 		}
 	}
 
+	pub fn toggle_back_z_sorting_mode(&mut self) {
+
+		#[cfg(debug_assertions)]
+		match self.sorting_mode {
+			ZSortingMode::Optimized     => self.sorting_mode = ZSortingMode::LinesLast,
+			ZSortingMode::ClosestPoint  => self.sorting_mode = ZSortingMode::Optimized,
+			ZSortingMode::FarthestPoint => self.sorting_mode = ZSortingMode::ClosestPoint,
+			ZSortingMode::BallsLast     => self.sorting_mode = ZSortingMode::FarthestPoint,
+			ZSortingMode::LinesLast     => self.sorting_mode = ZSortingMode::BallsLast,
+		};
+
+		#[cfg(not(debug_assertions))]
+		match self.sorting_mode {
+			ZSortingMode::Optimized => self.sorting_mode = ZSortingMode::LinesLast,
+			ZSortingMode::BallsLast => self.sorting_mode = ZSortingMode::Optimized,
+			ZSortingMode::LinesLast => self.sorting_mode = ZSortingMode::BallsLast,
+			_ => panic!("Production set up incorrectly")
+		}
+	}
+
 	pub fn toggle_cull_mode(&mut self) {
 		self.cull_mask = match self.cull_mask {
 			CullMode::Nothing   => CullMode::CullTris,
@@ -161,11 +181,27 @@ impl TerminalBuffer {
 		}
 	}
 
+	pub fn toggle_back_cull_mode(&mut self) {
+		self.cull_mask = match self.cull_mask {
+			CullMode::Nothing   => CullMode::CullBalls,
+			CullMode::CullTris  => CullMode::Nothing,
+			CullMode::CullBalls => CullMode::CullTris,
+		}
+	}
+
 	pub fn toggle_ball_fill_mode(&mut self) {
 		self.ball_fill_mode = match self.ball_fill_mode {
 			BallFillMode::Height     => BallFillMode::XZDistance,
 			BallFillMode::XZDistance => BallFillMode::Index,
 			BallFillMode::Index      => BallFillMode::Height,
+		}
+	}
+
+	pub fn toggle_back_ball_fill_mode(&mut self) {
+		self.ball_fill_mode = match self.ball_fill_mode {
+			BallFillMode::Height     => BallFillMode::Index,
+			BallFillMode::XZDistance => BallFillMode::Height,
+			BallFillMode::Index      => BallFillMode::XZDistance,
 		}
 	}
 

@@ -66,7 +66,7 @@ fn main() {
 
 fn run_pipeline<T: Renderer>(renderer: T) {
 	let mut app = App::init_with_screen();
-	// let mut app = App::init_wh(200, 60);
+	// let mut app = App::init_wh(80 * 3 / 2, 30 * 3 / 2);
 
 	let mut timer = Timer::new();
 	timer.set_default_time_scale(1.0);
@@ -92,7 +92,7 @@ fn run_pipeline<T: Renderer>(renderer: T) {
 	let mut b = Benchmark::default();
 
 	loop {
-		just_poll_while_paused(&mut app, &mut terminal, &mut timer);
+		yield_while_paused_or_help_screen(&mut app, &mut terminal, &mut timer);
 
 		bench_clr!(b, app.buf);
 

@@ -14,6 +14,7 @@ pub struct App {
 	has_paused_anim_only: bool,
 	is_free_mov: bool,
 	pub is_verbose: bool,
+	pub is_help_screen: bool,
 
 	// this is the only "event" that needs to happen after scene is drawn
 	pub called_take_screenshot: bool,
@@ -31,17 +32,8 @@ pub struct App {
 
 impl App {
 	const SCREENDUMP_DELAY_MS: u64 = 300;
-
-	pub fn init_with_screen() -> App {
-		let (screen_width, screen_height) = size().unwrap();
-		Self::init(screen_width, screen_height, true)
-	}
-
-	pub fn init_wh(width: u16, height: u16) -> App {
-		Self::init(width, height, false)
-	}
-
 	const SCREENDUMP_DELAY_DURATION: Duration = Duration::from_millis(App::SCREENDUMP_DELAY_MS);
+
 	fn init(width: u16, height: u16, is_full_screen: bool) -> App {
 		Self {
 			is_full_screen,
@@ -49,6 +41,7 @@ impl App {
 			has_paused_anim_only: false,
 			is_free_mov: false,
 			is_verbose: true,
+			is_help_screen: false,
 
 			buf: TerminalBuffer::new(width, height),
 
@@ -63,6 +56,15 @@ impl App {
 
 			last_screenshot_instant: Instant::now() - App::SCREENDUMP_DELAY_DURATION,
 		}
+	}
+
+	pub fn init_with_screen() -> App {
+		let (screen_width, screen_height) = size().unwrap();
+		Self::init(screen_width, screen_height, true)
+	}
+
+	pub fn init_wh(width: u16, height: u16) -> App {
+		Self::init(width, height, false)
 	}
 
 	pub fn run_post_render_events(&mut self, timer: &Timer) {
@@ -126,10 +128,8 @@ impl App {
 		if self.has_paused_full {
 			self.has_paused_full = false;
 			self.has_paused_anim_only = false;
-			timer.reset_time_scale();
 		} else {
 			self.has_paused_full = true;
-			timer.time_scale = 0.0;
 		}
 	}
 

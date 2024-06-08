@@ -11,7 +11,7 @@ pub struct CrosstermTerminal {
 	// pub stdout: BufWriter<File>,
 }
 
-use crate::{maths::*, render_string_snap_right, timer::Timer, App, TerminalBuffer};
+use crate::{maths::*, render_clear, render_help_screen, render_string_snap_right, timer::Timer, App, TerminalBuffer};
 
 
 pub fn configure_terminal() -> CrosstermTerminal {
@@ -39,7 +39,70 @@ pub fn set_panic_hook() {
 	}));
 }
 
-// TODO: polling channels or some sort, for instance, when paused, only poll for unpause 
+pub fn poll_for_pause(terminal: &mut CrosstermTerminal, app: &mut App, timer: &mut Timer) {
+	let has_event = crossterm::event::poll(Duration::from_millis(0)).unwrap();
+	if !has_event { return }
+
+	match event::read().unwrap() {
+		Event::Key(key_evt) => {
+			if key_evt.kind == KeyEventKind::Release { return }
+
+			match key_evt.code {
+				KeyCode::Esc => quit(terminal),
+
+				KeyCode::Char(ch) => match ch.to_ascii_lowercase() {
+					'c' if key_evt.modifiers == KeyModifiers::CONTROL => quit(terminal),
+					'q' if key_evt.modifiers == KeyModifiers::CONTROL => quit(terminal),
+					'p' if key_evt.modifiers == KeyModifiers::NONE => app.toggle_pause_full(timer),
+					_ => (),
+				}
+				_ => (),
+			}
+		},
+		Event::Resize(new_width, new_height) => {
+			app.resize_realloc(new_width, new_height);
+			// I don't remember why we draw it immediately after resizing but ok
+			print_and_flush_terminal_fscreen(&mut app.buf, terminal);
+		}
+		_ => (),
+	}
+}
+
+pub fn poll_in_help_screen(terminal: &mut CrosstermTerminal, app: &mut App) {
+	let has_event = crossterm::event::poll(Duration::from_millis(0)).unwrap();
+	if !has_event { return }
+
+	match event::read().unwrap() {
+		Event::Key(key_evt) => {
+			if key_evt.kind == KeyEventKind::Release { return }
+
+			match key_evt.code {
+				KeyCode::Esc => quit(terminal),
+
+				KeyCode::Char(ch) => match ch.to_ascii_lowercase() {
+					'c' if key_evt.modifiers == KeyModifiers::CONTROL => quit(terminal),
+					'q' if key_evt.modifiers == KeyModifiers::CONTROL => quit(terminal),
+					'h' => app.is_help_screen = false,
+					_ => (),
+				}
+				_ => (),
+			}
+		},
+		Event::Resize(new_width, new_height) => {
+			app.resize_realloc(new_width, new_height);
+
+			render_clear(&mut app.buf);
+			render_help_screen(&mut app.buf);
+
+			// I don't remember why we draw it immediately after resizing but ok
+			print_and_flush_terminal_fscreen(&mut app.buf, terminal);
+		}
+		_ => (),
+	}
+}
+
+// TODO: polling channels or some sort, for instance, when paused, only poll for unpause
+//       could always listen to crucial events like Ctrl+C and resize, but vary the others, hash table of 'KeyCode' or smth
 // TODO: make it an impl of CrosstermTerminal
 pub fn poll_events(terminal: &mut CrosstermTerminal, app: &mut App, timer: &mut Timer) {
 
@@ -48,11 +111,11 @@ pub fn poll_events(terminal: &mut CrosstermTerminal, app: &mut App, timer: &mut 
 	app.user_dir = Vec3::zero();
 	app.called_reset_camera = false;
 
-	let has_event = crossterm::event::poll(Duration::from_millis(0)).unwrap();
-	if !has_event { return }
-
 	const MOVE_SPEED: f32 = 0.2;
 	const ROT_SPEED: f32 = TAU * 1./256.;
+
+	let has_event = crossterm::event::poll(Duration::from_millis(0)).unwrap();
+	if !has_event { return }
 
 	match event::read().unwrap() {
 		Event::Key(key_evt) => {
@@ -87,8 +150,11 @@ pub fn poll_events(terminal: &mut CrosstermTerminal, app: &mut App, timer: &mut 
 					'e' => app.user_dir.y = if app.is_free_mov() {  MOVE_SPEED } else { -ROT_SPEED },
 					'q' => app.user_dir.y = if app.is_free_mov() { -MOVE_SPEED } else {  ROT_SPEED },
 
+					'z' if key_evt.modifiers == KeyModifiers::SHIFT => app.buf.toggle_back_z_sorting_mode(),
 					'z' => app.buf.toggle_z_sorting_mode(),
+					'c' if key_evt.modifiers == KeyModifiers::SHIFT => app.buf.toggle_back_cull_mode(),
 					'c' => app.buf.toggle_cull_mode(),
+					'l' if key_evt.modifiers == KeyModifiers::SHIFT => app.buf.toggle_back_ball_fill_mode(),
 					'l' => app.buf.toggle_ball_fill_mode(),
 					'g' => app.buf.toggle_gizmos_mode(),
 					'm' => app.called_toggle_free_mov = true,
@@ -103,7 +169,11 @@ pub fn poll_events(terminal: &mut CrosstermTerminal, app: &mut App, timer: &mut 
 
 					// P pauses the engine, shift+P pauses time (time scale)
 					'p' if key_evt.modifiers == KeyModifiers::SHIFT => app.toggle_pause_anim(timer),
+					// TODO: call functions ".pause" and ".unpause"
 					'p' => app.toggle_pause_full(timer),
+
+					// H to enter help screen
+					'h' => app.is_help_screen = true,
 					_ => (),
 				}
 				_ => (),
@@ -118,18 +188,29 @@ pub fn poll_events(terminal: &mut CrosstermTerminal, app: &mut App, timer: &mut 
 	}
 }
 
-pub fn just_poll_while_paused(app: &mut App, terminal_mut: &mut CrosstermTerminal, timer: &mut Timer) {
+pub fn yield_while_paused_or_help_screen(app: &mut App, terminal: &mut CrosstermTerminal, timer: &mut Timer) {
 
-	if !app.is_fully_paused() { return; }
 
-	const PAUSED_STR: &str = " ENGINE PAUSED! ";
-	render_string_snap_right(PAUSED_STR, &UVec2::new(0, app.buf.hei - 1), &mut app.buf);
-	print_and_flush_terminal_fscreen(&mut app.buf, terminal_mut);
+	if app.is_help_screen {
+		render_clear(&mut app.buf);
+		render_help_screen(&mut app.buf);
+		print_and_flush_terminal_fscreen(&mut app.buf, terminal);
 
-	while app.is_fully_paused() {
-		poll_events(terminal_mut, app, timer);
-		timer.run_tick();
-	};
+		while app.is_help_screen {
+			poll_in_help_screen(terminal, app);
+		}
+	}
+
+	if app.is_fully_paused() {
+		const PAUSED_STR: &str = " ENGINE PAUSED! ";
+		render_string_snap_right(PAUSED_STR, &UVec2::new(0, app.buf.hei - 1), &mut app.buf);
+		print_and_flush_terminal_fscreen(&mut app.buf, terminal);
+
+		while app.is_fully_paused() {
+			poll_for_pause(terminal, app, timer);
+			timer.run_tick();
+		};
+	}
 }
 
 pub fn print_and_flush_terminal_fscreen(buf: &mut TerminalBuffer, terminal: &mut CrosstermTerminal) {

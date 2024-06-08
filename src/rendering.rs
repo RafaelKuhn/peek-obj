@@ -134,6 +134,10 @@ pub fn render_verbose(fps_measure: &FpsMeasure, camera: &Camera, app: &mut App) 
 		render_string_snap_right(&format!(" gizmos: {:} ", gizmos_mode), &lowest_pos_br, buf);
 	}
 
+	let help_txt = " PRESS H FOR HELP ";
+	let center = UVec2::new(buf.wid / 2 - help_txt.len() as u16 / 2, 0);
+	render_string(&help_txt, &center, buf);
+
 	// indices
 	// TODO: DEBUG OPTION draw indices
 	// for num in 0..buf.hei {
@@ -141,6 +145,92 @@ pub fn render_verbose(fps_measure: &FpsMeasure, camera: &Camera, app: &mut App) 
 	// 	render_string_snap_right(&format!("{}", num), &UVec2::new(0, num), buf);
 	// }
 }
+
+const HELP_SCR: &[u8] = br#"
+
+
+W / S: move camera forwards / backwards
+A / D: move camera left / right
+E / Q: move camera up / down
+R: reset camera position and orientation
+
+V: toggle verbose mode, hides the UI text
+
+M: toggle camera movement mode from
+		orbital to free camera
+
+arrow keys: in free camera mode, changes the
+		direction the camera is looking
+
+T: take screenshot, saves a .txt dump of the screen
+		in the following path: "screenshot.txt"
+
+C: change culling mode, can cull balls, triangles
+		or none
+Z: change Z-sorting mode, can render all triangles
+		after all of the spheres and vice-versa
+L: change spheres lighting mode, can be by index,
+		by camera distance or by height
+
+SHIFT + C / L / Z: the same but in reverse order
+
+P: pauses / unpauses the engine, useful to copy
+		parts of the screen in some terminals
+
+G: toggles rendering of the XYZ world axis
+		(renders after everything else)
+
+"#;
+
+pub fn render_help_screen(buf: &mut TerminalBuffer) {
+
+	let mut max_line = 0;
+	let mut cur_max_line = 0;
+	for &ch in HELP_SCR {
+		if ch == b'\n' {
+			max_line = max_line.max(cur_max_line);
+			cur_max_line = 0;
+			continue;
+		}
+
+		cur_max_line += 1;
+	}
+
+	let mut x = buf.wid/2 - max_line/2;
+	let mut y = 0;
+	for &ch in HELP_SCR {
+
+		if ch == b'\t' {
+			x += 4;
+			continue;
+		}
+
+		if ch == b'\n' {
+			y += 1;
+			x = buf.wid/2 - max_line/2;
+			continue;
+		}
+
+		if x < buf.wid && y < buf.hei {
+			buf.raw_ascii_screen[xy_to_it(x, y, buf.wid)] = ch;
+		}
+
+		x += 1;
+	}
+
+	let help_txt = "PRESS H TO QUIT HELP";
+	let center = UVec2::new(buf.wid / 2 - help_txt.len() as u16 / 2, 0);
+	render_string(&help_txt, &center, buf);
+
+	let help_txt = "KEYBINDINGS";
+	let center = UVec2::new(buf.wid / 2 - help_txt.len() as u16 / 2, 2);
+	render_string(&help_txt, &center, buf);
+
+	let help_txt = "HELP SCREEN!";
+	let center = UVec2::new(buf.wid - help_txt.len() as u16 - 1, buf.hei - 1);
+	render_string(&help_txt, &center, buf);
+}
+
 
 pub fn render_string_snap_right(string: &str, pos: &UVec2, buf: &mut TerminalBuffer) {
 	let new_pos = UVec2::new(buf.wid - string.len() as u16 - pos.x, pos.y);
