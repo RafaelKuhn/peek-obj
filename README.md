@@ -1,8 +1,9 @@
 <div align="center">
   <h1> Peek Obj </h3>
-  <img src="https://tokei.rs/b1/github/rafaelkuhn/peek-obj"> 
+  <img src="https://tokei-server.shuttleapp.rs/b1/github/RafaelKuhn/peek-obj?category=code"> 
 </div>
 <br>
+
 
 <p>3D from scratch in ASCII, in the terminal, using CPU only</p>
 <p>Applies rotation and scale transformations</p>
