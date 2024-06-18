@@ -10,6 +10,7 @@ pub mod bounding_box;
 pub mod culling;
 pub mod render_settings;
 pub mod ball_painter;
+pub mod help_screen;
 
 pub use primitives::*;
 pub use utils::*;
@@ -18,9 +19,9 @@ pub use bounding_box::*;
 pub use render_settings::*;
 pub use ball_painter::*;
 
-use std::fmt;
 
 
+use help_screen::HELP_SCR;
 
 use crate::{app::App, camera::Camera, fps_measure::FpsMeasure, maths::*, terminal::TerminalBuffer, timer::Timer, utils::*};
 
@@ -145,42 +146,6 @@ pub fn render_verbose(fps_measure: &FpsMeasure, camera: &Camera, app: &mut App) 
 	// 	render_string_snap_right(&format!("{}", num), &UVec2::new(0, num), buf);
 	// }
 }
-
-const HELP_SCR: &[u8] = br#"
-
-
-W / S: move camera forwards / backwards
-A / D: move camera left / right
-E / Q: move camera up / down
-R: reset camera position and orientation
-
-V: toggle verbose mode, hides the UI text
-
-M: toggle camera movement mode from
-		orbital to free camera
-
-arrow keys: in free camera mode, changes the
-		direction the camera is looking
-
-T: take screenshot, saves a .txt dump of the screen
-		in the following path: "screenshot.txt"
-
-C: change culling mode, can cull balls, triangles
-		or none
-Z: change Z-sorting mode, can render all triangles
-		after all of the spheres and vice-versa
-L: change spheres lighting mode, can be by index,
-		by camera distance or by height
-
-SHIFT + C / L / Z: the same but in reverse order
-
-P: pauses / unpauses the engine, useful to copy
-		parts of the screen in some terminals
-
-G: toggles rendering of the XYZ world axis
-		(renders after everything else)
-
-"#;
 
 pub fn render_help_screen(buf: &mut TerminalBuffer) {
 
